@@ -27,6 +27,7 @@ function loadGame() {
 function createServer(game = new Game(), opts = {}) {
   const clients = new Map(); // pid -> Set(res)
   const absentSince = new Map();
+  game.S.players.forEach((p) => { p.connected = false; absentSince.set(p.token, Date.now()); }); // nach Neustart: alle gelten als abwesend, bis sie zurückkehren
   let saveTimer = null;
 
   const save = () => {

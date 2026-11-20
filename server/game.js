@@ -206,7 +206,7 @@ class Game {
   shipMoves(pid) {
     const S = this.S, from = [], to = {};
     if (S.ts.movedShip) return { from, to };
-    for (const e in S.edges) {
+    for (const e of Object.keys(S.edges)) { // Schnappschuss: unten wird temporär gelöscht/neu gesetzt
       const x = S.edges[e];
       if (x.p !== pid || x.k !== 's' || x.t === S.turnNo) continue;
       if (S.pirate && G.edgeHexes(e).includes(S.pirate)) continue;
@@ -288,6 +288,9 @@ class Game {
     else if (S.phase === 'setup') this.setupAct(pid, a);
     else this.mainAct(pid, a);
     S.v++;
+    if (S.trade && !this.canPay(S.trade.from, S.trade.give)) { // Anbieter hat die Karten inzwischen ausgegeben
+      S.trade = null; this.log('Das Angebot wurde automatisch zurückgezogen (Karten nicht mehr vorhanden).', 'trade');
+    }
     if (S.phase === 'main') this.checkWin();
   }
 
@@ -719,10 +722,12 @@ class Game {
     }
     const edgesOwn = Object.keys(S.edges).filter((e) => S.edges[e].p === pid);
     if (!edgesOwn.length) return 0;
-    let best = 0;
+    let best = 0, budget = 400000; // Obergrenze gegen Explosion bei sehr dichten Netzen
     const used = new Set();
+    const ends = {}; edgesOwn.forEach((e) => { ends[e] = G.edgeVerts(e); });
     const dfs = (v, prev, len) => {
       if (len > best) best = len;
+      if (best >= edgesOwn.length || --budget < 0) return;
       const b = S.verts[v];
       if (b && b.p !== pid) return; // fremde Siedlung unterbricht
       for (const e of own[v] || []) {
@@ -730,14 +735,15 @@ class Game {
         // Straße ↔ Schiff nur über eigene Siedlung/Stadt
         if (S.edges[e].k !== S.edges[prev].k && !(b && b.p === pid)) continue;
         used.add(e);
-        const w = G.edgeVerts(e).find((x) => x !== v);
+        const w = ends[e][0] === v ? ends[e][1] : ends[e][0];
         dfs(w, e, len + 1);
         used.delete(e);
       }
     };
-    for (const e of edgesOwn) for (const v of G.edgeVerts(e)) {
+    for (const e of edgesOwn) for (const v of ends[e]) {
+      if (budget < 0 || best >= edgesOwn.length) break;
       used.add(e);
-      const w = G.edgeVerts(e).find((x) => x !== v);
+      const w = ends[e][0] === v ? ends[e][1] : ends[e][0];
       dfs(w, e, 1);
       used.delete(e);
     }

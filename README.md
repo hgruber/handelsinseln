@@ -21,6 +21,8 @@ Der Spielstand wird laufend gespeichert und übersteht einen Neustart; Spieler k
 node tests/rules.js    # gezielte Regeltests
 node tests/sim.js 6    # Testspieler spielen vollständige Partien (2–6 Spieler), Invarianten werden geprüft
 node tests/e2e.js      # echte Partien über HTTP/SSE mit mehreren „Browsern“
+python3 tests/browser_soak.py 6 90   # echter Browser (Playwright) sieht eine ganze Partie, prüft Konsolenfehler
+python3 tests/browser_play.py 4 120  # Browser-Spieler klickt Aufbau, Würfeln, Bauen, Handeln selbst
 ```
 
 ## Regeln (Quellen: offizielle Regel 2015, 5-6-Spieler-Erweiterung)

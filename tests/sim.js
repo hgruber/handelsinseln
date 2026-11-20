@@ -38,7 +38,9 @@ function play(n, seed, maxSteps = 60000) {
   g.act(0, { type: 'start' });
   let steps = 0, stuck = 0;
   const start = Object.keys(g.S.hexes).length;
+  let patt = false;
   while (g.S.phase !== 'ended' && steps < maxSteps) {
+    if (g.S.turnNo > 1200) { patt = true; break; }
     let acted = false;
     for (let pid = 0; pid < n; pid++) {
       if (g.S.phase === 'ended') break;
@@ -52,7 +54,14 @@ function play(n, seed, maxSteps = 60000) {
     if (!acted) { if (++stuck > 3) throw new Error('Spiel hängt in Schritt ' + g.stepOf() + ' turn=' + g.S.turn + ' trade=' + JSON.stringify(g.S.trade)); } else stuck = 0;
   }
   invariants(g);
-  return { ended: g.S.phase === 'ended', steps, turns: g.S.turnNo, winner: g.S.winner, hexes: Object.keys(g.S.hexes).length - start, vps: g.S.players.map((p) => g.vp(p.id) + g.hiddenVp(p.id)), svp: g.S.players.map((p) => p.svp) };
+  if (patt) { // Zufalls-Testspieler können in ein Patt laufen: dann muss wirklich nichts mehr baubar sein
+    for (const p of g.S.players) {
+      const L = g.left(p.id);
+      assert(L.settlement === 0 || !g.settlementSpots(p.id).length, 'Patt, obwohl Siedlungen möglich');
+      assert(L.city === 0 || !g.citySpots(p.id).length, 'Patt, obwohl Städte möglich');
+    }
+  }
+  return { patt, ended: g.S.phase === 'ended', steps, turns: g.S.turnNo, winner: g.S.winner, hexes: Object.keys(g.S.hexes).length - start, vps: g.S.players.map((p) => g.vp(p.id) + g.hiddenVp(p.id)), svp: g.S.players.map((p) => p.svp) };
 }
 
 if (require.main === module) {
@@ -61,8 +70,8 @@ if (require.main === module) {
   for (const n of [2, 3, 4, 5, 6]) for (let s = 1; s <= seeds; s++) {
     try {
       const r = play(n, n * 1000 + s);
-      console.log(`n=${n} seed=${s} ${r.ended ? 'Ende' : 'KEIN ENDE'} Züge=${r.turns} Aktionen=${r.steps} entdeckt=${r.hexes} VP=${r.vps} SVP=${r.svp}`);
-      if (!r.ended) bad++;
+      console.log(`n=${n} seed=${s} ${r.ended ? 'Ende' : r.patt ? 'PATT(Bots ohne Bauplätze)' : 'KEIN ENDE'} Züge=${r.turns} Aktionen=${r.steps} entdeckt=${r.hexes} VP=${r.vps} SVP=${r.svp}`);
+      if (!r.ended && !r.patt) bad++;
     } catch (e) { bad++; console.log(`n=${n} seed=${s} FEHLER: ${e.stack}`); }
   }
   process.exit(bad ? 1 : 0);
