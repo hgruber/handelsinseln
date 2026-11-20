@@ -3,6 +3,26 @@
 Mehrspieler-Browserspiel (2–6 Spieler, standardmäßig 14 Siegpunkte). Die gesamte Spiellogik läuft im Server (Podman-Container);
 die Mitspieler öffnen nur die Webseite, geben Namen + Farbe an und spielen.
 
+## Screenshots
+
+Echte Partien mit Testspielern (Sicht von Anna), je Variante ein eigenes Spiel:
+
+| Klassisch, Handel offen | Nebelinseln |
+|---|---|
+| ![Klassisch](docs/screenshots/klassisch.webp) | ![Nebelinseln](docs/screenshots/nebel.webp) |
+| **Vier Heimatinseln** | **Archipel** |
+| ![Vier Heimatinseln](docs/screenshots/inseln.webp) | ![Archipel](docs/screenshots/archipel.webp) |
+
+![Statistik nach Spielende](docs/screenshots/statistik.webp)
+
+Die Karten sind mit Flux/Forge gemalt: Rohstoffe, Ereigniskarten (Entwicklungskarten) und die Kartenleiste im Spiel.
+
+![Rohstoffkarten](docs/screenshots/rohstoffkarten.png)
+![Ereigniskarten](docs/screenshots/ereigniskarten.png)
+![Kartenleiste](docs/screenshots/karten.png)
+
+Neu erzeugen: `node tests/mock/readme.js && node tests/mock/serve.js &` und dann `python3 tests/mock/readme_shots.py`.
+
 ## Starten
 
 ```bash

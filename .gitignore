@@ -1,3 +1,4 @@
 .recherche/
 node_modules/
 data/
+tests/mock/readme_*.json

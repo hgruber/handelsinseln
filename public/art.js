@@ -356,7 +356,8 @@
       default: return '';
     }
   }
-  const dev = (t, size = 32) => `<svg class="di" viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true">${devInner(t)}</svg>`;
+  // Entwicklungskarten-Bilder: per Forge/Flux erzeugt (public/img/dev-<typ>.webp)
+  const dev = (t, size = 32) => `<img class="di" src="${IMG_DIR}dev-${t}.webp" width="${size}" height="${size}" alt="" draggable="false">`;
 
   // ---- kleine Protokoll-Symbole (16x16) ---------------------------------------------------------------
   function logIcon(kind) {
