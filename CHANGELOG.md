@@ -5,6 +5,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- Mit Flux/Forge neu erzeugt: ruhigere Meeres-Hexagone, Rohstoffkarten-Bilder (Holz, Lehm, Wolle, Getreide, Erz) und ein dezenter Meereshintergrund ohne Animations-Overlay (die Wellen-Ebenen und ihr Parallax entfallen).
+- Zahlenchips: Cursor ist jetzt ein Zeiger statt Fragezeichen; ein Klick öffnet ein Hilfefenster mit Wahrscheinlichkeit und Ertrag.
 - Performance: Beim Verschieben und Zoomen pausieren die Ambient-Animationen und das Glas verzichtet auf den Blur; Wellen-Pulse und treibender Schaum pro Feld sind statisch; die Wellen im Meer-Hintergrund laufen über `translate` statt `background-position`.
 - Es laufen höchstens 3 Spiele gleichzeitig (`MAX_GAMES`); ein viertes neues Spiel wird mit Hinweis abgelehnt.
 - Neue Umgebungsvariable `LISTEN` (`Adresse:Port`) für den http-Listener, z. B. `127.0.0.1:8080` hinter einem Reverse-Proxy.

@@ -382,6 +382,11 @@
     if (!n) return;
     for (const c of L.hex.map.values()) if (c.el.dataset.n === String(n)) c.el.classList.toggle('hl', on);
   }
+  board.addEventListener('click', (e) => {
+    if (moved) return;
+    const c = e.target.closest && e.target.closest('.chip'); if (!c) return;
+    st.chipN = +c.dataset.n; st.modal = 'chiphelp'; renderModal(V());
+  });
   board.addEventListener('pointerover', (e) => { const c = e.target.closest && e.target.closest('.chip'); if (c) hlNumber(c.dataset.n, true); });
   board.addEventListener('pointerout', (e) => { const c = e.target.closest && e.target.closest('.chip'); if (c) hlNumber(c.dataset.n, false); });
   function pulseNumber(n) {
@@ -400,10 +405,6 @@
     document.body.classList.add('moving'); clearTimeout(movingT); movingT = setTimeout(() => document.body.classList.remove('moving'), 220);
     const W = board.clientWidth, H = board.clientHeight;
     world.setAttribute('transform', `translate(${(W / 2 - cam.x * cam.k).toFixed(2)},${(H / 2 - cam.y * cam.k).toFixed(2)}) scale(${cam.k.toFixed(4)})`);
-    const ox = W / 2 - cam.x * cam.k, oy = H / 2 - cam.y * cam.k, md = (a, m) => (((a % m) + m) % m).toFixed(0) + 'px';
-    const seaEl = $('sea');
-    seaEl.style.setProperty('--ox1', md(ox * .9, 240)); seaEl.style.setProperty('--oy1', md(oy * .9, 120));
-    seaEl.style.setProperty('--ox2', md(ox * .6, 340)); seaEl.style.setProperty('--oy2', md(oy * .6, 170));
   }
   function loop(t) {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;
@@ -694,6 +695,14 @@
       `<li><b>Stärkste Schutzmacht</b> (mindestens ${setg().armyMin || 3} Ritter): 2 Punkte.</li></ul></div></div>` +
       `<div class="mact"><button class="btn gold" data-m="close">Verstanden</button></div>`;
   }
+  // Hilfe zum Zahlenchip (Klick auf einen Chip im Brett)
+  function chipHelpHTML(n) {
+    const dots = 6 - Math.abs(7 - n), pct = (dots / 36 * 100).toFixed(1).replace('.', ',');
+    return `<h2>Zahlenchip ${n}</h2><p class="lead">Wird mit beiden Würfeln eine <b>${n}</b> geworfen, erzeugt jedes angrenzende Feld mit diesem Chip Rohstoffe: <b>1</b> für eine Siedlung, <b>2</b> für eine Stadt.</p>` +
+      `<p>${dots === 1 ? 'Der Punkt zeigt' : 'Die Punkte zeigen'} die Wahrscheinlichkeit: ${dots} von 36 Würfen, also etwa <b>${pct} %</b> pro Wurf. Die roten Chips 6 und 8 fallen am häufigsten.</p>` +
+      `<p>Ein vom Räuber (oder Piraten) blockiertes Feld liefert nichts. Bei einer <b>7</b> bringt kein Feld etwas, stattdessen wird der Räuber versetzt.</p>` +
+      `<div class="mact"><button class="btn gold" data-m="close">Verstanden</button></div>`;
+  }
   const sumDraft = () => sumO(st.draft);
 
   function wantedModal(v) {
@@ -735,6 +744,7 @@
       case 'steal':
         return `<h2>Wen bestiehlst du?</h2><p class="lead">Eine zufällige Karte wandert zu dir.</p><div class="steal">${v.legal.steal.map((pid) => `<button type="button" class="stl" data-m="steal" data-pid="${pid}" style="--pc:${colorOf(pid)}">${avatar(pid, 56)}<b>${esc(v.players[pid].name)}</b><small>${v.players[pid].resCount} Karten</small></button>`).join('')}</div>`;
       case 'help': return helpHTML();
+      case 'chiphelp': return chipHelpHTML(st.chipN);
       case 'win': {
         const w2 = v.winner != null ? v.winner : v.order[0];
         const rank = v.players.map((p, i) => ({ p, i })).sort((a, b) => (b.p.vp + (b.i === v.you ? v.me.hiddenVp || 0 : 0)) - (a.p.vp + (a.i === v.you ? v.me.hiddenVp || 0 : 0)));
@@ -776,7 +786,7 @@
     const mm = e.target.closest('[data-m]');
     if (e.target.closest('.minus')) { const b = e.target.closest('.minus'); adjDraft(b.dataset.ms, b.dataset.res, -1); return; }
     const c = e.target.closest('.tc[data-ms]'); if (c) { adjDraft(c.dataset.ms, c.dataset.res, +1); return; }
-    if (!mm) { if (e.target.classList.contains('mback') && (st.modal === 'help')) { st.modal = null; renderModal(v); } return; }
+    if (!mm) { if (e.target.classList.contains('mback') && (st.modal === 'help' || st.modal === 'chiphelp')) { st.modal = null; renderModal(v); } return; }
     if (mm.getAttribute('aria-disabled') === 'true') return;
     const m = mm.dataset.m; let j;
     if (m === 'close') { st.modal = null; renderModal(v); }

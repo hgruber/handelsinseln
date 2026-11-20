@@ -342,7 +342,8 @@
       default: return '';
     }
   }
-  const res = (r, size = 32) => `<svg class="ri ri-${r}" viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true">${resInner(r)}</svg>`;
+  // Rohstoffkarten-Bilder: per Forge/Flux erzeugt (public/img/res-<rohstoff>.webp); resInner() bleibt für die kleinen Hafen-Symbole im Brett
+  const res = (r, size = 32) => `<img class="ri ri-${r}" src="${IMG_DIR}res-${r}.webp" width="${size}" height="${size}" alt="" draggable="false">`;
 
   // ---- Entwicklungskarten-Symbole (48x48) --------------------------------------------------------
   function devInner(t) {
