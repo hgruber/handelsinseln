@@ -123,6 +123,20 @@
       (S.collapsed ? `<div class="tsum">${chips(t.give)} ⇄ ${chips(t.want)}</div>` : `<div class="tbody"><div class="who">${C.avatar(t.from, 38)}<span>${C.esc(from.name)} möchte handeln</span></div>${main}</div>`) + `</div>`;
   }
 
+  // Fehlt dir ein verlangter Rohstoff, wird das Angebot nach 2 s automatisch abgelehnt (nicht bei offenem Gegenangebot)
+  function armDecline(v, t) {
+    const need = !!t && t.from !== v.you && !(t.responses && t.responses[v.you]) && !S.counterOpen && missing(v.me.hand, t.want).length > 0;
+    if (!need) { clearTimeout(S.dt); S.dt = null; S.dtId = null; return; }
+    if (S.dtId === t.id) return;
+    S.dtId = t.id; clearTimeout(S.dt);
+    S.dt = setTimeout(() => {
+      S.dt = null;
+      const w = C.view(), tt = w && w.trade;
+      if (!tt || tt.id !== S.dtId || S.counterOpen || (tt.responses && tt.responses[w.you]) || !missing(w.me.hand, tt.want).length) return;
+      C.act('trade_respond', { accept: false });
+    }, 2000);
+  }
+
   function render() {
     const v = C.view();
     let html = '';
@@ -131,7 +145,9 @@
       if (t) {
         if (t.id !== S.tradeId) { S.tradeId = t.id; S.counterOpen = false; S.collapsed = false; S.cg = clean(t.want); S.cw = clean(t.give); }
         html = t.from === v.you ? offerOwner(v, t) : offerOther(v, t);
+        armDecline(v, t);
       } else {
+        armDecline(v, null);
         S.tradeId = null; S.counterOpen = false;
         if (S.open && v.turn === v.you && (v.step === 'main' || v.step === 'sbp')) html = composer(v);
       }

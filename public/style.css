@@ -41,8 +41,7 @@ svg { display: block; }
 .hex.pulse .ring { animation: ringp .75s ease-in-out 3; }
 @keyframes flash { 0%, 100% { opacity: 0; } 50% { opacity: .42; } }
 @keyframes ringp { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-.tw { animation: tw 3s ease-in-out infinite; animation-delay: var(--d, 0s); opacity: .1; }
-@keyframes tw { 0%, 100% { opacity: .08; } 50% { opacity: .95; } }
+.tw { opacity: .4; } /* statisch: eine Opacity-Animation je Stern zeichnet das ganze Brett ständig neu (Hauptthread dauerbelegt, Klicks verzögert) */
 .hex .wv { animation: wvp 6s ease-in-out infinite; animation-delay: var(--d, 0s); opacity: .12; }
 @keyframes wvp { 0%, 100% { opacity: .05; } 50% { opacity: .5; } }
 .fo { animation: fo 3.6s ease-in-out infinite; }
@@ -370,7 +369,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .modal.m-help { width: min(780px, 94vw); }
 .modal.m-chiphelp { width: min(440px, 94vw); }
 .cost-t td:last-child { white-space: nowrap; }
-#board.calm .tw, #board.calm .hex .wv, #board.calm .fo, #board.calm .fb, #board.calm .shimmer, #board.calm .q { animation: none; }
+#board.calm .hex .wv, #board.calm .fo, #board.calm .fb, #board.calm .shimmer, #board.calm .q { animation: none; }
 
 /* Während Ziehen/Zoomen (body.moving, siehe applyCam): Ambient-Animationen anhalten und Glas ohne Blur, das hält die Bildrate oben */
 body.moving #world * { animation-play-state: paused; }
@@ -389,3 +388,9 @@ body.moving .glass, body.moving .ibtn, body.moving .bn, body.moving .pc, body.mo
 .pc.fxpulse, #hand.fxpulse { animation: fxpulse .45s ease-out; }
 @keyframes fxpulse { 0% { filter: brightness(1); } 40% { filter: brightness(1.45) drop-shadow(0 0 8px rgba(248, 220, 146, .9)); } 100% { filter: brightness(1); } }
 @media (prefers-reduced-motion: reduce) { #fxLayer { display: none; } }
+
+/* Gespielte Entwicklungskarte groß in der Mitte (2 s) */
+.devshow { position: fixed; inset: 0; z-index: 70; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; animation: devshow 2s both; }
+.ds-card { display: grid; justify-items: center; gap: 8px; width: 230px; padding: 22px 16px 18px; border-radius: 18px; background: linear-gradient(180deg, #fff3c4, #f0cd6e 60%, #d6a232); border: 4px solid var(--pc, #fff); box-shadow: 0 0 0 3px var(--gold), 0 0 60px rgba(248, 220, 146, .8), 0 20px 50px rgba(0, 0, 0, .6); color: #2a1a05; font: 700 24px var(--serif); text-align: center; }
+.ds-who { padding: 4px 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--pc, var(--line)); color: #fff; font-weight: 700; font-size: 18px; }
+@keyframes devshow { 0% { opacity: 0; transform: scale(.6); } 12% { opacity: 1; transform: scale(1.06); } 20% { transform: scale(1); } 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.96); } }

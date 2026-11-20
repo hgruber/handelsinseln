@@ -775,6 +775,7 @@ class Game {
     if (type === 'monopol' && !RES.includes(a.res)) fail('Wähle einen Rohstoff.');
     p.dev.splice(p.dev.indexOf(card), 1);
     S.ts.devPlayed = true; S.trade = null;
+    S.devShown = { id: (S.devShown ? S.devShown.id : 0) + 1, type, by: pid }; // für die Großanzeige bei allen Spielern
     if (type === 'ritter') {
       p.knights++;
       this.log(`${p.name} spielt einen Ritter und versetzt Räuber oder Pirat.`, 'steal', pid);
@@ -1251,7 +1252,7 @@ class Game {
         left: S.phase === 'lobby' ? { road: this.lim('road') === Infinity ? UNLIMITED : this.lim('road'), ship: this.lim('ship') === Infinity ? UNLIMITED : this.lim('ship'), settlement: this.lim('settlement') === Infinity ? UNLIMITED : this.lim('settlement'), city: this.lim('city') === Infinity ? UNLIMITED : this.lim('city') } : this.left(p.id),
         ...(S.pend.discard[p.id] ? { discarding: S.pend.discard[p.id] } : {}), ...(S.pend.gold[p.id] ? { pickingGold: S.pend.gold[p.id] } : {}),
       })),
-      order: S.order, turn, step, dice: S.dice, diceSeq: S.diceSeq,
+      order: S.order, turn, step, dice: S.dice, diceSeq: S.diceSeq, devShown: S.devShown || null,
       hexes: Object.keys(S.hexes).map((k) => ({ k, t: S.hexes[k].t, n: S.hexes[k].n })),
       fog: B.fog(S),
       harbors: Object.keys(S.harbors).map((e) => {

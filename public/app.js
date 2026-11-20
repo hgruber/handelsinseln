@@ -166,7 +166,23 @@
     else if (seq !== st.lastSeq) { setDice(v.dice, true); if (v.dice) pulseNumber(v.dice[0] + v.dice[1]); }
     st.lastSeq = seq;
     Fx.play(v); // Kartenanimation (Quelle → Ziel)
+    showDev(v.devShown);
     void old;
+  }
+
+  // Gespielte Entwicklungskarte: 2 Sekunden groß in der Bildschirmmitte (für alle Spieler)
+  function showDev(d) {
+    if (!d) { st.devSeen = st.devSeen || 0; return; }
+    if (st.devSeen === undefined) { st.devSeen = d.id; return; } // erste Sicht: nicht nachspielen
+    if (d.id < st.devSeen) st.devSeen = d.id - 1; // neues Spiel: Zähler beginnt neu
+    if (d.id <= st.devSeen) return;
+    st.devSeen = d.id;
+    const v = V(), p = v.players[d.by];
+    const o = document.createElement('div'); o.className = 'devshow';
+    o.style.setProperty('--pc', colorOf(d.by));
+    o.innerHTML = `<div class="ds-card">${Art.dev(d.type, 140)}<b>${esc(Art.DEV_NAMES[d.type])}</b></div><div class="ds-who">${esc(p ? p.name : '')}</div>`;
+    document.body.appendChild(o);
+    setTimeout(() => o.remove(), 2000);
   }
 
   // ======================================================================================
@@ -592,17 +608,33 @@
     setHTML($('score'), `<div class="sc" title="Deine Siegpunkte (inkl. verdeckter Siegpunktkarten). Wer ${v.winPoints} erreicht, gewinnt."><b>${pts}</b><span>/ ${v.winPoints}</span><small>Punkte</small></div>`);
   }
 
+  // Fehlende Rohstoffe per Bank ausgleichen (Kurs 4:1/3:1/2:1 je Hafen): Liste {give,get,rate} oder null, wenn nicht möglich
+  function bankPlan(v, kind) {
+    const hand = Object.assign({}, v.me.hand), cost = COST[kind], rates = v.rates || {}, stock = (v.bank && v.bank.stock) || {}, got = {}, out = [];
+    for (const g of RES) {
+      for (let d = (cost[g] || 0) - (hand[g] || 0); d > 0; d--) {
+        if ((stock[g] != null ? stock[g] : 999) - (got[g] || 0) < 1) return null;
+        const free = (r) => (hand[r] || 0) - (cost[r] || 0), rt = (r) => rates[r] || 4;
+        const give = RES.filter((r) => r !== g && free(r) >= rt(r)).sort((x, y) => rt(x) - rt(y) || free(y) - free(x))[0];
+        if (!give) return null;
+        hand[give] -= rt(give); hand[g] = (hand[g] || 0) + 1; got[g] = (got[g] || 0) + 1; out.push({ give, get: g, rate: rt(give) });
+      }
+    }
+    return out;
+  }
+  const planText = (plan) => plan.map((t) => `${t.rate}× ${RN[t.give]} → 1× ${RN[t.get]}`).join(', ');
+
   function buildWhy(kind, v) {
     if (v.phase !== 'main') return 'Erst nach dem Aufbau.';
     if (v.turn !== v.you) return 'Du bist nicht am Zug.';
     if (v.step === 'roll') return 'Würfle zuerst.';
     if (v.step !== 'main' && v.step !== 'sbp') return 'Im Moment nicht möglich – erledige zuerst die offene Aktion.';
     const miss = missingOf(v.me.hand, COST[kind]);
-    if (miss.length) return 'Dir fehlen: ' + miss.join(', ');
+    if (miss.length && !bankPlan(v, kind)) return 'Dir fehlen: ' + miss.join(', ');
     const left = v.players[v.you].left || {};
     if (kind !== 'dev' && left[kind] === 0) return `Du hast keine ${BUILD_LABEL[kind]}-Figuren mehr.`;
     if (kind === 'dev' && v.bank && v.bank.dev === 0) return 'Der Entwicklungskartenstapel ist leer.';
-    if (v.afford && v.afford[kind] === false) return 'Nicht genug Rohstoffe oder Figuren.';
+    if (v.afford && v.afford[kind] === false && !miss.length) return 'Nicht genug Rohstoffe oder Figuren.';
     const lg = v.legal || {};
     if (kind !== 'dev' && v.step !== 'roll' && !(lg[kind] || []).length) return kind === 'city' ? 'Du hast keine Siedlung, die zur Stadt werden kann.' : 'Gerade gibt es keinen freien Bauplatz (Abstandsregel / Anschluss an eigene Wege nötig).';
     return '';
@@ -612,7 +644,8 @@
     const html = ['road', 'ship', 'settlement', 'city', 'dev'].map((k) => {
       const why = buildWhy(k, v);
       const lf = k !== 'dev' && v.players[v.you].left ? v.players[v.you].left[k] : null;
-      const tip = why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : '');
+      const plan = !why && missingOf(v.me.hand, COST[k]).length ? bankPlan(v, k) : null;
+      const tip = (plan ? `Tauscht vorher automatisch mit der Bank: ${planText(plan)}. ` : '') + (why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : ''));
       const icon = k === 'dev' ? Art.dev('ritter', 38) : Art.pieceIcon(k, v.players[v.you].color, 38);
       return `<button class="bb${st.mode === k ? ' on' : ''}${why ? ' dis' : ''}" data-a="build" data-k="${k}" ${why ? 'aria-disabled="true"' : ''} title="${esc(tip)}"><span class="ic">${icon}</span><span class="lb">${BUILD_LABEL[k] === 'Entwicklungskarte' ? 'Entw.-Karte' : BUILD_LABEL[k]}</span><span class="cost">${costChips(k)}</span>${k === 'dev' && v.bank ? `<i class="stk" title="Karten im Stapel">${fmtLeft(v.bank.dev)}</i>` : ''}${lf != null ? `<i class="lf${lf === 0 ? ' zero' : ''}" title="Figuren übrig">${fmtLeft(lf)}</i>` : ''}</button>`;
     }).join('') +
@@ -826,10 +859,15 @@
       case 'move': st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; else toast('Klicke auf das Schiff, das du versetzen möchtest.', 'info'); } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
+        if (missingOf(v.me.hand, COST[k]).length) { // fehlende Rohstoffe vorher per Bank tauschen
+          const plan = bankPlan(v, k); if (!plan) break;
+          let ok = true; for (const t of plan) { const j = await act('bank_trade', { give: t.give, get: t.get }); if (j.error) { ok = false; break; } }
+          if (!ok) break;
+        }
         if (k === 'dev') { st.mode = null; await act('buy_dev'); break; }
         st.moveFrom = null; st.mode = st.mode === k ? null : k;
         if (st.mode && !((v.legal && v.legal[k]) || []).length) toast(`Kein erlaubter Platz für ${BUILD_LABEL[k] === 'Siedlung' ? 'eine Siedlung' : BUILD_LABEL[k] === 'Stadt' ? 'eine Stadt' : 'ein(e) ' + BUILD_LABEL[k]}.`, 'warn');
-        renderHUD(v); renderTargets(v); break;
+        renderHUD(V()); renderTargets(V()); break; // V(): nach dem Tausch kann die View neuer sein
       }
       case 'dev': {
         const t = b.dataset.type;

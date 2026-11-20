@@ -5,10 +5,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Behoben
+- Verzögerte Mausklicks: Die funkelnden Sterne auf dem Brett (Opacity-Animation je Stern) ließen den Browser das ganze Brett ununterbrochen neu zeichnen und belegten den Hauptthread fast dauernd (Messung: ca. 14 s von 15 s Last, Klicks bis 200 ms verspätet). Die Sterne sind jetzt statisch; die Last sinkt auf etwa 2–4 s von 15 s.
 - Neuladen des Browser-Tabs loggt nicht mehr aus: Der beim Entladen abgebrochene Ereignisstrom wurde als Sitzungsende gewertet und löschte den Token.
 - Figurenlimit: Ein Stadtausbau gibt die Siedlung wieder frei. Man kann jetzt gleichzeitig bis zu 5 Siedlungen und 4 Städte besitzen (bisher zählten Städte gegen das Siedlungslimit).
 
 ### Hinzugefügt
+- Handel: Ein Angebot, für das dir ein verlangter Rohstoff fehlt, wird nach 2 Sekunden automatisch abgelehnt (nicht, solange du ein Gegenangebot zusammenstellst).
+- Bauen: Die Bauknöpfe sind auch freigeschaltet, wenn die Rohstoffe per Bank-Tausch (4:1, 3:1, 2:1 je Hafen, Bank-Vorrat berücksichtigt) zusammenkommen. Beim Klick wird vorher automatisch getauscht; der Tooltip nennt den Tausch.
+- Eine gespielte Entwicklungskarte erscheint für alle Spieler 2 Sekunden groß in der Bildschirmmitte, mit dem Namen des Spielers.
 - Quadlet-Vorlage `deploy/handelsinseln.container` für den Dauerbetrieb hinter einem Reverse-Proxy.
 - **Kartenanimation:** Rohstoffkarten fliegen bei Erträgen (vom Feld), Bank- und Spielerhandel, Bauen, Abwerfen, Gold, Erfindung, Monopol und Diebstahl von der Quelle zum Ziel, jede leicht versetzt. Eigene Karten sind groß, golden umrandet und mit Gesicht; öffentliche Bewegungen anderer klein mit Gesicht; gestohlene und abgeworfene Karten unter anderen nur als Kartenrücken. Der Server liefert dafür `view.fx` (nur Beteiligte erfahren, welche Karte gestohlen wurde); beim Verbinden wird nichts nachgespielt; `prefers-reduced-motion` schaltet es ab.
 - **Bots mit Strategie:** Der Spielleiter kann in der Lobby (Aufklapp-Liste „Bots hinzufügen“ unter den Spielern, standardmäßig zugeklappt; bereits hinzugefügte Bots verschwinden aus der Liste) bis zu drei Computerspieler hinzufügen – Bruno Biber (Baumeister), Polly Profit (Händler) und Sir Quakalot (Ritter) – mit festen, lustigen Avataren. Sie bewerten Startecken, Bauplätze, Räuber, Handel und Entwicklungskarten nach unterschiedlichen Gewichten und ziehen im Takt (`BOT_MS`).
