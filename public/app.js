@@ -78,6 +78,8 @@
     return j;
   }
   function setOnline(on) { $('conn').hidden = on; }
+  addEventListener('pagehide', () => { st.unloading = true; });
+  addEventListener('pageshow', () => { st.unloading = false; }); // Seite kommt aus dem Zurück-Cache wieder
   function connect() {
     if (st.es) st.es.close();
     const es = new EventSource('/api/events?token=' + encodeURIComponent(st.token));
@@ -87,6 +89,7 @@
     es.addEventListener('kicked', () => { Lobby.setNotice('Du wurdest vom Spielleiter entfernt.'); logout('Du wurdest vom Spielleiter entfernt.'); });
     es.onopen = () => setOnline(true);
     es.onerror = () => {
+      if (st.unloading) return; // Neuladen/Tab schließen: der Browser bricht die Verbindung selbst ab, das ist kein Sitzungsende
       if (es.readyState === EventSource.CLOSED) logout('Die Sitzung ist abgelaufen – bitte neu anmelden.');
       else setOnline(false);
     };

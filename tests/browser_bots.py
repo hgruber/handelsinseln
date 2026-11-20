@@ -66,6 +66,10 @@ try:
         B.locator('#avatars .avb:not(.taken):not(.on)').first.click()
         B.fill('#nameIn', 'Bernd'); B.locator('#swatches .sw:not(.taken)').first.click(); B.click('#joinBtn')
         B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
+        # Neuladen darf nicht ausloggen: Sitzung und Lobby bleiben erhalten
+        tok = B.evaluate("localStorage.getItem('handelsinseln.token')")
+        B.reload(); B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
+        check(B.evaluate("localStorage.getItem('handelsinseln.token')") == tok and tok, 'nach dem Neuladen bleibt man angemeldet (Lobby sichtbar)')
         av = [x['avatar'] for x in games()[0]['players']]
         check(len(av) == 3 and len(set(av)) == 3, 'drei Spieler, drei verschiedene Avatare')
 
