@@ -3,7 +3,7 @@
 const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
 const TERRAINS = ['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer'];
 const CHIPS = ['2', '3', '4', '5', '6', '8', '9', '10', '11', '12']; // (7 gibt es nicht)
-const VARIANTS = ['klassisch', 'nebel', 'inseln'];
+const VARIANTS = ['klassisch', 'nebel', 'inseln', 'archipel'];
 
 const nullMap = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
 
@@ -63,6 +63,7 @@ function merge(cur, patch) {
             if (!isObj(lv)) bad(`${lk}: Objekt erwartet.`);
             const keys = lk === 'bank' ? RES : lk === 'fogTerrain' ? TERRAINS : CHIPS;
             for (const x of Object.keys(lv)) {
+              if (lk === 'fogChips' && x === '7') continue; // eine 7 gibt es nicht als Wertechip (Räuber-Wurf)
               if (!keys.includes(x)) bad(`${lk}: unbekannter Eintrag „${x}“.`);
               s.limits[lk][x] = intOrNull(lv[x], 0, 99, lk === 'bank' ? 'Bank-Vorrat' : lk === 'fogTerrain' ? 'Feld-Vorrat' : 'Chip-Vorrat');
             }

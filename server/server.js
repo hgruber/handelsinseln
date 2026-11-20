@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const Game = require('./game');
 const { Hub } = require('./hub');
+const selfsigned = require('./selfsigned');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 8080;
@@ -64,7 +65,7 @@ function createServer(opts = {}) {
     const url = new URL(req.url, 'http://x');
     try {
       if (url.pathname === '/api/games' || url.pathname === '/api/lobby') return json(res, 200, { games: hub.list() });
-      if (url.pathname === '/api/config') return json(res, 200, { stun: process.env.STUN_URL || null });
+      if (url.pathname === '/api/config') return json(res, 200, { stun: process.env.STUN_URL || null, httpsPort: opts.httpsPort || null });
       if (url.pathname === '/api/events') {
         const token = url.searchParams.get('token');
         const f = hub.findByToken(token);
@@ -139,8 +140,14 @@ function createServer(opts = {}) {
       json(res, 400, { error: e.message });
     }
   };
-  const tls = process.env.TLS_CERT && process.env.TLS_KEY && !opts.noTls;
-  const server = tls ? https.createServer({ cert: fs.readFileSync(process.env.TLS_CERT), key: fs.readFileSync(process.env.TLS_KEY) }, handler) : http.createServer(handler);
+  const server = http.createServer(handler);
+  if (opts.https) { // zusätzlich https (Mikrofon im Browser braucht einen sicheren Kontext): eigenes Zertifikat oder automatisch erzeugtes
+    const creds = process.env.TLS_CERT && process.env.TLS_KEY
+      ? { cert: fs.readFileSync(process.env.TLS_CERT), key: fs.readFileSync(process.env.TLS_KEY) }
+      : selfsigned.loadOrCreate(path.join(DATA, 'tls'), process.env.TLS_HOSTS);
+    server.httpsServer = https.createServer({ cert: creds.cert, key: creds.key }, handler);
+    server.on('close', () => server.httpsServer.close());
+  }
 
   // Pflege: Abwesende → Auto-Modus, verwaiste Spiele aufräumen
   const timer = setInterval(() => {
@@ -169,8 +176,10 @@ function loadHub() {
 
 if (require.main === module) {
   const hub = loadHub();
-  const server = createServer({ hub });
-  server.listen(PORT, () => console.log(`Handelsinseln läuft auf Port ${PORT}${process.env.TLS_CERT ? ' (https)' : ''}`));
+  const httpsPort = process.env.HTTPS_PORT !== undefined ? +process.env.HTTPS_PORT : 8443; // 0 = kein https
+  const server = createServer({ hub, https: httpsPort > 0, httpsPort: httpsPort > 0 ? httpsPort : null });
+  server.listen(PORT, () => console.log(`Handelsinseln läuft auf Port ${PORT} (http)`));
+  if (server.httpsServer) server.httpsServer.listen(httpsPort, () => console.log(`und auf Port ${httpsPort} (https, für das Mikrofon im Browser)`));
   const bye = () => { try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(hub.toJSON())); } catch (e) { /* egal */ } process.exit(0); };
   process.on('SIGTERM', bye); process.on('SIGINT', bye);
 }

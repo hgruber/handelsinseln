@@ -129,6 +129,19 @@ async function lobbyAndFeatures() {
   T.close();
 }
 
+async function httpsAndConfig() {
+  const T = await boot(23, { https: true, httpsPort: 0 });
+  T.server.httpsServer.listen(0, '127.0.0.1');
+  await sleep(300);
+  const port = T.server.httpsServer.address().port;
+  const https = require('https');
+  const body = await new Promise((res, rej) => https.get({ host: '127.0.0.1', port, path: '/api/config', rejectUnauthorized: false }, (r) => { let s = ''; r.on('data', (c) => { s += c; }); r.on('end', () => res(s)); }).on('error', rej));
+  assert.equal(JSON.parse(body).stun, null);
+  const cert = await new Promise((res, rej) => { const s = require('tls').connect({ host: '127.0.0.1', port, rejectUnauthorized: false }, () => { res(s.getPeerX509Certificate()); s.end(); }); s.on('error', rej); });
+  assert(cert.subjectAltName.includes('localhost') && cert.subjectAltName.includes('127.0.0.1'), 'Zertifikat deckt localhost ab');
+  T.close();
+}
+
 async function tabCloseAndAuto() {
   // Tab schließen: Kulanzzeit, Auto-Modus bei Abwesenheit, Rückkehr; Spielende nach letztem Tab
   const T = await boot(22, { graceMs: 400, absentMs: 500, tickMs: 100 });
@@ -203,8 +216,9 @@ async function fullGame(n, seed, settings) {
 
 (async () => {
   await lobbyAndFeatures(); console.log('E2E Lobby/Spiele/Verlassen/Signal ✓');
+  await httpsAndConfig(); console.log('E2E https/Zertifikat ✓');
   await tabCloseAndAuto(); console.log('E2E Tab schließen/Auto-Modus/Spielende ✓');
-  for (const [n, s, set] of [[3, 11], [4, 12, { variant: 'nebel', dice: 'auto', robber: 'auto', winPoints: 10 }], [5, 15, { variant: 'inseln', limits: { dev: 12 } }], [6, 16, { winPoints: 12, handLimit: 5 }]]) {
+  for (const [n, s, set] of [[3, 11, { variant: 'archipel' }], [4, 12, { variant: 'nebel', dice: 'auto', robber: 'auto', winPoints: 10 }], [5, 15, { variant: 'inseln', limits: { dev: 12 } }], [6, 16, { winPoints: 12, handLimit: 5 }]]) {
     const r = await fullGame(n, s, set);
     console.log(`E2E n=${n}: ${r.steps} Aktionen über HTTP, Sieger ${r.winner}, VP ${r.vps}`);
   }

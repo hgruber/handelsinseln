@@ -57,7 +57,7 @@ svg { display: block; }
 @keyframes drift { 0% { transform: translate(-22px, 4px); } 100% { transform: translate(24px, -8px); } }
 @keyframes drift2 { 0% { transform: translate(18px, -6px); } 100% { transform: translate(-20px, 10px); } }
 .hex.fog .q { animation: qp 5s ease-in-out infinite; }
-@keyframes qp { 0%, 100% { opacity: .14; } 50% { opacity: .34; } }
+@keyframes qp { 0%, 100% { opacity: .6; } 50% { opacity: .85; } }
 .shimmer { animation: shim 5s ease-in-out infinite; }
 @keyframes shim { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
 .bob { animation: bob 3.4s ease-in-out infinite; }

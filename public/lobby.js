@@ -4,13 +4,14 @@
   'use strict';
   const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
   const TER = ['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer'];
-  const CHIPS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const CHIPS = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12]; // es gibt keinen Wertechip 7
   let C = null;
   const $ = (id) => document.getElementById(id);
   const VARIANTS = [
     { id: 'klassisch', name: 'Klassisch', desc: 'Eine große Hauptinsel, dazu kleine Inseln – dahinter wartet der Nebel.' },
     { id: 'nebel', name: 'Nebelinseln', desc: 'Eine kleine Startinsel in dichtem Nebel. Alles Weitere muss erst entdeckt werden.' },
     { id: 'inseln', name: 'Vier Heimatinseln', desc: 'Jeder Spieler startet auf einer eigenen Heimatinsel. Dazwischen liegen Meer und Nebel.' },
+    { id: 'archipel', name: 'Archipel', desc: 'Viele kleine Inseln im Meer – jeder startet auf einer eigenen, überall wartet Gold und Nebel.' },
   ];
   const VNAME = Object.fromEntries(VARIANTS.map((x) => [x.id, x.name]));
 
@@ -316,6 +317,34 @@
     }).join('') + '</div>';
   }
 
+  // ---- Abweichende Regeln (Vergleich mit den Standardwerten) --------------------------------------------
+  function deviations(s) {
+    const out = [];
+    if (!s) return out;
+    const fmt = (r, v) => {
+      if (r.type === 'seg') { const o = r.opts.find((x) => String(x[0]) === String(v)); return o ? o[1] : String(v); }
+      if (v === null) return r.infLabel || '∞'; if (v === 'standard') return 'Standard';
+      return v + (r.suffix || '');
+    };
+    if (s.variant && s.variant !== 'klassisch') out.push({ n: 'Variante', v: VNAME[s.variant] || s.variant, d: VNAME.klassisch });
+    for (const g of schema()) {
+      const add = (r, label) => {
+        if (r.dep && String(getp(s, r.dep.split('=')[0])) !== r.dep.split('=')[1]) return;
+        const v = getp(s, r.path); if (v === undefined) return;
+        const d = getp(DEF, r.path);
+        if (JSON.stringify(v) !== JSON.stringify(d)) out.push({ n: label, v: fmt(r, v), d: fmt(r, d) });
+      };
+      g.rows.forEach((r) => add(r, r.label));
+      (g.subs || []).forEach((sb) => sb.rows.forEach((r) => add(r, `${sb.title.replace(/ je .*$/, '')} ${r.label}`)));
+    }
+    return out;
+  }
+  function deviationsHTML(s) {
+    const d = deviations(s);
+    if (!d.length) return '<p class="devnone">✓ Alle Regeln wie im Originalspiel.</p>';
+    return `<ul class="devlist">${d.map((x) => `<li><span>${C.esc(x.n)}</span><b>${C.esc(x.v)}</b><small>Standard: ${C.esc(x.d)}</small></li>`).join('')}</ul>`;
+  }
+
   // ======================================================================================
   // Lobby-Bildschirm
   // ======================================================================================
@@ -328,6 +357,9 @@
       ring(2).forEach(([q, r]) => put(q - 1, r, 'land')); [[3, -3], [3, 1], [-4, 1], [2, -4]].forEach(([q, r]) => put(q, r, 'land')); put(3, -2, 'gold');
     } else if (id === 'nebel') {
       ring(3).forEach(([q, r]) => put(q, r, 'fog')); ring(1).forEach(([q, r]) => put(q, r, 'sea')); [[0, 0], [1, 0], [0, 1], [-1, 1]].forEach(([q, r]) => put(q, r, 'land'));
+    } else if (id === 'archipel') {
+      ring(5).forEach(([q, r]) => put(q, r, 'fog')); ring(4).forEach(([q, r]) => put(q, r, 'sea'));
+      [[-3, 0], [-3, 1], [-1, -2], [0, -2], [0, -1], [2, -3], [3, -3], [2, 0], [3, -1], [3, 0], [-1, 2], [0, 2], [-2, 3], [1, 3], [-4, 3], [4, -2]].forEach(([q, r], i) => put(q, r, i % 5 === 3 ? 'gold' : 'land'));
     } else {
       ring(4).forEach(([q, r]) => put(q, r, 'fog')); ring(3).forEach(([q, r]) => put(q, r, 'sea'));
       [[-3, 1], [-2, 1], [-3, 2], [2, -2], [3, -2], [2, -1], [-1, -2], [0, -2], [0, -3], [0, 2], [1, 1], [0, 3]].forEach(([q, r]) => put(q, r, 'land'));
@@ -371,6 +403,9 @@
       `<div class="seatrow"><span class="sl">Plätze fertig besetzt<small>${closed ? 'Niemand kann mehr beitreten.' : 'Weitere Spieler können noch beitreten.'}</small></span>` +
       `<button type="button" class="switch${closed ? ' on' : ''}" data-closeseats="${closed ? 0 : 1}" role="switch" aria-checked="${closed}" ${host ? '' : 'disabled'} title="${host ? 'Schließt die Lobby für neue Spieler' : 'Nur der Spielleiter kann das ändern.'}"><i></i></button></div>`);
 
+    // Abweichende Regeln (immer sichtbar)
+    const dv = deviations(v.settings); C.setHTML($('lobbyDev'), deviationsHTML(v.settings)); $('devCount').textContent = dv.length ? String(dv.length) : '';
+
     // Einstellungen
     const box = $('lobbySettings'); if (!box.firstChild) box.innerHTML = panelHTML();
     syncSettings(s);
@@ -410,6 +445,6 @@
 
   root.Lobby = {
     init(ctx) { C = ctx; initLogin(); initLobby(); },
-    loginShown, setNotice, renderLobby, summaryHTML, resetLocal, VNAME,
+    loginShown, setNotice, renderLobby, summaryHTML, deviations, deviationsHTML, resetLocal, VNAME,
   };
 })(typeof self !== 'undefined' ? self : this);

@@ -7,24 +7,26 @@ die Mitspieler öffnen nur die Webseite, geben Namen + Farbe an und spielen.
 
 ```bash
 podman build -t handelsinseln -f Containerfile .
-podman run -d --name handelsinseln -p 8080:8080 -v handelsinseln-data:/data handelsinseln
+podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 -v handelsinseln-data:/data handelsinseln
 # Browser: http://<rechner>:8080
 ```
 
 Lokal ohne Container: `node server/server.js`. Umgebungsvariablen: `PORT`, `DATA_DIR` (Spielstand), `ABSENT_MS` (Abwesenheit bis Auto-Modus, 60000),
-`GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000), `TLS_CERT`/`TLS_KEY` (https), `STUN_URL` (optional, für Sprachchat über Netzgrenzen).
+`GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000), `HTTPS_PORT` (8443), `TLS_CERT`/`TLS_KEY`/`TLS_HOSTS`, `STUN_URL` (optional, für Sprachchat über Netzgrenzen).
 
-**Sprachchat:** Browser erlauben das Mikrofon nur unter `https://` oder `http://localhost`. Für Spiele im LAN den Server mit Zertifikat starten, z. B.
-`openssl req -x509 -newkey rsa:2048 -nodes -keyout k.pem -out c.pem -days 365 -subj "/CN=handelsinseln"`, dann
-`podman run … -v ./c.pem:/tls/c.pem:ro -v ./k.pem:/tls/k.pem:ro -e TLS_CERT=/tls/c.pem -e TLS_KEY=/tls/k.pem …` (Browser muss dem Zertifikat einmal vertrauen).
+**Sprachchat und https:** Browser erlauben das Mikrofon nur unter `https://` oder `http://localhost`. Der Server startet deshalb zusätzlich auf Port 8443 mit https und
+erzeugt dafür selbst ein Zertifikat (gespeichert in `DATA_DIR/tls`). Beim ersten Öffnen von `https://<rechner>:8443` muss der Browser-Warnhinweis einmal bestätigt werden
+(selbstsigniert); danach meldet man sich dort an. Die Lobby verweist bei `http://` automatisch darauf. Ports: `podman run … -p 8080:8080 -p 8443:8443 …`.
+Weitere Namen/IPs für das Zertifikat: `TLS_HOSTS=handelsinseln.lan,192.168.0.20`; eigenes Zertifikat: `TLS_CERT`/`TLS_KEY`; https abschalten: `HTTPS_PORT=0`.
 Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-talk mit Leertaste); bei Echo Kopfhörer nutzen.
 
 ## Spiele, Lobby, Einstellungen
 
 - Wer den Server betritt, sieht alle beitretbaren Spiele; gibt es keins, eröffnet er ein neues und wird Spielleiter. Beliebig viele Spiele laufen parallel.
+- Eine Seitenleiste („Regeln“) listet alle vom Standard abweichenden Einstellungen – in der Lobby und im Spiel.
 - Der Spielleiter kann Mitspieler entfernen, die Plätze als „fertig besetzt“ erklären, das Spielfeld vorab ansehen und neu würfeln
   und wählt die **Variante**: *Klassisch* (Hauptinsel, kleine Inseln, Nebel), *Nebelinseln* (kleine Startinsel, alles muss entdeckt werden),
-  *Vier Heimatinseln* (jeder startet auf einer eigenen Insel). Alle in der Lobby sehen die Auswahl live und können per Chat oder Sprache mitreden.
+  *Vier Heimatinseln* (jeder startet auf einer eigenen Insel), *Archipel* (viele kleine Inseln, viel Gold, viele Häfen). Alle in der Lobby sehen die Auswahl live und können per Chat oder Sprache mitreden.
 - **Einstellungen** (Standard = Originalregeln): Würfeln manuell/automatisch, Räuber manuell/automatisch, Siegpunkte, Handkarten-Limit (bei einer 7), Bankkurs,
   Spielerhandel an/aus, Inselpunkte, Minima für Längster Handelsweg/Stärkste Schutzmacht und **Vorräte**: Straßen, Schiffe, Siedlungen, Städte, Entwicklungskarten
   (Standard/Zahl/unbegrenzt), Bank-Vorrat je Rohstoff, aufdeckbare Felder je Gelände und Wertechips je Zahl (jeweils Zahl oder unbegrenzt).
@@ -48,6 +50,9 @@ python3 tests/browser_play.py 4 120 [auto]  # Browser-Spieler klickt Aufbau, Wü
 python3 tests/browser_soak.py 6 90   # echte Browser sehen eine ganze Partie, Konsolenfehler werden geprüft
 python3 tests/browser_voice.py       # Sprachchat (WebRTC) mit Fake-Mikrofon gegen den echten Server
 python3 tests/browser_takeover.py    # Übernahme der Infrastruktur eines Verlassenen in der echten Oberfläche
+python3 tests/browser_lobby_preview.py  # Gäste sehen die Brettvorschau des Spielleiters, Nebelring, abweichende Regeln
+python3 tests/browser_https_voice.py    # Mikrofon im LAN: Hinweis auf http, Sprachverbindung über das erzeugte https-Zertifikat
+tests/run_all.sh                        # alles nacheinander
 ```
 
 ## Regeln (Quellen: offizielle Regel 2015, 5-6-Spieler-Erweiterung)

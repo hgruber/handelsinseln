@@ -226,13 +226,13 @@
   function fog(k) {
     const r = rng('fog' + k);
     let blobs = '';
-    for (let i = 0; i < 4; i++) {
-      const x = (r() - .5) * 120, y = (r() - .5) * 120, rx = 45 + r() * 35;
+    for (let i = 0; i < 5; i++) {
+      const x = (r() - .5) * 120, y = (r() - .5) * 120, rx = 50 + r() * 38;
       blobs += `<ellipse class="fb fb${i % 3}" style="--d:${f(-r() * 14)}s" cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(rx * .6)}" fill="url(#fogb)"/>`;
     }
-    return `<polygon points="${hexPts(1)}" fill="url(#fogg)"/><g clip-path="url(#hclip1)">${IMG_FAIL ? '' : imgFill('nebel', k) + `<polygon points="${hexPts(1)}" fill="url(#fogg)" opacity=".55"/>`}${blobs}</g>` +
-      `<polygon points="${hexPts(.94)}" fill="none" stroke="#cfe0f5" stroke-opacity=".28" stroke-width="1.6" stroke-dasharray="5 7"/>` +
-      `<text class="q" y="16" text-anchor="middle" font-family="Georgia,serif" font-size="46" fill="#e8f1ff" opacity=".26">?</text>`;
+    return `<polygon points="${hexPts(1)}" fill="url(#fogg)"/><g clip-path="url(#hclip1)">${IMG_FAIL ? '' : imgFill('nebel', k) + `<polygon points="${hexPts(1)}" fill="#f1f6fd" opacity=".38"/>`}${blobs}</g>` +
+      `<polygon points="${hexPts(.94)}" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="2" stroke-dasharray="5 7"/>` +
+      `<text class="q" y="20" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="58" fill="#ffffff" stroke="#4a6385" stroke-opacity=".55" stroke-width="2" paint-order="stroke" opacity=".72">?</text>`;
   }
 
   // Schaum an Kuesten: Kanten zu Nachbarn ohne Land. mask: 6 Bits (Nachbar j).
@@ -382,8 +382,8 @@
     o += `<radialGradient id="vig" cx="50%" cy="50%" r="60%"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".30"/></radialGradient>` +
       `<linearGradient id="sandg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5e3b0"/><stop offset="1" stop-color="#c9a468"/></linearGradient>` +
       `<radialGradient id="shallow" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#5fc0d8" stop-opacity=".16"/><stop offset="1" stop-color="#2c88b4" stop-opacity=".30"/></radialGradient>` +
-      `<radialGradient id="fogg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#7b8fae"/><stop offset="1" stop-color="#2e3b57"/></radialGradient>` +
-      `<radialGradient id="fogb"><stop offset="0" stop-color="#e6eefb" stop-opacity=".55"/><stop offset="1" stop-color="#e6eefb" stop-opacity="0"/></radialGradient>` +
+      `<radialGradient id="fogg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#d6e3f2"/><stop offset="1" stop-color="#8398b6"/></radialGradient>` +
+      `<radialGradient id="fogb"><stop offset="0" stop-color="#f4f8ff" stop-opacity=".85"/><stop offset="1" stop-color="#f4f8ff" stop-opacity="0"/></radialGradient>` +
       `<linearGradient id="hillg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f09a64"/><stop offset="1" stop-color="#b4562c"/></linearGradient>` +
       `<linearGradient id="mtl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c3ccd8"/><stop offset="1" stop-color="#8591a2"/></linearGradient>` +
       `<linearGradient id="mtd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#76839a"/><stop offset="1" stop-color="#465266"/></linearGradient>` +

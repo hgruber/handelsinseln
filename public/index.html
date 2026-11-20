@@ -51,6 +51,8 @@
         <h3 class="lb-h">Spielfeld &amp; Variante</h3>
         <div id="lobbyVariants" class="variants"></div>
         <div id="lobbySeats" class="lb-seats"></div>
+        <h3 class="lb-h">Abweichende Regeln <small id="devCount"></small></h3>
+        <div id="lobbyDev" class="devbox"></div>
         <div id="lobbySettings"></div>
         <h3 class="lb-h">Chat</h3>
         <div id="lobbyChat" class="lb-chat scroll"></div>
@@ -84,9 +86,11 @@
       <header>
         <button class="tabbtn on" data-tab="log">Protokoll</button>
         <button class="tabbtn" data-tab="chat">Chat<i id="chatDot" hidden></i></button>
+        <button class="tabbtn" data-tab="rules" id="rulesTab">Regeln</button>
       </header>
       <div id="logList" class="scroll"></div>
       <div id="chatList" class="scroll" hidden></div>
+      <div id="rulesList" class="scroll devbox" hidden></div>
       <form id="chatForm"><input id="chatIn" maxlength="200" placeholder="Nachricht…" autocomplete="off"><button class="btn small" type="submit">Senden</button></form>
     </section>
   </aside>

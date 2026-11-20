@@ -91,6 +91,24 @@ function placeIslands(S, n, rnd, variant) {
     }
     return { land, islands, home: new Set(home.flatMap((b) => [...b])), desertIn: center, exploredR: 2, neutral: islands.filter((b) => !home.includes(b)) };
   }
+  if (variant === 'archipel') {
+    // Viele kleine Inseln, gleichmäßig in einer Scheibe verstreut; jeder darf auf jeder Insel starten
+    const K = 5 + 2 * n;
+    const R = Math.ceil(2 * Math.sqrt(K)) + 2;
+    for (let i = 0; i < K; i++) {
+      const w = rnd();
+      const size = w < 0.3 ? 2 : w < 0.65 ? 3 : w < 0.9 ? 4 : 5;
+      for (let t = 0; t < 400; t++) {
+        const q = Math.floor(rnd() * (2 * R + 1)) - R, r = Math.floor(rnd() * (2 * R + 1)) - R, st = G.hk(q, r);
+        if (dist(st, origin) > R || near(st)) continue;
+        const blob = growBlob(size, rnd, (k) => near(k) || dist(k, origin) > R + 1, () => st);
+        if (blob.size < 2 || [...blob].some(near)) continue;
+        add(blob); break;
+      }
+    }
+    const all = new Set(land);
+    return { land, islands, home: all, desertIn: islands[Math.floor(rnd() * islands.length)], exploredR: 2, neutral: [] };
+  }
   const mainCount = variant === 'nebel' ? 8 + 2 * n : 10 + 3 * n;
   const main = add(growBlob(mainCount, rnd, () => false, () => origin));
   if (variant === 'klassisch') {
@@ -137,6 +155,7 @@ function generate(S, nPlayers, rnd, settings) {
     for (const k of shuffle([...isl], rnd)) {
       if (k === desert) types[k] = 'wueste';
       else if (isHome && goldLeft > 0 && homeCount > 0) { types[k] = 'gold'; goldLeft--; }
+      else if (variant === 'archipel' && rnd() < 0.25) types[k] = 'gold';
       else if (!isHome) types[k] = rnd() < (variant === 'inseln' ? 0.55 : 0.4) ? 'gold' : drawTerrain(S, rnd);
       else types[k] = drawTerrain(S, rnd);
     }

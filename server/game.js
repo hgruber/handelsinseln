@@ -247,7 +247,7 @@ class Game {
     const n = S.players.length, set = S.settings;
     // Vorrat für aufgedeckte Felder (Nebel)
     S.supply = { terrain: { ...set.limits.fogTerrain }, chips: { ...set.limits.fogChips } };
-    S.fogGold = set.variant === 'nebel' ? 2.2 : 1;
+    S.fogGold = set.variant === 'nebel' ? 2.2 : set.variant === 'archipel' ? 1.6 : 1;
     this.buildDeck(n);
     S.order = B.shuffle([...Array(n).keys()], this.rnd);
     S.phase = 'setup';
@@ -1210,7 +1210,7 @@ class Game {
       })),
       order: S.order, turn, step, dice: S.dice, diceSeq: S.diceSeq,
       hexes: Object.keys(S.hexes).map((k) => ({ k, t: S.hexes[k].t, n: S.hexes[k].n })),
-      fog: S.phase === 'lobby' ? [] : B.fog(S),
+      fog: B.fog(S),
       harbors: Object.keys(S.harbors).map((e) => {
         const [a, b] = G.edgeHexes(e); const land = this.isLandHex(a) ? a : b;
         return { e, kind: S.harbors[e].kind, land, sea: land === a ? b : a };

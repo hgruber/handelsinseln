@@ -9,6 +9,7 @@ shots = [
   ('anmeldung', 'anmeldung', 1280, 900), ('anmeldung_leer', 'anmeldung&games=games_leer', 1280, 800),
   ('lobby_host', 'lobby', 1440, 900), ('lobby_gast', 'lobby_gast', 1440, 900), ('lobby_schmal', 'lobby', 700, 1000), ('lobby_leer', 'lobby_leer', 1280, 800),
   ('auto', 'auto', 1440, 900), ('auto_takeover', 'auto&mode=takeover', 1440, 900), ('auto_wurf', 'auto_wurf', 1440, 900), ('unbegrenzt', 'unbegrenzt', 1440, 900),
+  ('lobby_archipel', 'lobby_archipel', 1440, 900), ('nebel_kante', 'nebel_kante&mode=ship', 1440, 900), ('regeln_tab', 'auto&tab=rules', 1440, 900),
   ('statistik', 'statistik', 1440, 1000), ('statistik_abbruch', 'statistik_abbruch', 1100, 900), ('spiel', 'mittel_frei', 1440, 900),
 ]
 errs = []

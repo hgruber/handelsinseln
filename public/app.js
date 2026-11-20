@@ -279,7 +279,11 @@
 
     // Kamera
     const nk = []; for (const h of v.hexes) if (!st.known.has(h.k)) nk.push(h.k); for (const k of v.fog || []) if (!st.known.has(k)) nk.push(k);
-    if (nk.length) {
+    if (v.phase === 'lobby') {
+      // Lobby-Vorschau: bei jedem neuen Brett (Variante, „Neu würfeln“, Spielerzahl) die Kamera neu einpassen
+      const sig = v.hexes.filter((h) => h.t !== 'meer').map((h) => h.k).join(';') + '|' + (v.fog || []).length;
+      if (sig !== st.lobbySig) { const first = !st.lobbySig; st.lobbySig = sig; v.hexes.forEach((h) => st.known.add(h.k)); (v.fog || []).forEach((k) => st.known.add(k)); fit(first || st.firstBoard); }
+    } else if (nk.length) {
       const first = st.firstBoard;
       nk.forEach((k) => st.known.add(k));
       if (first) fit(true);
@@ -309,15 +313,26 @@
     }
     return [...T.values()];
   }
+  // Kante grenzt an ein unentdecktes Feld (Nachbarhex einer Endecke steht in view.fog) => Bauen deckt es auf
+  const DISC_TIP = 'Hier wird beim Bauen ein neues Feld aufgedeckt';
+  function discoverSet(v) {
+    const fg = new Set(v.fog || []), out = new Set();
+    if (!fg.size) return out;
+    for (const t of computeTargets(v)) if (t.t === 'e' && !t.kinds.includes('takeover') && Geom.edgeVerts(t.k).some((vk) => Geom.vertHexes(vk).some((h) => fg.has(h)))) out.add(t.k);
+    return out;
+  }
   function renderTargets(v) {
+    const disc = discoverSet(v);
     const items = computeTargets(v).map((t) => {
+      const d = t.t === 'e' && disc.has(t.k);
       const kinds = t.kinds.join(',');
       return {
-        key: t.t + ':' + t.k, sig: kinds,
+        key: t.t + ':' + t.k, sig: kinds + (d ? '|d' : ''),
         make: () => {
           let g;
           if (t.t === 'v') { const p = vpos(t.k); g = at(el('tgt tv ' + t.kinds[0], '<circle class="halo" r="22"/><circle class="core" r="9"/><circle class="hit" r="26"/>'), p.x, p.y); }
-          else if (t.t === 'e') { const p = epos(t.k); g = at(el('tgt te ' + t.kinds[0], '<rect class="bar" x="-31" y="-8" width="62" height="16" rx="8"/><rect class="hit" x="-34" y="-16" width="68" height="32"/>'), p.x, p.y); g.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.ang.toFixed(1)})`); }
+          else if (t.t === 'e') { const p = epos(t.k); g = at(el('tgt te ' + t.kinds[0], '<rect class="bar" x="-31" y="-8" width="62" height="16" rx="8"/><rect class="hit" x="-34" y="-16" width="68" height="32"/>'), p.x, p.y); g.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.ang.toFixed(1)})`);
+            if (d) { g.classList.add('disc'); g.insertAdjacentHTML('beforeend', `<title>${DISC_TIP}</title><g class="dbadge" transform="translate(0,-34) rotate(${(-p.ang).toFixed(1)})"><circle r="19"/><text y="7.5" x="0" text-anchor="middle" class="qm">?</text></g>`); } }
           else if (t.t === 'h') { const p = hpos(t.k); g = at(el('tgt th ' + t.kinds[0], `<polygon class="hexo" points="${Art.hexPts(.93)}"/><circle class="dotc" r="11"/>`), p.x, p.y); }
           else { const p = epos(t.k); g = at(el('tgt tsf ' + t.kinds[0], '<circle class="ringo" r="29"/><circle class="hit" r="30"/>'), p.x, p.y); }
           g.dataset.t = t.t; g.dataset.k = t.k; g.dataset.kinds = kinds;
@@ -402,7 +417,7 @@
   }
   function area() {
     const W = board.clientWidth, H = board.clientHeight, g = (id) => $(id).getBoundingClientRect();
-    if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, W, H }; }
+    if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top + 48, right: r.right, bottom: r.bottom, W, H }; }
     const pl = g('players'), bt = g('bottom'), bn = g('banner'), sd = g('side');
     const narrow = W < 900;
     const left = narrow ? 12 : pl.right + 14;
@@ -418,10 +433,11 @@
   }
   function fit(snap) {
     const v = V(); if (!v) return;
-    const keys = v.hexes.filter((h) => h.t !== 'meer').map((h) => h.k); // Land (Meer/Nebel bleiben als Rand außen vor)
+    // Aufgedeckte Felder (Land + Meer) UND der umlaufende Nebelring (view.fog) sollen immer im Bild sein.
+    const keys = v.hexes.map((h) => h.k).concat(v.fog || []);
     if (!keys.length) return;
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-    for (const k of keys) { const p = hpos(k); x0 = Math.min(x0, p.x - 190); x1 = Math.max(x1, p.x + 190); y0 = Math.min(y0, p.y - 200); y1 = Math.max(y1, p.y + 200); }
+    for (const k of keys) { const p = hpos(k); x0 = Math.min(x0, p.x - 140); x1 = Math.max(x1, p.x + 140); y0 = Math.min(y0, p.y - 155); y1 = Math.max(y1, p.y + 155); }
     const a = area(); const aw = Math.max(200, a.right - a.left), ah = Math.max(160, a.bottom - a.top);
     const k = Math.max(KMIN, Math.min(1.25, Math.min(aw / (x1 - x0), ah / (y1 - y0))));
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, scx = (a.left + a.right) / 2, scy = (a.top + a.bottom) / 2;
@@ -523,7 +539,9 @@
     if (st.mode || st.moveFrom) extra += '<button class="btn small ghostb" data-a="cancel">Abbrechen (Esc)</button>';
     if (autoRobber() && v.step === 'robber') txt = v.prompt || 'Der Räuber wird automatisch versetzt …';
     const mode = st.mode === 'takeover' ? ' Wähle eine markierte Straße, ein Schiff oder eine Siedlung eines verlassenen Spielers.' : st.moveFrom ? ' Wähle das Ziel für das Schiff.' : st.mode ? ` Wähle ${st.mode === 'settlement' ? 'eine Ecke für die Siedlung' : st.mode === 'city' ? 'eine Siedlung zum Ausbau' : st.mode === 'road' ? 'eine Kante für die Straße' : 'eine Kante für das Schiff'}.` : '';
-    setHTML($('banner'), `<div class="bn ${you ? 'mine' : 'wait'}">${avatar(v.turn, 28)}<span class="txt">${pre}${esc(txt)}${esc(mode)}</span>${extra}</div>`);
+    const placing = you && (st.mode === 'road' || st.mode === 'ship' || st.moveFrom || v.step === 'setup_road' || v.step === 'road_building');
+    const dsc = placing && discoverSet(v).size ? ' Mit „?“ markierte Stellen: ' + DISC_TIP + '.' : '';
+    setHTML($('banner'), `<div class="bn ${you ? 'mine' : 'wait'}">${avatar(v.turn, 28)}<span class="txt">${pre}${esc(txt)}${esc(mode)}${esc(dsc)}</span>${extra}</div>`);
   }
 
   function renderPlayers(v) {
@@ -628,7 +646,8 @@
     if (st.seenChat < 0) st.seenChat = lastId;
     if (st.tab === 'chat') st.seenChat = lastId;
     $('chatDot').hidden = !(lastId > st.seenChat);
-    logEl.hidden = st.tab !== 'log'; chatEl.hidden = st.tab !== 'chat';
+    const dv = Lobby.deviations(v.settings); setHTML($('rulesList'), Lobby.deviationsHTML(v.settings)); $('rulesTab').textContent = dv.length ? `Regeln (${dv.length})` : 'Regeln';
+    logEl.hidden = st.tab !== 'log'; chatEl.hidden = st.tab !== 'chat'; $('rulesList').hidden = st.tab !== 'rules';
     document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.classList.toggle('on', b.dataset.tab === st.tab));
     $('sideToggle').textContent = st.logOpen ? '›' : '‹';
   }
@@ -811,7 +830,7 @@
   $('btnOut').addEventListener('click', () => zoomAt(1 / 1.3, board.clientWidth / 2, board.clientHeight / 2));
   $('btnHelp').addEventListener('click', () => { st.modal = st.modal === 'help' ? null : 'help'; renderModal(V()); });
   $('sideToggle').addEventListener('click', () => { st.logOpen = !st.logOpen; renderHUD(V()); setTimeout(() => { if (V()) fit(false); }, 260); });
-  document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; renderLog(V()); const l = $(st.tab === 'log' ? 'logList' : 'chatList'); l.scrollTop = l.scrollHeight; }));
+  document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; renderLog(V()); const l = $(st.tab === 'log' ? 'logList' : st.tab === 'chat' ? 'chatList' : 'rulesList'); l.scrollTop = l.scrollHeight; }));
   $('chatForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const t = $('chatIn').value.trim(); if (!t) return;
     $('chatIn').value = ''; await act('chat', { text: t });

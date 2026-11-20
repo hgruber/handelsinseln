@@ -9,7 +9,7 @@
     peers: new Map(),            // pid -> {pc, audio, src, analyser, buf, conn, vol, muted, queue:[], remoteSet}
     members: new Set(),          // pids, die im Sprachchat sind (nach hello)
     prefs: new Map(),            // pid -> {vol, muted} (bleibt ueber Neuverbindung erhalten)
-    speaking: new Set(), ctx: null, own: null, ice: [], timer: 0, err: '',
+    speaking: new Set(), httpsPort: null, ctx: null, own: null, ice: [], timer: 0, err: '',
   };
   const myPid = () => { const v = C.view(); return v ? v.you : -1; };
   const supported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext && window.RTCPeerConnection);
@@ -208,7 +208,11 @@
   }
   function panel() {
     if (!window.isSecureContext || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-      return `<div class="vpanel"><div class="vhead"><b>Sprachchat</b></div><p class="vwarn">Das Mikrofon braucht <b>https</b> oder <b>localhost</b>. Über diese Adresse ist der Sprachchat nicht verfügbar.</p></div>`;
+      // http im LAN: Mikrofon ist gesperrt. Wenn der Server https anbietet (httpsPort aus /api/config), Link zur sicheren Adresse.
+      const port = Number(S.httpsPort), url = port > 0 ? `https://${location.hostname}:${port}/` : '';
+      return `<div class="vpanel"><div class="vhead"><b>Sprachchat</b>${url ? `<a class="btn small green" href="${C.esc(url)}" data-secure="1">Sicher öffnen (https)</a>` : ''}</div>` +
+        `<p class="vwarn">Das Mikrofon braucht <b>https</b> oder <b>localhost</b> – über diese http-Adresse ist es vom Browser gesperrt.</p>` +
+        (url ? '<p class="vnote">Beim ersten Öffnen musst du die Zertifikatswarnung einmalig bestätigen (selbstsigniertes Zertifikat). Danach meldest du dich dort erneut an.</p>' : '') + '</div>';
     }
     if (!S.joined) {
       return `<div class="vpanel"><div class="vhead"><b>Sprachchat</b><button type="button" class="btn small green" data-v="join"${S.joining ? ' aria-disabled="true"' : ''}>${S.joining ? 'Verbinde…' : 'Sprachchat beitreten'}</button></div>` +
@@ -252,7 +256,10 @@
   }
 
   root.Voice = {
-    init(ctx) { C = ctx; wire(); },
+    init(ctx) {
+      C = ctx; wire();
+      if (!window.isSecureContext) fetch('/api/config').then((r) => r.json()).then((j) => { if (j && j.httpsPort) { S.httpsPort = j.httpsPort; notify(); } }).catch(() => { /* kein Server (Mock) */ });
+    },
     onSignal, join, leave, toggleMute, panel, hudMic, badge, rowCtl, paintSpeaking,
     isJoined: () => S.joined, isSupported: supported, micOn,
     inVoice: (pid) => S.joined && (pid === myPid() || S.members.has(pid)),

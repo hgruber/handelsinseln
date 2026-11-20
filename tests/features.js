@@ -53,6 +53,10 @@ test('Einstellungen: Standardwerte = bisheriges Verhalten, Prüfung und Zugriffs
   g.act(0, { type: 'set_settings', settings: { winPoints: 10, limits: { road: null, bank: { holz: 3 } }, handLimit: null } });
   assert.equal(g.S.settings.winPoints, 10); assert.equal(g.S.settings.limits.road, null); assert.equal(g.S.settings.limits.bank.holz, 3);
   assert.equal(g.S.settings.limits.ship, 15, 'andere Limits bleiben');
+  // „Standard wiederherstellen“ im Client sendet alle Chip-Zahlen inkl. 7 – die 7 wird ignoriert statt abgelehnt
+  const reset = { limits: { road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard', bank: { holz: null }, fogTerrain: { wald: null }, fogChips: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [String(i + 2), null])) } };
+  g.act(0, { type: 'set_settings', settings: reset });
+  assert.equal('7' in g.S.settings.limits.fogChips, false);
   g.act(0, { type: 'start' });
   throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 12 } }), /vor Spielbeginn/);
 });
@@ -65,7 +69,7 @@ test('Lobby: Vorschau-Brett vorhanden, neu würfeln, Varianten und Spielerzahl w
   g.act(0, { type: 'regen_board' });
   assert.notEqual(JSON.stringify(g.view(0).hexes), k1, 'neues Brett');
   throws(() => g.act(1, { type: 'regen_board' }), /Spielleiter/);
-  for (const variant of ['klassisch', 'nebel', 'inseln']) {
+  for (const variant of ['klassisch', 'nebel', 'inseln', 'archipel']) {
     g.act(0, { type: 'set_settings', settings: { variant } });
     const h = g.view(0).hexes;
     const land = h.filter((x) => x.t !== 'meer');
@@ -90,7 +94,7 @@ test('Lobby: Vorschau-Brett vorhanden, neu würfeln, Varianten und Spielerzahl w
 });
 
 test('Varianten: Brett ist über viele Seeds gültig (Abstände, Insel-Lücken, Zahlen, Häfen)', () => {
-  for (const variant of ['klassisch', 'nebel', 'inseln']) for (let n = 2; n <= 6; n++) for (let seed = 1; seed <= 6; seed++) {
+  for (const variant of ['klassisch', 'nebel', 'inseln', 'archipel']) for (let n = 2; n <= 6; n++) for (let seed = 1; seed <= 6; seed++) {
     const g = new Game({ rnd: rng(seed * 31 + n) });
     for (let i = 0; i < n; i++) g.join('P' + i, COL[i]);
     g.act(0, { type: 'set_settings', settings: { variant } });
@@ -455,6 +459,7 @@ test('Simulation: komplette Partien mit Auto-Würfeln/-Räuber, harten Limits un
     { variant: 'inseln', winPoints: 8, handLimit: 5, limits: { dev: 10, bank: { holz: 12, lehm: 12, wolle: 12, getreide: 12, erz: 12 } } },
     { variant: 'klassisch', limits: { road: 8, ship: 6, settlement: 4, city: 3, fogTerrain: { gold: 0, wueste: 0 }, fogChips: { 6: 1, 8: 1 } }, winPoints: 9 },
     { variant: 'nebel', limits: { dev: null, road: null, ship: null }, playerTrade: false, winPoints: 12 },
+    { variant: 'archipel', winPoints: 10, dice: 'auto', robber: 'auto' },
   ];
   let k = 0;
   for (const set of combos) for (const n of [2, 4, 6]) {

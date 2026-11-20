@@ -54,7 +54,7 @@ li.speaking, .pc.speaking { border-color: #4ee08a; }
 .mic.speaking { box-shadow: 0 0 0 3px #4ee08a, 0 0 14px #4ee08a; }
 
 /* Varianten */
-.variants { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.variants { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .vcard { position: relative; display: grid; gap: 6px; align-content: start; justify-items: center; text-align: center; padding: 10px 8px 12px; border-radius: 14px; background: rgba(255, 255, 255, .05); border: 2px solid rgba(255, 255, 255, .1); transition: transform .12s, border-color .12s, background .12s; }
 .vcard b { font: 700 15px var(--serif); }
 .vdesc { font-size: 11.5px; line-height: 1.3; color: var(--muted); }
@@ -236,3 +236,20 @@ body[data-screen="ended"] #board { filter: blur(2px) brightness(.6); }
   .stgrid { grid-template-columns: 1fr; } .stcard.wide2 { grid-column: auto; }
   .sthead { flex-direction: column; text-align: center; }
 }
+
+/* Kanten, die ein Nebelfeld aufdecken */
+.te.disc .dbadge { pointer-events: none; }
+.te.disc .dbadge circle { fill: #fff2c0; stroke: #a87a1c; stroke-width: 2.4; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
+.te.disc .dbadge .qm { font: 700 25px Georgia, serif; fill: #5a3a08; }
+.te.disc .dbadge { animation: dbob 1.6s ease-in-out infinite; }
+@keyframes dbob { 50% { opacity: .75; } }
+
+/* Abweichende Regeln */
+.devbox { font-size: 13.5px; }
+.devnone { margin: 0; padding: 8px 12px; border-radius: 12px; background: rgba(63, 174, 107, .14); border: 1px solid rgba(127, 227, 174, .35); color: #b9f0d2; }
+.devlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.devlist li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 6px 10px; border-radius: 10px; background: rgba(232, 185, 90, .10); border-left: 3px solid var(--gold); }
+.devlist b { color: var(--gold2); text-align: right; } .devlist small { grid-column: 1 / 3; color: var(--muted); font-size: 11.5px; }
+#rulesList.devbox { padding: 10px 12px; }
+.lb-h small:empty { display: none; }
+.vcard { grid-template-rows: auto auto 1fr; }

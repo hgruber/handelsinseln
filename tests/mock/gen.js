@@ -113,7 +113,7 @@ const nul = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
 const defSettings = (over) => Object.assign({
   variant: 'klassisch', plannedPlayers: 4, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
   islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5,
-  limits: { road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard', bank: nul(RESN), fogTerrain: nul(['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer']), fogChips: nul([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) },
+  limits: { road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard', bank: nul(RESN), fogTerrain: nul(['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer']), fogChips: nul([2, 3, 4, 5, 6, 8, 9, 10, 11, 12]) },
 }, over || {});
 // Anmeldung: /api/games-Mock
 const gamesMock = { games: [
@@ -180,5 +180,11 @@ out.statistik = base({ phase: 'ended', step: 'ended', winner: 0, endedBy: 'win',
   stats: { durationSec: 4520, turns: 24, aborted: false, rolls, history: histVp, players: [sp(0, 'Anna', 'rot', 14, 6), sp(1, 'Bernd <b>Fett</b>', 'blau', 11, 3), sp(2, 'Clara', 'orange', 8, 1), sp(3, 'Dirk', 'gruen', 7, 0)] } });
 out.statistik_abbruch = Object.assign({}, out.statistik, { winner: null, endedBy: 'host', you: 1, stats: Object.assign({}, out.statistik.stats, { aborted: true }) });
 
+// Archipel-Lobby (vierte Variante) und Schiffsbau am Nebelrand (Kanten mit Aufdeck-Badge)
+out.lobby_archipel = lobbyBase(0, { settings: defSettings({ variant: 'archipel', plannedPlayers: 4, bankRate: 3, limits: Object.assign(defSettings().limits, { fogChips: Object.assign(nul([2, 3, 4, 5, 6, 8, 9, 10, 11, 12]), { 6: 1, 8: 1 }) }) }) });
+const fogSetM = new Set(fog);
+const discEdges = [...allE].filter((e) => !edges[e] && G.edgeHexes(e).some((h) => !isLand(h)) && G.edgeVerts(e).some((vk) => G.vertHexes(vk).some((h) => fogSetM.has(h)))).sort();
+out.nebel_kante = base({ prompt: 'Baue ein Schiff: Mit „?“ markierte Kanten decken Nebel auf.',
+  legal: Object.assign({}, base().legal, { ship: discEdges.slice(0, 12).concat(seaEdges.filter((e) => !edges[e]).slice(0, 4)), shipFrom: [] }) });
 for (const [name, v] of Object.entries(out)) fs.writeFileSync(path.join(__dirname, name + '.json'), JSON.stringify(v));
 console.log('geschrieben:', Object.keys(out).join(', '), '| Hexe:', hexes.length, 'Nebel:', fog.length, 'Haefen:', harbors.length, 'Siedl.:', Object.keys(verts).length, 'Kanten:', Object.keys(edges).length);
