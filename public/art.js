@@ -41,6 +41,20 @@
   const corner = (i, sc = 1) => { const a = -(30 + 60 * i) * Math.PI / 180; return [S * sc * Math.cos(a), S * sc * Math.sin(a)]; };
   const hexPts = (sc = 1) => { let s = []; for (let i = 0; i < 6; i++) { const c = corner(i, sc); s.push(f(c[0]) + ',' + f(c[1])); } return s.join(' '); };
   const TS = 0.93; // Terrain-Skalierung (Rest = Sandrand)
+
+  // ---- Bildtexturen (public/img/<motiv><1|2>.webp, per Forge/Flux erzeugt) ---------------------------
+  // Pro Motiv 2 Varianten; Wahl per Hex-Schluessel-Hash (+ optionale Spiegelung = 4 Looks).
+  // Pattern werden nur EINMAL in defs() angelegt. Faellt das Bild aus (IMG_FAIL), greift die
+  // prozedurale SVG-Zeichnung.
+  const IMG_DIR = 'img/';
+  const IMG_MOTIFS = ['wald', 'huegel', 'weide', 'acker', 'gebirge', 'wueste', 'gold', 'meer', 'nebel'];
+  let IMG_FAIL = false;
+  // Quadrat 200x200 um den Hex-Mittelpunkt (Eckradius 93 passt hinein); lokal je Hex, daher userSpaceOnUse.
+  function imgFill(motif, k) {
+    const h = hash('img' + k + motif);
+    const flip = (h >> 3) & 1 ? ' transform="scale(-1,1)"' : '';
+    return `<rect x="-100" y="-100" width="200" height="200" fill="url(#im-${motif}${1 + (h & 1)})"${flip}/>`;
+  }
   // liegt (x,y) mit Rand m im Terrain-Hex?
   const inside = (x, y, m) => Math.abs(x) <= SQ3 / 2 * S * TS - m && Math.abs(y) + Math.abs(x) / SQ3 <= S * TS - m * 1.155;
 
@@ -189,7 +203,9 @@
     const pts93 = hexPts(TS), pts100 = hexPts(1);
     const ring = `<polygon class="ring" points="${pts93}"/><polygon class="flash" points="${pts93}"/>`;
     if (t === 'meer') {
-      let o = `<polygon points="${pts100}" fill="url(#shallow)"/><polygon points="${hexPts(.9)}" fill="none" stroke="#bfe9ff" stroke-opacity=".10" stroke-width="1.5"/>`;
+      let o = IMG_FAIL ? `<polygon points="${pts100}" fill="url(#shallow)"/>` :
+        `<g clip-path="url(#hclip1)">${imgFill('meer', k)}</g><polygon points="${pts100}" fill="url(#shallow)" opacity=".35"/>`;
+      o += `<polygon points="${hexPts(.9)}" fill="none" stroke="#bfe9ff" stroke-opacity=".10" stroke-width="1.5"/>`;
       for (let i = 0; i < 3; i++) {
         const p = scatter(r, 1, 0, 14, 0)[0] || [0, 0];
         o += `<path class="wv" style="--d:${f(r() * 6)}s" d="M${f(p[0] - 9)},${f(p[1])} q4.5,-4 9,0 t9,0" fill="none" stroke="#e8f8ff" stroke-width="1.6" stroke-linecap="round"/>`;
@@ -199,7 +215,7 @@
     }
     const [c1, c2] = TERRAIN[t] || TERRAIN.wald;
     void c1; void c2;
-    const motif = (MOTIF[t] || (() => ''))(r, n != null);
+    const motif = IMG_FAIL || !IMG_MOTIFS.includes(t) ? (MOTIF[t] || (() => ''))(r, n != null) : imgFill(t, k);
     return `<polygon points="${pts100}" fill="url(#sandg)"/>` +
       `<g clip-path="url(#hclip)"><polygon points="${pts93}" fill="url(#tg-${t})"/>${motif}<polygon points="${pts93}" fill="url(#vig)"/>` +
       (t === 'gold' ? `<polygon class="shimmer" points="${pts93}" fill="url(#shim)"/>` : '') + `</g>` +
@@ -214,7 +230,7 @@
       const x = (r() - .5) * 120, y = (r() - .5) * 120, rx = 45 + r() * 35;
       blobs += `<ellipse class="fb fb${i % 3}" style="--d:${f(-r() * 14)}s" cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(rx * .6)}" fill="url(#fogb)"/>`;
     }
-    return `<polygon points="${hexPts(1)}" fill="url(#fogg)"/><g clip-path="url(#hclip1)">${blobs}</g>` +
+    return `<polygon points="${hexPts(1)}" fill="url(#fogg)"/><g clip-path="url(#hclip1)">${IMG_FAIL ? '' : imgFill('nebel', k) + `<polygon points="${hexPts(1)}" fill="url(#fogg)" opacity=".55"/>`}${blobs}</g>` +
       `<polygon points="${hexPts(.94)}" fill="none" stroke="#cfe0f5" stroke-opacity=".28" stroke-width="1.6" stroke-dasharray="5 7"/>` +
       `<text class="q" y="16" text-anchor="middle" font-family="Georgia,serif" font-size="46" fill="#e8f1ff" opacity=".26">?</text>`;
   }
@@ -357,7 +373,11 @@
 
   // ---- gemeinsame Defs (Gradienten etc.) --------------------------------------------------------------------
   function defs() {
-    let o = `<clipPath id="hclip"><polygon points="${hexPts(TS)}"/></clipPath><clipPath id="hclip1"><polygon points="${hexPts(1)}"/></clipPath>`;
+    let o = '';
+    for (const m of IMG_MOTIFS) for (const v of [1, 2]) o += `<pattern id="im-${m}${v}" patternUnits="userSpaceOnUse" x="-100" y="-100" width="200" height="200"><image href="${IMG_DIR}${m}${v}.webp" width="200" height="200" preserveAspectRatio="none"/></pattern>`;
+    // Ausfall-Probe: ein Bild vorladen; schlaegt es fehl, nutzen spaetere Hex-Zeichnungen die SVG-Motive.
+    if (typeof Image !== 'undefined') { const pr = new Image(); pr.onerror = () => { IMG_FAIL = true; }; pr.src = IMG_DIR + 'wald1.webp'; }
+    o += `<clipPath id="hclip"><polygon points="${hexPts(TS)}"/></clipPath><clipPath id="hclip1"><polygon points="${hexPts(1)}"/></clipPath>`;
     for (const [t, [a, b]] of Object.entries(TERRAIN)) o += `<radialGradient id="tg-${t}" cx="42%" cy="35%" r="85%"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient>`;
     o += `<radialGradient id="vig" cx="50%" cy="50%" r="60%"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".30"/></radialGradient>` +
       `<linearGradient id="sandg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5e3b0"/><stop offset="1" stop-color="#c9a468"/></linearGradient>` +

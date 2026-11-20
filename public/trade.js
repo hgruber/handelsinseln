@@ -38,6 +38,7 @@
   function composer(v) {
     const hand = v.me.hand, rates = v.rates || {};
     const sbp = v.step === 'sbp';
+    const noP = !!(v.settings && v.settings.playerTrade === false); // Spielerhandel ausgeschaltet: nur Bank
     const gs = RES.filter((r) => S.give[r] > 0), ws = RES.filter((r) => S.want[r] > 0);
     let bank = null, hint = 'Wähle links eine Sorte zum Abgeben und rechts eine zum Erhalten.';
     if (gs.length === 1 && ws.length === 1) {
@@ -46,8 +47,12 @@
       else if (S.give[g] === rate * S.want[w]) { bank = { g, w, times: S.want[w], rate }; hint = ''; }
       else hint = `Bank: ${rate}× ${rn(g)} für 1× ${rn(w)} (du gibst ${S.give[g]}, willst ${S.want[w]})`;
     } else if (gs.length || ws.length) hint = 'Für die Bank: genau eine Sorte geben und eine andere erhalten.';
-    const canOffer = !sbp && sum(S.give) > 0 && sum(S.want) > 0 && !missing(hand, S.give).length;
-    const offerWhy = sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : 'Angebot an alle Mitspieler senden';
+    // Bank-Vorrat leer (bank.stock, 999 = unbegrenzt): Tausch dieser Sorte gesperrt
+    if (bank && v.bank && v.bank.stock && v.bank.stock[bank.w] != null && v.bank.stock[bank.w] < bank.times) {
+      hint = `Die Bank hat nicht genug ${rn(bank.w)} (noch ${v.bank.stock[bank.w]}).`; bank = null;
+    }
+    const canOffer = !sbp && !noP && sum(S.give) > 0 && sum(S.want) > 0 && !missing(hand, S.give).length;
+    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : 'Angebot an alle Mitspieler senden';
     const rateChips = RES.map((r) => {
       const rt = rates[r] || 4, ok = (hand[r] || 0) >= rt;
       return `<button type="button" class="rate r${rt}${ok ? '' : ' off'}" data-rate="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${rt}× ${rn(r)} → 1 beliebiger Rohstoff${rt < 4 ? (rt === 2 ? ' (2:1-Hafen)' : ' (3:1-Hafen)') : ' (Bank 4:1)'}${ok ? ' – Klick füllt „Ich gebe“' : ' – zu wenig Karten'}">${C.Art.res(r, 20)}<b>${rt}:1</b></button>`;
@@ -58,10 +63,15 @@
       `<div class="tcol"><h4>Ich möchte</h4>${grid('want', S.want, hand, false)}</div></div>` +
       `<div class="presets"><span class="muted">Schnell:</span><button type="button" class="chipbtn" data-preset="1:1">1 : 1</button><button type="button" class="chipbtn" data-preset="2:1">2 : 1</button><button type="button" class="chipbtn" data-preset="1:2">1 : 2</button><button type="button" class="chipbtn" data-do="clear">Leeren</button></div>` +
       `<div class="rates"><span class="muted" title="So viele gleiche Karten brauchst du für 1 Rohstoff deiner Wahl">Bankkurse</span>${rateChips}</div>` +
+      (() => {
+        const st = v.bank && v.bank.stock; if (!st) return '';
+        const lim = RES.filter((r) => st[r] != null && st[r] < 900);
+        return lim.length ? `<div class="stockline" title="Was die Bank noch hat. Ist ein Rohstoff leer, kann er nicht getauscht werden."><span>Bank-Vorrat:</span>${lim.map((r) => `<span class="tchip" style="--rc:${C.Art.RES_COLORS[r]}" title="${rn(r)}">${C.Art.res(r, 16)}<b>${st[r]}</b></span>`).join('')}</div>` : '';
+      })() +
       (hint ? `<p class="thint">${C.esc(hint)}</p>` : '') +
       `<div class="tact"><button type="button" class="btn green${bank ? '' : ' dis'}" data-do="bank" ${bank ? '' : 'aria-disabled="true"'} title="${bank ? '' : 'Erst eine passende Menge wählen'}">` +
       (bank ? `Mit der Bank tauschen (${bank.rate}:1${bank.rate < 4 ? ' Hafen' : ''}${bank.times > 1 ? ', ' + bank.times + '×' : ''})` : 'Mit der Bank tauschen') + `</button>` +
-      `<button type="button" class="btn gold${canOffer ? '' : ' dis'}" data-do="offer" ${canOffer ? '' : 'aria-disabled="true"'} title="${C.esc(offerWhy)}">Angebot an alle</button></div></div>`;
+      `<button type="button" class="btn gold${canOffer ? '' : ' dis'}" data-do="offer" ${canOffer ? '' : 'aria-disabled="true"'} title="${C.esc(offerWhy)}">Angebot an alle${noP ? ' (aus)' : ''}</button></div></div>`;
     return `<div class="tpanel glass composer${S.collapsed ? ' collapsed' : ''}">${head('Handeln', '<button type="button" class="ghost" data-do="close" title="Schließen">✕</button>')}${S.collapsed ? '' : body}</div>`;
   }
 

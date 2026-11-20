@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 SECS = int(sys.argv[2]) if len(sys.argv) > 2 else 120
+AUTO = len(sys.argv) > 3 and sys.argv[3] == 'auto'  # Würfeln und Räuber automatisch
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8198
 BASE = f'http://127.0.0.1:{PORT}'
@@ -32,11 +33,12 @@ try:
         b = p.chromium.launch()
         page = b.new_context(viewport={'width': 1500, 'height': 900}).new_page()
         page.on('pageerror', lambda e: problems.append('pageerror: %s' % e))
-        page.on('console', lambda m: m.type == 'error' and 'status of 400' not in m.text and problems.append('console: %s' % m.text))
+        page.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and problems.append('console: %s' % m.text))
+        page.on('response', lambda r: r.status >= 400 and r.status != 400 and '/img/' not in r.url and problems.append('HTTP %d %s' % (r.status, r.url)))
         page.goto(BASE)
         page.fill('#nameIn', 'Mensch')
         page.locator('#swatches .sw').first.click()
-        page.click('#joinBtn')
+        page.click('#createBtn')
         page.wait_for_function("localStorage.getItem('handelsinseln.token')", timeout=5000)
         tokens = []
         for i in range(1, N):
@@ -45,7 +47,10 @@ try:
                 if 'token' in r:
                     tokens.append(r['token']); break
         time.sleep(0.7)
-        page.get_by_role('button', name='Spiel starten').click()
+        if AUTO:
+            post('/api/act', {'token': page.evaluate("localStorage.getItem('handelsinseln.token')"), 'type': 'set_settings', 'settings': {'dice': 'auto', 'robber': 'auto', 'variant': 'nebel'}})
+            time.sleep(0.5)
+        page.click('#startBtn')
         drv = subprocess.Popen(['node', os.path.join(ROOT, 'tests/drive.js'), BASE, '150'] + tokens)
 
         def n(sel): return page.locator(sel).count()

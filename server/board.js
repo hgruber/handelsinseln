@@ -63,44 +63,84 @@ function drawTerrain(S, rnd) {
   return S.landBag.pop();
 }
 
-// Startkarte
-function generate(S, nPlayers, rnd) {
-  S.hexes = {}; S.harbors = {}; S.numBag = []; S.landBag = [];
-  const mainCount = 10 + 3 * nPlayers;
+// Startkarte je Variante
+function placeIslands(S, n, rnd, variant) {
   const origin = '0,0';
-  const main = growBlob(mainCount, rnd, () => false, () => origin);
-  const land = new Set(main);
-  const islands = [main];
-  const nSmall = nPlayers > 4 ? 4 : 3;
-  for (let i = 0; i < nSmall; i++) {
-    const size = 1 + Math.floor(rnd() * 3);
-    for (let tries = 0; tries < 200; tries++) {
-      const R = 6 + Math.floor(rnd() * 3);
-      const q = Math.floor(rnd() * (2 * R + 1)) - R, r = Math.floor(rnd() * (2 * R + 1)) - R;
-      const start = G.hk(q, r);
-      if (dist(start, origin) > R + 1) continue;
-      const near = (k) => { for (const l of land) if (dist(k, l) < 2) return true; return false; };
-      if (near(start)) continue;
-      const blob = growBlob(size, rnd, near, () => start);
-      if ([...blob].some(near)) continue;
-      blob.forEach((k) => land.add(k)); islands.push(blob); break;
+  const land = new Set(), islands = [];
+  const near = (k) => { for (const l of land) if (dist(k, l) < 2) return true; return false; };
+  const add = (blob) => { blob.forEach((k) => land.add(k)); islands.push(blob); return blob; };
+  if (variant === 'inseln') {
+    const size = n <= 3 ? 7 : n === 4 ? 6 : 5;
+    const R = Math.ceil(5 / (2 * Math.sin(Math.PI / n))) + 1;
+    const ring = [];
+    for (let q = -R; q <= R; q++) for (let r = -R; r <= R; r++) if (dist(G.hk(q, r), origin) === R) ring.push(G.hk(q, r));
+    const rot = rnd() * Math.PI * 2;
+    const home = [];
+    for (let i = 0; i < n; i++) {
+      const a = rot + (i * 2 * Math.PI) / n;
+      const tx = Math.cos(a) * R * Math.sqrt(3), ty = Math.sin(a) * R * 1.5;
+      const start = ring.slice().sort((x, y) => { const px = G.hexCenter(x), py = G.hexCenter(y); return Math.hypot(px.x - tx, px.y - ty) - Math.hypot(py.x - tx, py.y - ty); })[0];
+      home.push(add(growBlob(size, rnd, near, () => start)));
+    }
+    const center = add(growBlob(3, rnd, near, () => origin));
+    // eine weitere kleine Insel weiter draußen
+    for (let t = 0; t < 200; t++) {
+      const q = Math.floor(rnd() * (2 * R + 9)) - R - 4, r = Math.floor(rnd() * (2 * R + 9)) - R - 4, st = G.hk(q, r);
+      if (near(st) || dist(st, origin) < R + 3) continue;
+      add(growBlob(1 + Math.floor(rnd() * 2), rnd, near, () => st)); break;
+    }
+    return { land, islands, home: new Set(home.flatMap((b) => [...b])), desertIn: center, exploredR: 2, neutral: islands.filter((b) => !home.includes(b)) };
+  }
+  const mainCount = variant === 'nebel' ? 8 + 2 * n : 10 + 3 * n;
+  const main = add(growBlob(mainCount, rnd, () => false, () => origin));
+  if (variant === 'klassisch') {
+    const nSmall = n > 4 ? 4 : 3;
+    for (let i = 0; i < nSmall; i++) {
+      const size = 1 + Math.floor(rnd() * 3);
+      for (let tries = 0; tries < 200; tries++) {
+        const R = 6 + Math.floor(rnd() * 3);
+        const q = Math.floor(rnd() * (2 * R + 1)) - R, r = Math.floor(rnd() * (2 * R + 1)) - R;
+        const start = G.hk(q, r);
+        if (dist(start, origin) > R + 1 || near(start)) continue;
+        const blob = growBlob(size, rnd, near, () => start);
+        if ([...blob].some(near)) continue;
+        add(blob); break;
+      }
     }
   }
-  // Meer: alles bis Abstand 2 um Land ist aufgedeckt
+  return { land, islands, home: new Set(main), desertIn: main, exploredR: variant === 'nebel' ? 1 : 2, neutral: islands.slice(1), mainCount };
+}
+
+function generate(S, nPlayers, rnd, settings) {
+  const variant = (settings && settings.variant) || 'klassisch';
+  S.hexes = {}; S.harbors = {}; S.numBag = []; S.landBag = []; S.robber = null;
+  const L = placeIslands(S, nPlayers, rnd, variant);
+  const { land, islands, home } = L;
+  // Meer: alles bis zum Aufdeckungsradius um Land ist bekannt
   const sea = new Set();
-  for (const l of land) for (let dq = -2; dq <= 2; dq++) for (let dr = -2; dr <= 2; dr++) {
-    const { q, r } = G.parseH(l); const k = G.hk(q + dq, r + dr);
-    if (!land.has(k) && dist(k, l) <= 2) sea.add(k);
+  const R = L.exploredR;
+  for (const l of land) {
+    const { q, r } = G.parseH(l);
+    for (let dq = -R; dq <= R; dq++) for (let dr = -R; dr <= R; dr++) {
+      const k = G.hk(q + dq, r + dr);
+      if (!land.has(k) && dist(k, l) <= R) sea.add(k);
+    }
   }
   // Gelände + Zahlen
   const types = {};
-  const mainArr = shuffle([...main], rnd);
-  mainArr.forEach((k, i) => {
-    if (i === 0) types[k] = 'wueste';
-    else if (i === 1 && mainCount >= 22) types[k] = 'gold';
-    else types[k] = drawTerrain(S, rnd);
+  const desertArr = shuffle([...L.desertIn], rnd);
+  const desert = desertArr[0];
+  const homeCount = home.size;
+  let goldLeft = variant === 'klassisch' && L.mainCount >= 22 ? 1 : 0;
+  islands.forEach((isl) => {
+    const isHome = [...isl].every((k) => home.has(k));
+    for (const k of shuffle([...isl], rnd)) {
+      if (k === desert) types[k] = 'wueste';
+      else if (isHome && goldLeft > 0 && homeCount > 0) { types[k] = 'gold'; goldLeft--; }
+      else if (!isHome) types[k] = rnd() < (variant === 'inseln' ? 0.55 : 0.4) ? 'gold' : drawTerrain(S, rnd);
+      else types[k] = drawTerrain(S, rnd);
+    }
   });
-  islands.slice(1).forEach((isl) => isl.forEach((k) => { types[k] = rnd() < 0.4 ? 'gold' : drawTerrain(S, rnd); }));
   const landKeys = [...land];
   let best = null;
   for (let t = 0; t < 300; t++) {
@@ -111,16 +151,17 @@ function generate(S, nPlayers, rnd) {
   }
   land.forEach((k) => { S.hexes[k] = { t: types[k], n: best[k] || null }; if (types[k] === 'wueste') S.robber = k; });
   sea.forEach((k) => { S.hexes[k] = { t: 'meer', n: null }; });
-  S.home = [...main];
-  // Piraten auf ein Meerfeld in der Nähe der Hauptinsel
-  const seaNear = [...sea].filter((k) => G.neighbors(k).some((n) => main.has(n)) === false && [...main].some((m) => dist(k, m) === 2));
+  S.home = [...home];
+  // Pirat auf ein Meerfeld in der Nähe der Heimatinseln
+  const homeArr = [...home];
+  const seaNear = [...sea].filter((k) => homeArr.some((m) => dist(k, m) === 2) && !homeArr.some((m) => dist(k, m) < 2));
   S.pirate = shuffle(seaNear.length ? seaNear : [...sea], rnd)[0];
   // Häfen
-  const hcount = Math.round(mainCount / 3.2);
+  const hcount = Math.max(4, Math.round(homeCount / 3.2));
   const kinds = [];
   while (kinds.length < hcount + 4) kinds.push(...shuffle([...RES, 'any', 'any', 'any', 'any'], rnd));
   const edges = [];
-  for (const k of main) for (const e of G.hexEdges(k)) {
+  for (const k of home) for (const e of G.hexEdges(k)) {
     const o = G.edgeHexes(e).find((x) => x !== k);
     if (S.hexes[o] && S.hexes[o].t === 'meer') edges.push(e);
   }
@@ -145,18 +186,47 @@ function tryHarbor(S, e, kind) {
   return true;
 }
 
-// Neues Feld entdecken (Server wählt Zufallsfeld). Gibt das Hex-Objekt zurück.
+// Vorrat: null = unbegrenzt, Zahl = verbleibend
+const LAND_W = { wald: 4, weide: 4, acker: 4, huegel: 3, gebirge: 3, gold: 1.3, wueste: 0.5 };
+const CHIP_W = { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1 };
+const avail = (map, key) => map[key] === undefined || map[key] === null || map[key] > 0;
+const take = (map, key) => { if (map[key] !== undefined && map[key] !== null) map[key]--; };
+function weighted(items, w, rnd) {
+  const tot = items.reduce((a, k) => a + w(k), 0);
+  let x = rnd() * tot;
+  for (const k of items) { x -= w(k); if (x <= 0) return k; }
+  return items[items.length - 1];
+}
+function drawChip(S, rnd) {
+  const ok = Object.keys(CHIP_W).filter((n) => avail(S.supply.chips, n));
+  if (!ok.length) return null;
+  const n = weighted(ok, (k) => CHIP_W[k], rnd);
+  take(S.supply.chips, n);
+  return +n;
+}
+
+// Neues Feld entdecken (Server wählt Zufallsfeld unter Beachtung der Vorräte). Gibt das Hex-Objekt zurück.
 function discover(S, k, rnd) {
+  const sup = S.supply;
   const ns = G.neighbors(k).map((n) => S.hexes[n]).filter(Boolean);
   const ln = ns.filter((h) => isLand(h.t)).length;
   const pLand = Math.min(0.62, 0.16 + 0.17 * ln);
+  const chipsLeft = Object.keys(CHIP_W).some((n) => avail(sup.chips, n));
+  const landTypes = Object.keys(LAND_W).filter((t) => avail(sup.terrain, t) && (t === 'wueste' || chipsLeft));
+  const seaOk = avail(sup.terrain, 'meer');
+  let wantLand = rnd() < pLand;
+  if (wantLand && !landTypes.length) wantLand = false;
+  if (!wantLand && !seaOk && landTypes.length) wantLand = true; // Meer-Vorrat erschöpft
   let h;
-  if (rnd() < pLand) {
-    const r = rnd();
-    if (r < 0.1) h = { t: 'gold', n: drawNumber(S, rnd) };
-    else if (r < 0.14) h = { t: 'wueste', n: null };
-    else h = { t: drawTerrain(S, rnd), n: drawNumber(S, rnd) };
-  } else h = { t: 'meer', n: null };
+  if (wantLand) {
+    const boost = S.fogGold || 1;
+    const t = weighted(landTypes, (x) => LAND_W[x] * (x === 'gold' ? boost : 1), rnd);
+    take(sup.terrain, t);
+    h = { t, n: t === 'wueste' ? null : drawChip(S, rnd) };
+  } else {
+    if (seaOk) take(sup.terrain, 'meer');
+    h = { t: 'meer', n: null }; // erschöpfte Vorräte: es bleibt (unbegrenzt) Meer
+  }
   S.hexes[k] = h;
   // gelegentlich ein Hafen an der neuen Küste
   if (rnd() < 0.3) {

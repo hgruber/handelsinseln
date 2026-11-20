@@ -30,18 +30,19 @@ try:
         b = p.chromium.launch()
         page = b.new_context(viewport={'width': 1500, 'height': 900}).new_page()
         page.on('pageerror', lambda e: problems.append('pageerror: %s' % e))
-        page.on('console', lambda m: m.type == 'error' and 'status of 400' not in m.text and problems.append('console: %s' % m.text))
+        page.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and problems.append('console: %s' % m.text))
+        page.on('response', lambda r: r.status >= 400 and r.status != 400 and '/img/' not in r.url and problems.append('HTTP %d %s' % (r.status, r.url)))
         page.goto(BASE)
         page.screenshot(path=f'{SHOTS}/01-anmeldung.png')
         page.fill('#nameIn', 'Browser-Bernd')
         page.locator('#swatches .sw').first.click()
         page.screenshot(path=f'{SHOTS}/02-farbe.png')
-        page.click('#joinBtn')
+        page.click('#createBtn')
         page.wait_for_function("localStorage.getItem('handelsinseln.token')", timeout=5000)
         tok = page.evaluate("localStorage.getItem('handelsinseln.token')")
         assert tok, 'Token nicht gefunden'
         tokens = [tok]
-        for i in range(1, N):
+        for i in range(2, N):
             c = [x for x in COLORS if x != 'rot'][i - 1]
             for x in COLORS:  # freie Farbe nehmen
                 r = post('/api/join', {'name': f'Bot{i}', 'color': x})
@@ -49,7 +50,22 @@ try:
                     tokens.append(r['token']); break
         time.sleep(1)
         page.screenshot(path=f'{SHOTS}/03-lobby.png')
-        page.get_by_role('button', name='Spiel starten').click()
+        # zweiter Browser (eigener Kontext) tritt über die Spieleliste bei
+        page2 = b.new_context(viewport={'width': 1300, 'height': 800}).new_page()
+        page2.on('pageerror', lambda e: problems.append('pageerror(2): %s' % e))
+        page2.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and problems.append('console(2): %s' % m.text))
+        page2.goto(BASE)
+        page2.fill('#nameIn', 'Browser-Berta')
+        page2.wait_for_selector('#gameList [data-g]', timeout=6000)
+        page2.locator('#gameList [data-g]').first.click()
+        page2.locator('#swatches .sw:not([disabled])').nth(1).click()
+        page2.click('#joinBtn')
+        page2.wait_for_function("localStorage.getItem('handelsinseln.token')", timeout=5000)
+        tokens.append(page2.evaluate("localStorage.getItem('handelsinseln.token')"))
+        time.sleep(0.8)
+        page.screenshot(path=f'{SHOTS}/03b-lobby-voll.png')
+        page2.screenshot(path=f'{SHOTS}/03c-lobby-gast.png')
+        page.click('#startBtn')
         drv = subprocess.Popen(['node', os.path.join(ROOT, 'tests/drive.js'), BASE, '120'] + tokens)
         t0 = time.time(); n = 0
         while time.time() - t0 < SECS:
@@ -58,8 +74,8 @@ try:
             page.screenshot(path=f'{SHOTS}/10-spiel-{n}.png')
         drv.terminate()
         # Ende-Zustand notieren
-        state = json.load(urllib.request.urlopen(BASE + '/api/lobby'))
-        print('Phase:', state['phase'])
+        state = json.load(urllib.request.urlopen(BASE + '/api/games'))
+        print('Spiele:', [(g['phase'], len(g['players'])) for g in state['games']])
         b.close()
 finally:
     server.terminate()

@@ -107,9 +107,32 @@ function base(over) {
 }
 
 const out = {};
-// Lobby
-out.lobby = { v: 3, phase: 'lobby', you: 0, host: 0, minPlayers: 2, maxPlayers: 6, winPoints: 14, players: fallbackPlayers().slice(0, 3).map((p) => ({ id: p.id, name: p.name, color: p.color, connected: p.connected })), log: [], hexes: [], fog: [], harbors: [], verts: {}, edges: {} };
-out.lobby_gast = Object.assign({}, out.lobby, { you: 1 });
+// Einstellungen (Standardwerte laut PROTOKOLL.md, v2)
+const RESN = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+const nul = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
+const defSettings = (over) => Object.assign({
+  variant: 'klassisch', plannedPlayers: 4, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
+  islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5,
+  limits: { road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard', bank: nul(RESN), fogTerrain: nul(['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer']), fogChips: nul([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) },
+}, over || {});
+// Anmeldung: /api/games-Mock
+const gamesMock = { games: [
+  { id: 'g1', name: 'Käpt\'n Annas Runde', host: 'Anna', phase: 'lobby', closed: false, joinable: true, variant: 'klassisch', players: [{ name: 'Anna', color: 'rot' }, { name: 'Bernd <b>Fett</b>', color: 'blau' }], plannedPlayers: 4, maxPlayers: 6 },
+  { id: 'g2', name: 'Nebelfahrt', host: 'Clara', phase: 'lobby', closed: false, joinable: true, variant: 'nebel', players: [{ name: 'Clara', color: 'orange' }], plannedPlayers: 3, maxPlayers: 6 },
+  { id: 'g3', name: 'Vier Inseln', host: 'Dirk', phase: 'lobby', closed: false, joinable: true, variant: 'inseln', players: [{ name: 'Dirk', color: 'gruen' }, { name: 'Eva', color: 'violett' }, { name: 'Frank', color: 'weiss' }], plannedPlayers: 4, maxPlayers: 6 },
+  { id: 'g4', name: 'Läuft schon', host: 'Gerd', phase: 'main', closed: true, joinable: false, variant: 'klassisch', players: [{ name: 'Gerd', color: 'rot' }, { name: 'Hans', color: 'blau' }], plannedPlayers: 2, maxPlayers: 6 },
+] };
+fs.writeFileSync(path.join(__dirname, 'games.json'), JSON.stringify(gamesMock));
+fs.writeFileSync(path.join(__dirname, 'games_leer.json'), JSON.stringify({ games: [] }));
+fs.writeFileSync(path.join(__dirname, 'games_eins.json'), JSON.stringify({ games: gamesMock.games.slice(0, 1) }));
+// Lobby (Vorschau = Spielfeld wie im Spiel, aber ohne Figuren)
+const lobbyBase = (you, over) => Object.assign({ v: 3, phase: 'lobby', step: 'lobby', gameId: 'g1', gameName: 'Käpt\'n Annas Runde', closed: false, you, host: 0, minPlayers: 2, maxPlayers: 6, winPoints: 14,
+  players: fallbackPlayers().slice(0, 3).map((p, i) => ({ id: p.id, name: p.name, color: p.color, connected: p.connected, auto: false })),
+  log: [], chat: [{ id: 1, p: 0, text: 'Hallo zusammen!' }, { id: 2, p: 1, text: 'Moin <script>alert(1)</script>' }],
+  hexes, fog, harbors, verts: {}, edges: {}, robber: '1,-1', pirate: null, settings: defSettings({ plannedPlayers: 3 }) }, over || {});
+out.lobby = lobbyBase(0);
+out.lobby_gast = lobbyBase(1, { closed: true, settings: defSettings({ plannedPlayers: 3, variant: 'inseln', dice: 'auto', playerTrade: false, handLimit: null, limits: Object.assign(defSettings().limits, { road: null, dev: 40, bank: { holz: 19, lehm: 19, wolle: null, getreide: 19, erz: 19 } }) }) });
+out.lobby_leer = lobbyBase(0, { players: [{ id: 0, name: 'Anna', color: 'rot', connected: true, auto: false }], hexes: [], fog: [], harbors: [], chat: [], settings: defSettings({ plannedPlayers: 2 }) });
 // Aufbau
 const empty = { verts: {}, edges: {} };
 out.aufbau = base({ phase: 'setup', step: 'setup_settlement', dice: null, diceSeq: 0, verts: { [sets[1][0]]: { p: 1, k: 's' } }, edges: {}, robber: null, pirate: null,
@@ -137,6 +160,25 @@ out.gold = base({ step: 'gold', turn: 1, prompt: 'Goldfluss! Wähle 2 Rohstoffe.
 out.sbp = base({ step: 'sbp', turn: 0, sbp: true, prompt: 'Sonderbauphase: baue oder klicke „Fertig“.', dice: [2, 5] });
 out.strassenbau = base({ step: 'road_building', prompt: 'Straßenbau: noch 2 Wege kostenlos bauen.', legal: Object.assign({}, base().legal, { settlement: [], city: [] }) });
 out.sieger = base({ phase: 'ended', step: 'ended', winner: 0, prompt: null, players: fallbackPlayers().map((p, i) => (i === 0 ? Object.assign({}, p, { vp: 13 }) : p)) });
+
+// Spiel mit Auto-Spieler (Dirk), Verlassenem (Clara) und Uebernahme-Angebot
+const claraE = Object.keys(edges).filter((e) => edges[e].p === 2), claraV = Object.keys(verts).filter((k) => verts[k].p === 2);
+out.auto = base({ gameId: 'g1', gameName: 'Käpt\'n Annas Runde', settings: defSettings({ dice: 'auto', robber: 'auto', playerTrade: false, bankRate: 3 }),
+  players: fallbackPlayers().map((p, i) => (i === 2 ? Object.assign({}, p, { connected: false, gone: true, auto: true }) : i === 3 ? Object.assign({}, p, { auto: true, connected: false }) : p)),
+  prompt: 'Du bist am Zug: baue, handle oder beende deinen Zug.',
+  legal: Object.assign({}, base().legal, { takeover: { edges: claraE.slice(0, 3), verts: claraV.slice(0, 2) } }) });
+out.auto_wurf = Object.assign({}, out.auto, { step: 'roll', dice: null, prompt: 'Der Server würfelt automatisch …' });
+// Unbegrenzte Limits (999)
+out.unbegrenzt = base({ settings: defSettings({ limits: Object.assign(defSettings().limits, { road: null, ship: null, settlement: null, city: null, dev: null }), handLimit: null }), bank: { dev: 999 },
+  players: fallbackPlayers().map((p) => Object.assign({}, p, { left: { road: 999, ship: 999, settlement: p.id === 1 ? 0 : 999, city: 999 } })) });
+// Statistik
+const histVp = []; for (let r = 1; r <= 24; r++) histVp.push({ round: r, vp: [Math.min(14, 2 + Math.floor(r * .5) + (r > 14 ? 1 : 0)), Math.min(11, 2 + Math.floor(r * .38)), Math.min(8, 2 + Math.floor(r * .25)), Math.min(7, 2 + Math.floor(r * .2))] });
+const rolls = { 2: 1, 3: 3, 4: 5, 5: 8, 6: 9, 7: 14, 8: 10, 9: 7, 10: 5, 11: 3, 12: 2 };
+const sp = (id, nm, col, vp, k) => ({ id, name: nm, color: col, vp, svp: id === 0 ? 1 : 0, built: { road: 9 - id, ship: 4 + id, settlement: 4, city: 3 - (id % 2), dev: 5 - id }, produced: { holz: 12 + k, lehm: 9, wolle: 11 - id, getreide: 14, erz: 8 + id, total: 54 + k - id }, tradesPlayer: 6 - id, tradesBank: 3 + id, stolenFrom: id, stolenBy: 3 - id, discarded: 2 * id, knights: 3 - id, maxRoute: 8 - id, discovered: 9 - 2 * id, robberMoves: 2, sevens: 3 + id });
+out.statistik = base({ phase: 'ended', step: 'ended', winner: 0, endedBy: 'win', prompt: null, gameName: 'Käpt\'n Annas Runde', settings: defSettings(),
+  players: fallbackPlayers().map((p, i) => (i === 0 ? Object.assign({}, p, { vp: 14 }) : p)),
+  stats: { durationSec: 4520, turns: 24, aborted: false, rolls, history: histVp, players: [sp(0, 'Anna', 'rot', 14, 6), sp(1, 'Bernd <b>Fett</b>', 'blau', 11, 3), sp(2, 'Clara', 'orange', 8, 1), sp(3, 'Dirk', 'gruen', 7, 0)] } });
+out.statistik_abbruch = Object.assign({}, out.statistik, { winner: null, endedBy: 'host', you: 1, stats: Object.assign({}, out.statistik.stats, { aborted: true }) });
 
 for (const [name, v] of Object.entries(out)) fs.writeFileSync(path.join(__dirname, name + '.json'), JSON.stringify(v));
 console.log('geschrieben:', Object.keys(out).join(', '), '| Hexe:', hexes.length, 'Nebel:', fog.length, 'Haefen:', harbors.length, 'Siedl.:', Object.keys(verts).length, 'Kanten:', Object.keys(edges).length);

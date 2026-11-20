@@ -1,114 +1,126 @@
 'use strict';
-// HTTP-Server: statische Dateien, SSE-Zustandsstrom und Aktions-API. Keine Abhängigkeiten.
+// HTTP(S)-Server: statische Dateien, SSE-Zustandsstrom, Aktions-API, Spieleverwaltung und WebRTC-Signalweg. Keine Abhängigkeiten.
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const Game = require('./game');
-const { botAct } = require('./bot');
+const { Hub } = require('./hub');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 8080;
 const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 const STATE_FILE = path.join(DATA, 'state.json');
-const ABSENT_MS = +process.env.ABSENT_MS || 60000; // so lange wartet das Spiel auf einen getrennten Spieler
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon' };
 
-function loadGame() {
-  try {
-    const g = Game.fromJSON(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')));
-    g.S.players.forEach((p) => { p.connected = false; });
-    console.log(`Spielstand geladen (Phase ${g.S.phase}, ${g.S.players.length} Spieler).`);
-    return g;
-  } catch (e) { return new Game(); }
-}
-
-function createServer(game = new Game(), opts = {}) {
-  const clients = new Map(); // pid -> Set(res)
-  const absentSince = new Map();
-  game.S.players.forEach((p) => { p.connected = false; absentSince.set(p.token, Date.now()); }); // nach Neustart: alle gelten als abwesend, bis sie zurückkehren
+function createServer(opts = {}) {
+  const hub = opts.hub || new Hub({ graceMs: opts.graceMs ?? (+process.env.GRACE_MS || undefined), absentMs: opts.absentMs ?? (+process.env.ABSENT_MS || undefined), rnd: opts.rnd });
+  const clients = new Map(); // token -> Set(res)
+  const rate = new Map();    // token -> {n, t} für den Signalweg
   let saveTimer = null;
 
   const save = () => {
     if (opts.noSave) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE + '.tmp', JSON.stringify(game.toJSON())); fs.renameSync(STATE_FILE + '.tmp', STATE_FILE); } catch (e) { console.error('Speichern fehlgeschlagen:', e.message); }
+      try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE + '.tmp', JSON.stringify(hub.toJSON())); fs.renameSync(STATE_FILE + '.tmp', STATE_FILE); } catch (e) { console.error('Speichern fehlgeschlagen:', e.message); }
     }, 300);
   };
   const send = (res, ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
-  const broadcast = () => {
-    for (const [token, set] of clients) {
-      const p = playerByToken(token);
-      if (!p) { for (const r of set) r.end(); clients.delete(token); continue; }
-      if (!set.size) continue;
-      const v = game.view(p.id);
+  const broadcast = (room) => {
+    if (!hub.rooms.has(room.id)) return;
+    for (const p of room.game.S.players) {
+      const set = p.token && clients.get(p.token);
+      if (!set || !set.size) continue;
+      const v = room.game.view(p.id);
       for (const res of set) send(res, 'state', v);
     }
     save();
   };
-  const playerByToken = (t) => game.S.players.find((p) => p.token === t);
+  const dropClients = (token, event) => {
+    const set = clients.get(token);
+    if (!set) return;
+    for (const r of set) { if (event) send(r, event, {}); r.end(); }
+    clients.delete(token);
+  };
+  const dropRoom = (room) => { for (const p of room.game.S.players) if (p.token) dropClients(p.token); save(); };
+
   const body = (req) => new Promise((resolve, reject) => {
     let s = '';
-    req.on('data', (c) => { s += c; if (s.length > 20000) { reject(new Error('zu groß')); req.destroy(); } });
+    req.on('data', (c) => { s += c; if (s.length > 20000) { reject(new Error('Anfrage zu groß')); req.destroy(); } });
     req.on('end', () => { try { resolve(s ? JSON.parse(s) : {}); } catch (e) { reject(new Error('Ungültiges JSON')); } });
   });
   const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
-
   const guarded = (fn) => {
     try { fn(); return null; } catch (e) {
-      if (e instanceof Game.GameError) return e.message;
-      console.error(e); return 'Interner Fehler: ' + e.message;
+      if (e instanceof Game.GameError) return e;
+      console.error(e); return new Error('Interner Fehler: ' + e.message);
     }
   };
 
-  const server = http.createServer(async (req, res) => {
+  const handler = async (req, res) => {
     const url = new URL(req.url, 'http://x');
     try {
-      if (url.pathname === '/api/lobby') {
-        const S = game.S;
-        return json(res, 200, { phase: S.phase, players: S.players.map((p) => ({ name: p.name, color: p.color })), takenColors: S.players.map((p) => p.color), maxPlayers: 6 });
-      }
+      if (url.pathname === '/api/games' || url.pathname === '/api/lobby') return json(res, 200, { games: hub.list() });
+      if (url.pathname === '/api/config') return json(res, 200, { stun: process.env.STUN_URL || null });
       if (url.pathname === '/api/events') {
-        const p = playerByToken(url.searchParams.get('token'));
-        if (!p) { res.writeHead(401); return res.end(); }
+        const token = url.searchParams.get('token');
+        const f = hub.findByToken(token);
+        if (!f) { res.writeHead(401); return res.end(); }
+        const { room, player } = f;
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 2000\n\n');
-        if (!clients.has(p.token)) clients.set(p.token, new Set());
-        clients.get(p.token).add(res);
-        absentSince.delete(p.token);
-        game.setConnected(p.id, true);
-        send(res, 'state', game.view(p.id));
-        broadcast();
+        if (!clients.has(token)) clients.set(token, new Set());
+        clients.get(token).add(res);
+        hub.connected(room, player);
+        room.game.settle();
+        send(res, 'state', room.game.view(player.id));
+        broadcast(room);
         const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
         req.on('close', () => {
           clearInterval(ping);
-          const set = clients.get(p.token);
-          const q = playerByToken(p.token);
-          if (set) { set.delete(res); if (!set.size && q) { game.setConnected(q.id, false); absentSince.set(p.token, Date.now()); broadcast(); } }
+          const set = clients.get(token);
+          if (set) { set.delete(res); if (!set.size) { clients.delete(token); hub.disconnected(room, player); broadcast(room); } }
         });
         return;
       }
-      if (req.method === 'POST' && (url.pathname === '/api/join' || url.pathname === '/api/act' || url.pathname === '/api/leave')) {
+      if (req.method === 'POST' && ['/api/join', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
         const b = await body(req);
         if (url.pathname === '/api/join') {
           let out;
-          const err = guarded(() => { out = game.join(b.name, b.color, b.token); });
-          if (err) return json(res, 400, { error: err });
-          broadcast();
-          return json(res, 200, out);
+          const err = guarded(() => { out = hub.join(b); });
+          if (err) return json(res, 400, { error: err.message, ...(err.games ? { games: err.games } : {}) });
+          broadcast(out.room);
+          return json(res, 200, { token: out.token, pid: out.pid, game: out.game });
         }
-        const p = playerByToken(b.token);
-        if (!p) return json(res, 401, { error: 'Unbekannte Sitzung – bitte neu anmelden.' });
+        const f = hub.findByToken(b.token);
+        if (!f) return json(res, 401, { error: 'Unbekannte Sitzung – bitte neu anmelden.' });
+        const { room, player } = f;
         if (url.pathname === '/api/leave') {
-          game.leave(b.token);
-          broadcast();
+          const tok = player.token;
+          room.game.leave(tok);
+          dropClients(tok);
+          if (!room.game.humans().length) { dropRoom(room); hub.deleteRoom(room.id); save(); } else broadcast(room);
           return json(res, 200, { ok: true });
         }
-        const err = guarded(() => game.act(p.id, b));
-        if (err) return json(res, 400, { error: err });
-        broadcast();
+        if (url.pathname === '/api/signal') {
+          const now = Date.now(), r = rate.get(b.token) || { n: 0, t: now };
+          if (now - r.t > 10000) { r.n = 0; r.t = now; }
+          if (++r.n > 200) return json(res, 429, { error: 'Zu viele Signale.' });
+          rate.set(b.token, r);
+          if (JSON.stringify(b.data || {}).length > 16000) return json(res, 400, { error: 'Signal zu groß.' });
+          const targets = b.to === 'all' ? room.game.S.players.filter((p) => p.id !== player.id) : [room.game.S.players[b.to]].filter((p) => p && p.id !== player.id);
+          for (const p of targets) { const set = p.token && clients.get(p.token); if (set) for (const c of set) send(c, 'signal', { from: player.id, data: b.data }); }
+          return json(res, 200, { ok: true });
+        }
+        const g = room.game;
+        g.lastKicked = null;
+        const err = guarded(() => g.act(player.id, b));
+        if (err) return json(res, 400, { error: err.message });
+        if (g.lastKicked) dropClients(g.lastKicked, 'kicked');
+        broadcast(room);
         return json(res, 200, { ok: true });
       }
       // statische Dateien
@@ -126,49 +138,40 @@ function createServer(game = new Game(), opts = {}) {
     } catch (e) {
       json(res, 400, { error: e.message });
     }
-  });
+  };
+  const tls = process.env.TLS_CERT && process.env.TLS_KEY && !opts.noTls;
+  const server = tls ? https.createServer({ cert: fs.readFileSync(process.env.TLS_CERT), key: fs.readFileSync(process.env.TLS_KEY) }, handler) : http.createServer(handler);
 
-  // Abwesende Spieler: nach ABSENT_MS übernimmt ein Autopilot nur ihre Pflichten, damit niemand das Spiel blockiert.
-  const watchdog = setInterval(() => {
-    const S = game.S;
-    // Verwaiste Lobby-Plätze (Tab zu) werden nach 2 Minuten frei; ein beendetes, verlassenes Spiel wird zurückgesetzt.
-    if (S.phase === 'lobby' || S.phase === 'ended') {
-      const gone = S.players.filter((p) => !p.connected && absentSince.has(p.token) && Date.now() - absentSince.get(p.token) > (S.phase === 'lobby' ? 120000 : 600000));
-      if (S.phase === 'lobby' && gone.length) { gone.forEach((p) => game.leave(p.token)); broadcast(); }
-      else if (S.phase === 'ended' && gone.length === S.players.length) { game.reset(false); absentSince.clear(); broadcast(); }
-      return;
+  // Pflege: Abwesende → Auto-Modus, verwaiste Spiele aufräumen
+  const timer = setInterval(() => {
+    const { changed, removed } = hub.tick();
+    removed.forEach((r) => dropRoom(r));
+    changed.forEach((r) => broadcast(r));
+    if (removed.length) save();
+    for (const room of hub.rooms.values()) { // Auto-Spieler könnten durch Zeitablauf am Zug sein
+      const v0 = room.game.S.v; room.game.settle(); if (room.game.S.v !== v0) broadcast(room);
     }
-    let changed = false;
-    for (let guard = 0; guard < 50; guard++) {
-      const view0 = game.stepOf();
-      const waiting = new Set();
-      if (view0 === 'discard') Object.keys(S.pend.discard).forEach((k) => waiting.add(+k));
-      else if (view0 === 'gold') Object.keys(S.pend.gold).forEach((k) => waiting.add(+k));
-      else waiting.add(S.sbp ? S.sbp.pid : S.turn);
-      let acted = false;
-      for (const pid of waiting) {
-        const t = absentSince.get(S.players[pid].token);
-        if (S.players[pid].connected || t === undefined || Date.now() - t < ABSENT_MS) continue;
-        const err = guarded(() => { acted = botAct(game, pid, { minimal: true }) || acted; });
-        if (err) console.error('Autopilot:', err);
-        if (acted) { changed = true; break; }
-      }
-      if (!acted) break;
-    }
-    if (changed) broadcast();
-  }, 5000);
-  server.on('close', () => clearInterval(watchdog));
-  watchdog.unref();
-  server.game = game; server.broadcast = broadcast; server.absentSince = absentSince;
+  }, +process.env.TICK_MS || opts.tickMs || 2000);
+  server.on('close', () => clearInterval(timer));
+  timer.unref();
+  server.hub = hub; server.broadcast = broadcast;
   return server;
 }
 
+function loadHub() {
+  const hub = new Hub({ graceMs: +process.env.GRACE_MS || undefined, absentMs: +process.env.ABSENT_MS || undefined });
+  try {
+    hub.load(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')), 300000);
+    console.log(`Spielstand geladen: ${hub.rooms.size} Spiel(e).`);
+  } catch (e) { /* neuer Start */ }
+  return hub;
+}
+
 if (require.main === module) {
-  const game = loadGame();
-  const server = createServer(game);
-  // Leeres Spiel (alle weg) nach Neustart: Lobby bleibt bestehen; niemand ist verbunden → Platz freigeben
-  server.listen(PORT, () => console.log(`Handelsinseln läuft auf Port ${PORT}`));
-  const bye = () => { try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(game.toJSON())); } catch (e) { /* egal */ } process.exit(0); };
+  const hub = loadHub();
+  const server = createServer({ hub });
+  server.listen(PORT, () => console.log(`Handelsinseln läuft auf Port ${PORT}${process.env.TLS_CERT ? ' (https)' : ''}`));
+  const bye = () => { try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(hub.toJSON())); } catch (e) { /* egal */ } process.exit(0); };
   process.on('SIGTERM', bye); process.on('SIGINT', bye);
 }
 

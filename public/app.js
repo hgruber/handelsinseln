@@ -43,6 +43,9 @@
   const missingOf = (hand, need) => RES.filter((r) => (need[r] || 0) > (hand[r] || 0)).map((r) => `${need[r] - (hand[r] || 0)}× ${RN[r]}`);
   const costChips = (kind) => RES.filter((r) => COST[kind][r]).map((r) => `<span class="cc">${Art.res(r, 16)}${COST[kind][r] > 1 ? '<b>' + COST[kind][r] + '</b>' : ''}</span>`).join('');
   const isMe = () => st.view && st.view.turn === st.view.you;
+  const setg = () => (st.view && st.view.settings) || {};
+  const autoRobber = () => setg().robber === 'auto';
+  const fmtLeft = (n) => (n >= 900 ? '∞' : String(n));
 
   let toastN = 0;
   function toast(msg, kind) {
@@ -62,12 +65,14 @@
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       let j = {}; try { j = await r.json(); } catch (_) { /* leer */ }
       if (!r.ok && !j.error) j.error = `Fehler (HTTP ${r.status})`;
+      j.status = r.status;
       return j;
     } catch (e) { return { error: 'Keine Verbindung zum Server.' }; }
   }
   async function act(type, params) {
     if (st.mock) { toast(`Mock-Modus: „${type}“ ${JSON.stringify(params || {})} nicht gesendet`, 'info'); console.log('act', type, params); return { ok: true }; }
     const j = await post('/api/act', Object.assign({ token: st.token, type }, params || {}));
+    if (j.status === 401) { logout('Die Sitzung ist abgelaufen – bitte neu anmelden.'); return j; }
     if (j.error) toast(j.error, 'err');
     return j;
   }
@@ -77,6 +82,8 @@
     const es = new EventSource('/api/events?token=' + encodeURIComponent(st.token));
     st.es = es;
     es.addEventListener('state', (e) => { setOnline(true); try { applyView(JSON.parse(e.data)); } catch (err) { console.error(err); } });
+    es.addEventListener('signal', (e) => { try { Voice.onSignal(JSON.parse(e.data)); } catch (err) { console.error(err); } });
+    es.addEventListener('kicked', () => { Lobby.setNotice('Du wurdest vom Spielleiter entfernt.'); logout('Du wurdest vom Spielleiter entfernt.'); });
     es.onopen = () => setOnline(true);
     es.onerror = () => {
       if (es.readyState === EventSource.CLOSED) logout('Die Sitzung ist abgelaufen – bitte neu anmelden.');
@@ -84,49 +91,27 @@
     };
   }
   function logout(msg) {
+    Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
+    st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
+    Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
     if (msg) toast(msg, 'warn');
     showScreens();
+  }
+  // Menuepunkt „Spiel verlassen“ / Lobby verlassen
+  async function leaveGame() {
+    if (!st.mock) await post('/api/leave', { token: st.token });
+    logout();
   }
 
   // ======================================================================================
   // Anmeldung / Lobby
   // ======================================================================================
-  let lobbyTimer = 0;
-  function buildSwatches(taken) {
-    const box = $('swatches'); const sel = st.color;
-    const html = Object.entries(Art.COLORS).map(([c, hex]) => {
-      const t = taken.includes(c);
-      return `<button type="button" class="sw${sel === c ? ' on' : ''}${t ? ' taken' : ''}" data-c="${c}" role="radio" aria-checked="${sel === c}" ${t ? 'disabled' : ''} title="${Art.COLOR_NAMES[c]}${t ? ' (vergeben)' : ''}" style="--c:${hex};--c2:${Art.darken(hex, .35)}"><span>${t ? '✕' : ''}</span></button>`;
-    }).join('');
-    setHTML(box, html);
-  }
-  async function pollLobby() {
-    clearTimeout(lobbyTimer);
-    if (st.token || st.mock || $('login').hidden) return;
-    try {
-      const j = await (await fetch('/api/lobby')).json();
-      const taken = j.takenColors || [];
-      if (st.color && taken.includes(st.color)) st.color = null;
-      if (!st.color) st.color = Object.keys(Art.COLORS).find((c) => !taken.includes(c)) || null;
-      buildSwatches(taken);
-      $('loginInfo').textContent = j.players && j.players.length ? `In der Lobby: ${j.players.map((p) => p.name).join(', ')}` : 'Noch niemand in der Lobby.';
-      if (j.phase && j.phase !== 'lobby') $('loginInfo').textContent += ' · Ein Spiel läuft bereits.';
-    } catch (_) { $('loginInfo').textContent = 'Server nicht erreichbar …'; }
-    lobbyTimer = setTimeout(pollLobby, 2500);
-  }
-  function renderLobby(v) {
-    const me = v.you;
-    const list = v.players.map((p, i) => `<li class="${i === me ? 'me' : ''}" style="--pc:${colorOf(i)}">${avatar(i, 46)}<span class="nm">${esc(p.name)}</span>` +
-      `${i === v.host ? '<span class="crown" title="Spielleiter">♛ Spielleiter</span>' : ''}${i === me ? '<span class="you">du</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}"></span></li>`).join('');
-    setHTML($('lobbyList'), list || '<li class="muted">Noch niemand hier.</li>');
-    const can = v.players.length >= (v.minPlayers || 2);
-    const isHost = v.host === me;
-    setHTML($('lobbyAct'), isHost
-      ? `<button class="btn gold big${can ? '' : ' dis'}" id="startBtn" ${can ? '' : 'aria-disabled="true"'} title="${can ? '' : 'Mindestens ' + (v.minPlayers || 2) + ' Spieler nötig'}">Spiel starten</button>` +
-        (can ? '' : `<p class="hint">Mindestens ${v.minPlayers || 2} Spieler nötig (${v.players.length}/${v.maxPlayers || 6}).</p>`)
-      : `<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter…</p>`);
+  // Anmeldung (Spieleliste) und Lobby-Bildschirm: siehe lobby.js
+  function joined(j) {
+    st.token = j.token; localStorage.setItem('handelsinseln.token', j.token);
+    showScreens(); connect();
   }
 
   // ======================================================================================
@@ -135,11 +120,14 @@
   function showScreens() {
     const v = st.view;
     const inGame = !!v && v.phase !== 'lobby';
-    $('login').hidden = !!(v || st.token || st.mock) ;
+    const wasLogin = !$('login').hidden;
+    $('login').hidden = !!(v || st.token || (st.mock && !st.loginMock));
     $('lobby').hidden = !(v && v.phase === 'lobby');
     $('hud').hidden = !inGame;
-    $('board').toggleAttribute('hidden', !inGame);
-    if (!$('login').hidden) { buildSwatches([]); pollLobby(); }
+    $('board').toggleAttribute('hidden', !v);
+    document.body.dataset.screen = !v ? 'login' : v.phase;
+    if (v && v.phase !== 'ended') Menu.hideStats();
+    if (!$('login').hidden && !wasLogin) Lobby.loginShown();
   }
 
   // ======================================================================================
@@ -148,12 +136,19 @@
   function applyView(v) {
     const old = st.view;
     st.view = v;
-    if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; boardClear(); }
+    if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
     // Modus-Aufraeumen: nur gueltig im eigenen Hauptschritt
     if (!(isMe() && (v.step === 'main' || v.step === 'sbp'))) { st.mode = null; st.moveFrom = null; }
     if (st.moveFrom && !(v.legal && v.legal.shipTo && v.legal.shipTo[st.moveFrom])) st.moveFrom = null;
     showScreens();
-    if (v.phase === 'lobby') { renderLobby(v); return; }
+    if (v.phase === 'lobby') {
+      renderBoard(v); Lobby.renderLobby(v);
+      const sig = v.hexes.length + '|' + (v.fog || []).length + '|' + v.hexes.map((h) => h.k + h.t + (h.n || '')).join(',');
+      if (sig !== st.lobbySig) { st.lobbySig = sig; fit(!st.lobbySeen); st.lobbySeen = true; }
+      return;
+    }
+    if (old && old.phase === 'lobby') setTimeout(() => fit(false), 60);
+    if (v.phase === 'ended' && v.stats) { renderGame(v, old); Menu.renderStats(v); if (!old || old.phase !== 'ended') Voice.leave(false); return; }
     renderGame(v, old);
   }
 
@@ -302,9 +297,10 @@
     const step = v.step;
     if (step === 'setup_settlement') (Lg.settlement || []).forEach((k) => add('v', k, 'settlement'));
     else if (step === 'setup_road' || step === 'road_building') { (Lg.road || []).forEach((k) => add('e', k, 'road')); (Lg.ship || []).forEach((k) => add('e', k, 'ship')); }
-    else if (step === 'robber') { (Lg.robber || []).forEach((k) => add('h', k, 'robber')); (Lg.pirate || []).forEach((k) => add('h', k, 'pirate')); }
+    else if (step === 'robber') { if (autoRobber()) return []; (Lg.robber || []).forEach((k) => add('h', k, 'robber')); (Lg.pirate || []).forEach((k) => add('h', k, 'pirate')); }
     else if (step === 'main' || step === 'sbp') {
       if (st.moveFrom) { add('sf', st.moveFrom, 'sel'); ((Lg.shipTo || {})[st.moveFrom] || []).forEach((k) => add('e', k, 'moveto')); }
+      else if (st.mode === 'takeover') { const t = Lg.takeover || {}; (t.edges || []).forEach((k) => add('e', k, 'takeover')); (t.verts || []).forEach((k) => add('v', k, 'takeover')); }
       else if (st.mode === 'settlement') (Lg.settlement || []).forEach((k) => add('v', k, 'settlement'));
       else if (st.mode === 'city') (Lg.city || []).forEach((k) => add('v', k, 'city'));
       else if (st.mode === 'road') (Lg.road || []).forEach((k) => add('e', k, 'road'));
@@ -343,6 +339,7 @@
     const setup = step === 'setup_road';
     let j;
     const send = async (kind) => {
+      if (kind === 'takeover') { j = await act('take_over', { kind: t === 'e' ? 'edge' : 'vert', key: k }); if (j && !j.error) { st.mode = null; renderHUD(V()); renderTargets(V()); } return; }
       if (t === 'v') j = await act(kind === 'city' ? 'build_city' : step === 'setup_settlement' ? 'place_settlement' : 'build_settlement', { v: k });
       else if (t === 'e') {
         if (kind === 'moveto') j = await act('move_ship', { from: st.moveFrom, to: k });
@@ -351,6 +348,7 @@
       } else if (t === 'h') j = await act(kind === 'robber' ? 'move_robber' : 'move_pirate', { hex: k });
       if (j && !j.error) { st.mode = null; st.moveFrom = null; renderHUD(V()); renderTargets(V()); }
     };
+    if (kinds[0] === 'takeover') { await send('takeover'); return; }
     if (kinds.length > 1) { chooser(ev, k, kinds, send); return; }
     await send(kinds[0]);
   }
@@ -404,6 +402,7 @@
   }
   function area() {
     const W = board.clientWidth, H = board.clientHeight, g = (id) => $(id).getBoundingClientRect();
+    if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, W, H }; }
     const pl = g('players'), bt = g('bottom'), bn = g('banner'), sd = g('side');
     const narrow = W < 900;
     const left = narrow ? 12 : pl.right + 14;
@@ -461,7 +460,7 @@
   board.addEventListener('pointerup', up); board.addEventListener('pointercancel', up);
   board.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0017)), e.clientX, e.clientY); }, { passive: false });
   board.addEventListener('dblclick', (e) => { if (!e.target.closest('[data-t]')) fit(false); });
-  addEventListener('resize', () => { applyCam(); });
+  addEventListener('resize', () => { applyCam(); if (st.view && st.view.phase === 'lobby') fit(true); });
 
   // ======================================================================================
   // WUERFEL
@@ -493,6 +492,13 @@
   // HUD
   // ======================================================================================
   const prevHand = {};
+  // Sprachchat-Anzeigen (Mikrofon-Knopf, Spielerkarten, Lobbyliste, Dialog) – nur Klassen/kleine Teile, kein Flackern
+  function renderVoiceUI() {
+    setHTML($('hudMic'), Voice.hudMic());
+    const v = V(); if (!v) return;
+    if (v.phase === 'lobby') Lobby.renderLobby(v); else renderPlayers(v);
+    Menu.refresh(); Voice.paintSpeaking();
+  }
   function renderHUD(v) {
     const hud = $('hud');
     const tradeHas = !!$('tradeDock').innerHTML;
@@ -502,6 +508,7 @@
     renderBanner(v); renderPlayers(v); renderHand(v); renderBuild(v); renderPrimary(v); renderLog(v);
     Trade.render();
     renderModal(v);
+    renderVoiceUI();
     // eigener Zug => Titel
     document.title = (isMe() ? '▶ ' : '') + 'Die Handelsinseln';
   }
@@ -514,7 +521,8 @@
     if (v.step === 'sbp') { const n = v.players[v.turn]; pre = `<span class="tag">Sonderbauphase</span><b>${esc(n ? n.name : '')} baut</b><span class="sep">·</span>`; }
     if (v.step === 'road_building' && you) extra = '<button class="btn small ghostb" data-a="skip_rb">Überspringen</button>';
     if (st.mode || st.moveFrom) extra += '<button class="btn small ghostb" data-a="cancel">Abbrechen (Esc)</button>';
-    const mode = st.moveFrom ? ' Wähle das Ziel für das Schiff.' : st.mode ? ` Wähle ${st.mode === 'settlement' ? 'eine Ecke für die Siedlung' : st.mode === 'city' ? 'eine Siedlung zum Ausbau' : st.mode === 'road' ? 'eine Kante für die Straße' : 'eine Kante für das Schiff'}.` : '';
+    if (autoRobber() && v.step === 'robber') txt = v.prompt || 'Der Räuber wird automatisch versetzt …';
+    const mode = st.mode === 'takeover' ? ' Wähle eine markierte Straße, ein Schiff oder eine Siedlung eines verlassenen Spielers.' : st.moveFrom ? ' Wähle das Ziel für das Schiff.' : st.mode ? ` Wähle ${st.mode === 'settlement' ? 'eine Ecke für die Siedlung' : st.mode === 'city' ? 'eine Siedlung zum Ausbau' : st.mode === 'road' ? 'eine Kante für die Straße' : 'eine Kante für das Schiff'}.` : '';
     setHTML($('banner'), `<div class="bn ${you ? 'mine' : 'wait'}">${avatar(v.turn, 28)}<span class="txt">${pre}${esc(txt)}${esc(mode)}</span>${extra}</div>`);
   }
 
@@ -522,9 +530,11 @@
     const html = v.order.map((pid) => {
       const p = v.players[pid]; const turn = v.turn === pid && v.phase !== 'ended';
       const duty = (p.discarding ? `<span class="duty" title="Muss ${p.discarding} Karten abwerfen">⚠ wirft ${p.discarding} ab</span>` : '') + (p.pickingGold ? `<span class="duty gold" title="Wählt ${p.pickingGold} Rohstoffe vom Goldfluss">✦ Gold ×${p.pickingGold}</span>` : '');
-      const badges = (p.hasLongest ? `<span class="bdg" title="Längster Handelsweg (${p.longestRoute})">${Art.pieceIcon('road', p.color, 16)}Längste</span>` : '') + (p.hasLargest ? `<span class="bdg" title="Stärkste Schutzmacht (${p.knightsPlayed} Ritter)">${Art.dev('ritter', 16)}Schutzmacht</span>` : '');
-      return `<div class="pc${turn ? ' turn' : ''}${pid === v.you ? ' me' : ''}${p.connected ? '' : ' off'}" style="--pc:${Art.COLORS[p.color]}">` +
-        `${avatar(pid, 38)}<div class="info"><div class="top"><b class="nm">${esc(p.name)}</b>${pid === v.host ? '<span class="crown" title="Spielleiter">♛</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}" title="${p.connected ? 'verbunden' : 'getrennt'}"></span></div>` +
+      const gone = p.gone ? '<span class="bdg gone" title="Dieser Spieler hat das Spiel verlassen. Seine Figuren bleiben stehen (oder verschwinden nach den Spieleinstellungen).">verlassen</span>'
+        : p.auto ? '<span class="bdg auto" title="Auto-Modus: Der Server spielt für diesen Spieler (abwesend). Er würfelt, tauscht 1:1 und beendet den Zug selbst.">Auto</span>' : '';
+      const badges = gone + (p.hasLongest ? `<span class="bdg" title="Längster Handelsweg (${p.longestRoute})">${Art.pieceIcon('road', p.color, 16)}Längste</span>` : '') + (p.hasLargest ? `<span class="bdg" title="Stärkste Schutzmacht (${p.knightsPlayed} Ritter)">${Art.dev('ritter', 16)}Schutzmacht</span>` : '');
+      return `<div class="pc${turn ? ' turn' : ''}${pid === v.you ? ' me' : ''}${p.connected && !p.gone ? '' : ' off'}${p.gone ? ' gone' : ''}" data-pid="${pid}" style="--pc:${Art.COLORS[p.color]}">` +
+        `${avatar(pid, 38)}<div class="info"><div class="top"><b class="nm">${esc(p.name)}</b>${pid === v.host ? '<span class="crown" title="Spielleiter">♛</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}" title="${p.connected ? 'verbunden' : 'getrennt'}"></span>${Voice.badge(pid)}</div>` +
         `<div class="stats"><span title="Rohstoffkarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#e8dcc0" stroke="#7a6a48"/></svg>${p.resCount}</span>` +
         `<span title="Entwicklungskarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#6a7bb0" stroke="#2c3560"/><path d="M8,5 l1,2 2,.3 -1.5,1.4 .4,2 -1.9,-1 -1.9,1 .4,-2 -1.5,-1.4 2,-.3z" fill="#ffe27a"/></svg>${p.devCount}</span>` +
         `<span title="Gespielte Ritter">${Art.dev('ritter', 14)}${p.knightsPlayed}</span>` +
@@ -574,15 +584,17 @@
     const lg = v.legal || {};
     const html = ['road', 'ship', 'settlement', 'city', 'dev'].map((k) => {
       const why = buildWhy(k, v);
-      const tip = why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? v.bank.dev : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`);
+      const lf = k !== 'dev' && v.players[v.you].left ? v.players[v.you].left[k] : null;
+      const tip = why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : '');
       const icon = k === 'dev' ? Art.dev('ritter', 38) : Art.pieceIcon(k, v.players[v.you].color, 38);
-      return `<button class="bb${st.mode === k ? ' on' : ''}${why ? ' dis' : ''}" data-a="build" data-k="${k}" ${why ? 'aria-disabled="true"' : ''} title="${esc(tip)}"><span class="ic">${icon}</span><span class="lb">${BUILD_LABEL[k] === 'Entwicklungskarte' ? 'Entw.-Karte' : BUILD_LABEL[k]}</span><span class="cost">${costChips(k)}</span>${k === 'dev' && v.bank ? `<i class="stk" title="Karten im Stapel">${v.bank.dev}</i>` : ''}</button>`;
+      return `<button class="bb${st.mode === k ? ' on' : ''}${why ? ' dis' : ''}" data-a="build" data-k="${k}" ${why ? 'aria-disabled="true"' : ''} title="${esc(tip)}"><span class="ic">${icon}</span><span class="lb">${BUILD_LABEL[k] === 'Entwicklungskarte' ? 'Entw.-Karte' : BUILD_LABEL[k]}</span><span class="cost">${costChips(k)}</span>${k === 'dev' && v.bank ? `<i class="stk" title="Karten im Stapel">${fmtLeft(v.bank.dev)}</i>` : ''}${lf != null ? `<i class="lf${lf === 0 ? ' zero' : ''}" title="Figuren übrig">${fmtLeft(lf)}</i>` : ''}</button>`;
     }).join('') +
       ((lg.shipFrom && lg.shipFrom.length && isMe()) ? `<button class="bb${st.moveFrom ? ' on' : ''}" data-a="move" title="Ein Schiff versetzen: klicke ein markiertes Schiff, dann das Ziel."><span class="ic">${Art.pieceIcon('ship', v.players[v.you].color, 38)}</span><span class="lb">Versetzen</span><span class="cost"><span class="cc">⇄</span></span></button>` : '') +
+      ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${st.mode === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
       (() => {
         const canT = isMe() && (v.step === 'main' || v.step === 'sbp');
         const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: nur Handel mit der Bank.' : 'Handeln: mit der Bank oder den Mitspielern') : (v.phase !== 'main' ? 'Erst nach dem Aufbau.' : v.turn !== v.you ? 'Nur im eigenen Zug.' : 'Jetzt nicht möglich.');
-        return `<button class="bb trade${Trade.isOpen() && canT ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">Bank · Spieler</span></button>`;
+        return `<button class="bb trade${Trade.isOpen() && canT ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">${setg().playerTrade === false ? 'nur Bank' : 'Bank · Spieler'}</span></button>`;
       })();
     setHTML($('build'), html);
   }
@@ -590,7 +602,7 @@
   function renderPrimary(v) {
     const you = isMe(); let html = '';
     if (v.phase === 'ended') html = '';
-    else if (you && v.step === 'roll') html = '<button class="btn gold huge pulsing" data-a="roll">Würfeln</button>';
+    else if (you && v.step === 'roll') html = setg().dice === 'auto' ? '<div class="waitbox autodice" title="Der Server würfelt am Zugbeginn automatisch.">Würfelt automatisch …</div>' : '<button class="btn gold huge pulsing" data-a="roll">Würfeln</button>';
     else if (you && v.step === 'main') html = '<button class="btn gold big" data-a="end">Zug beenden</button>';
     else if (you && v.step === 'sbp') html = '<button class="btn gold big" data-a="sbp_done">Fertig</button>';
     else if (you) html = '';
@@ -650,23 +662,24 @@
       `<tr><td>${Art.dev('ritter', 28)}</td><th>Entwicklungskarte</th><td>${costChips('dev')}</td></tr></table>${row.length ? '' : ''}` +
       `<h3>Entwicklungskarten</h3><ul><li><b>Ritter</b> – Räuber versetzen &amp; stehlen</li><li><b>Straßenbau</b> – 2 Wege gratis</li><li><b>Erfindung</b> – 2 beliebige Rohstoffe</li><li><b>Monopol</b> – alle Karten einer Sorte einsammeln</li><li><b>Siegpunkt</b> – 1 verdeckter Punkt</li></ul></div>` +
       `<div><h3>Kurzregeln</h3><ul>` +
-      `<li><b>Handel:</b> Im eigenen Zug mit allen Mitspielern (Angebot) oder mit der Bank <b>4:1</b>. Mit Hafen <b>3:1</b>, mit Spezialhafen <b>2:1</b> für die passende Sorte.</li>` +
+      `<li><b>Handel:</b> ${setg().playerTrade === false ? 'In dieser Partie nur mit der Bank' : 'Im eigenen Zug mit allen Mitspielern (Angebot) oder mit der Bank'} <b>${setg().bankRate || 4}:1</b>. Mit Hafen <b>3:1</b>, mit Spezialhafen <b>2:1</b> für die passende Sorte.</li>` +
       `<li><b>Häfen:</b> Eine eigene Siedlung/Stadt an der Hafenkante schaltet den Kurs frei.</li>` +
-      `<li><b>Räuber:</b> Bei einer 7 verlieren alle mit mehr als 7 Karten die Hälfte. Der Räuber blockiert ein Landfeld und bestiehlt einen Nachbarn.</li>` +
+      `<li><b>Räuber:</b> Bei einer 7 verlieren alle mit mehr als ${setg().handLimit === null ? '∞ (unbegrenzt)' : setg().handLimit || 7} Karten die Hälfte. Der Räuber blockiert ein Landfeld und bestiehlt einen Nachbarn.</li>` +
       `<li><b>Pirat:</b> Blockiert ein Meerfeld (keine Schiffe/Erträge der angrenzenden Siedlungen) und bestiehlt.</li>` +
       `<li><b>Gold:</b> Siedlungen am Goldfluss geben beliebige Rohstoffe deiner Wahl.</li>` +
       `<li><b>Entdeckung:</b> Nebelfelder werden aufgedeckt, wenn du mit Straße/Schiff anlegst – das gibt eventuell Rohstoffe.</li>` +
       `<li><b>Sonderpunkte:</b> Neue Inseln zu besiedeln bringt Sonderpunkte.</li>` +
-      `<li><b>Längster Handelsweg</b> (mindestens 5 Teile): 2 Punkte.</li>` +
-      `<li><b>Stärkste Schutzmacht</b> (mindestens 3 Ritter): 2 Punkte.</li></ul></div></div>` +
+      `<li><b>Längster Handelsweg</b> (mindestens ${setg().longestMin || 5} Teile): 2 Punkte.</li>` +
+      `<li><b>Stärkste Schutzmacht</b> (mindestens ${setg().armyMin || 3} Ritter): 2 Punkte.</li></ul></div></div>` +
       `<div class="mact"><button class="btn gold" data-m="close">Verstanden</button></div>`;
   }
   const sumDraft = () => sumO(st.draft);
 
   function wantedModal(v) {
-    if (v.phase === 'ended' || v.winner != null) return { key: 'win', type: 'win' };
+    if ((v.phase === 'ended' || v.winner != null) && !v.stats) return { key: 'win', type: 'win' };
+    if (v.phase === 'ended') return null;
     const you = v.you, me = v.players[you];
-    if (v.step === 'steal' && v.turn === you && v.legal && v.legal.steal && v.legal.steal.length) return { key: 'steal:' + v.legal.steal.join(','), type: 'steal' };
+    if (v.step === 'steal' && v.turn === you && !autoRobber() && v.legal && v.legal.steal && v.legal.steal.length) return { key: 'steal:' + v.legal.steal.join(','), type: 'steal' };
     const dn = (v.pending && v.pending.discard && v.pending.discard[you]) || me.discarding || 0;
     if (v.step === 'discard' && dn > 0) return { key: 'discard:' + dn + ':' + JSON.stringify(v.me.hand), type: 'discard', n: dn };
     const gn = (v.pending && v.pending.gold && v.pending.gold[you]) || me.pickingGold || 0;
@@ -679,7 +692,7 @@
     switch (w.type) {
       case 'discard': {
         const left = w.n - sumDraft();
-        return `<h2>Die 7 – Räuber!</h2><p class="lead">Du hast mehr als 7 Karten und musst <b>${w.n}</b> abwerfen.</p>` + mgrid('d', st.draft, hand) +
+        return `<h2>Die 7 – Räuber!</h2><p class="lead">Du hast mehr als ${setg().handLimit || 7} Karten und musst <b>${w.n}</b> abwerfen.</p>` + mgrid('d', st.draft, hand) +
           `<p class="cnt-line ${left === 0 ? 'ok' : ''}">${left > 0 ? `Noch <b>${left}</b> wählen` : left < 0 ? `<b>${-left}</b> zu viel` : 'Genau richtig'}</p>` +
           `<div class="mact"><button class="btn ghostb" data-m="refill">Automatisch</button><button class="btn gold${left === 0 ? '' : ' dis'}" data-m="discard" ${left === 0 ? '' : 'aria-disabled="true"'}>Abwerfen bestätigen</button></div>`;
       }
@@ -770,6 +783,7 @@
       case 'end': st.mode = null; await act('end_turn'); break;
       case 'sbp_done': await act('sbp_done'); break;
       case 'skip_rb': await act('skip_roadbuilding'); break;
+      case 'takeover': st.moveFrom = null; st.mode = st.mode === 'takeover' ? null : 'takeover'; renderHUD(v); renderTargets(v); break;
       case 'cancel': st.mode = null; st.moveFrom = null; renderHUD(v); renderTargets(v); break;
       case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); break;
       case 'move': st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; else toast('Klicke auf das Schiff, das du versetzen möchtest.', 'info'); } renderHUD(v); renderTargets(v); break;
@@ -810,25 +824,6 @@
     }
   });
 
-  // Lobby / Login
-  $('swatches').addEventListener('click', (e) => { const b = e.target.closest('.sw'); if (!b || b.disabled) return; st.color = b.dataset.c; localStorage.setItem('handelsinseln.color', st.color); pollLobby(); });
-  $('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = $('nameIn').value.trim(); if (!name) return;
-    if (!st.color) { toast('Bitte wähle eine Farbe.', 'warn'); return; }
-    localStorage.setItem('handelsinseln.name', name);
-    $('joinBtn').classList.add('dis');
-    const j = await post('/api/join', { name, color: st.color });
-    $('joinBtn').classList.remove('dis');
-    if (j.error) { toast(j.error, 'err'); pollLobby(); return; }
-    st.token = j.token; localStorage.setItem('handelsinseln.token', j.token);
-    showScreens(); connect();
-  });
-  $('lobby').addEventListener('click', async (e) => {
-    if (e.target.closest('#startBtn')) { const b = e.target.closest('#startBtn'); if (b.getAttribute('aria-disabled') === 'true') { toast(b.title || 'Zu wenige Spieler.', 'warn'); return; } await act('start'); }
-  });
-  $('leaveBtn').addEventListener('click', async () => { if (!st.mock) await post('/api/leave', { token: st.token }); logout(); });
-
   // ======================================================================================
   // Start
   // ======================================================================================
@@ -836,11 +831,15 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
+    const ctx = { get mockLogin() { return st.loginMock; }, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); },
+      onChange: () => { renderVoiceUI(); } };
+    Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Trade.init({ root: $('tradeDock'), view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
     const mock = q.get('mock');
     if (mock) {
       st.mock = mock;
+      if (mock === 'anmeldung') { st.loginMock = q.get('games') || 'games'; $('nameIn').value = $('nameIn').value || 'Anna'; showScreens(); return; }
       const url = '/tests/mock/' + encodeURIComponent(mock) + '.json';
       const show = (v) => {
         applyView(v);

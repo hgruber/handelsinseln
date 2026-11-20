@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const G = require('../shared/geom');
 const B = require('./board');
+const ST = require('./settings');
 
 const RES = B.RES;
 const COLORS = ['rot', 'blau', 'orange', 'weiss', 'gruen', 'violett'];
@@ -14,9 +15,9 @@ const COST = {
   settlement: { lehm: 1, holz: 1, wolle: 1, getreide: 1 },
   city: { getreide: 2, erz: 3 }, dev: { erz: 1, wolle: 1, getreide: 1 },
 };
-const LIMIT = { road: 15, ship: 15, settlement: 5, city: 4 };
-const WIN = 14, MIN_P = 2, MAX_P = 6;
-const MAX_ISLAND_BONUS = 2; // höchstens so viele "neue Inseln" bringen Sonderpunkte
+const MIN_P = 2, MAX_P = 6;
+const DEV_MIX = { ritter: 14, siegpunkt: 5, strassenbau: 2, erfindung: 2, monopol: 2 }; // Mischungsverhältnis
+const UNLIMITED = 999; // so zeigt die Sicht unbegrenzte Vorräte an
 
 class GameError extends Error {}
 const fail = (m) => { throw new GameError(m); };
@@ -38,6 +39,7 @@ function cleanCards(c, what) {
 class Game {
   constructor(opts = {}) {
     this.rnd = opts.rnd || Math.random;
+    this.meta = opts.meta || { id: 'lokal', name: 'Spiel' };
     this.S = null;
     this.reset();
   }
@@ -46,15 +48,26 @@ class Game {
 
   reset(keepPlayers) {
     const old = keepPlayers && this.S ? this.S.players : [];
+    const settings = keepPlayers && this.S ? this.S.settings : ST.defaults();
+    const host = keepPlayers && this.S ? this.S.host : 0;
     this.S = {
-      v: 0, phase: 'lobby', players: old.map((p) => ({ ...p, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0 })),
-      host: 0, log: [], chat: [], logId: 0, seq: 0,
+      v: 0, phase: 'lobby', players: old.map((p) => ({ ...p, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, autoTurns: 0, vanished: false })),
+      settings, closed: false, endedBy: null, aborted: false, stats: null, supply: null, deckUnlimited: false, fogGold: 1,
+      host, log: [], chat: [], logId: 0, seq: 0,
       hexes: {}, harbors: {}, verts: {}, edges: {}, robber: null, pirate: null,
       order: [], turn: 0, turnNo: 0, ts: {}, pend: { discard: {}, gold: {} }, trade: null,
       dice: null, diceSeq: 0, deck: [], setup: null, sbp: null, winner: null, longest: null, largest: null, tradeSeq: 0,
     };
     this.S.players.forEach((p, i) => { p.id = i; });
+    this.regen();
   }
+  // Neues Vorschau-Brett für die Lobby
+  regen() {
+    const S = this.S;
+    S.verts = {}; S.edges = {};
+    B.generate(S, Math.max(S.settings.plannedPlayers, S.players.length, 2), this.rnd, S.settings);
+  }
+  lim(kind) { const v = this.S.settings.limits[kind]; return v === null || v === undefined ? Infinity : v; }
 
   // ---------- Hilfen ----------
   get P() { return this.S.players; }
@@ -76,20 +89,40 @@ class Game {
     return n;
   }
   left(pid) {
+    const f = (x) => (x === Infinity ? UNLIMITED : x);
     return {
-      road: LIMIT.road - this.countE(pid, 'r'), ship: LIMIT.ship - this.countE(pid, 's'),
-      settlement: LIMIT.settlement - this.count(pid, 's') - this.count(pid, 'c'), city: LIMIT.city - this.count(pid, 'c'),
+      road: f(this.lim('road') - this.countE(pid, 'r')), ship: f(this.lim('ship') - this.countE(pid, 's')),
+      settlement: f(this.lim('settlement') - this.count(pid, 's') - this.count(pid, 'c')), city: f(this.lim('city') - this.count(pid, 'c')),
     };
   }
   canPay(pid, cost) { const h = this.pl(pid).hand; return Object.keys(cost).every((r) => h[r] >= cost[r]); }
   pay(pid, cost) { const h = this.pl(pid).hand; for (const r in cost) h[r] -= cost[r]; }
   give(pid, cost) { const h = this.pl(pid).hand; for (const r in cost) h[r] += cost[r]; }
   handSize(pid) { return sum(this.pl(pid).hand); }
+  // Vorrat der Bank (Infinity = unbegrenzt): Limit minus Karten in Spielerhand
+  stock(res) {
+    const l = this.S.settings.limits.bank[res];
+    if (l === null || l === undefined) return Infinity;
+    return Math.max(0, l - this.S.players.reduce((a, p) => a + p.hand[res], 0));
+  }
+  bankGive(pid, cost) { // gibt, was die Bank hergeben kann; Rückgabe: tatsächlich ausgegebene Karten
+    const out = {};
+    for (const r of RES) if (cost[r]) { const n = Math.min(cost[r], this.stock(r)); if (n > 0) { this.pl(pid).hand[r] += n; out[r] = n; } }
+    return out;
+  }
+  bump(pid, key, n = 1, sub) {
+    const st = this.S.stats && this.S.stats.players[pid];
+    if (!st) return;
+    if (sub) st[key][sub] += n; else st[key] += n;
+  }
   hexT(k) { return this.S.hexes[k] ? this.S.hexes[k].t : null; }
   isLandHex(k) { return B.isLand(this.hexT(k)); }
   isSeaHex(k) { return this.hexT(k) === 'meer'; }
 
   // ---------- Lobby ----------
+  newPlayer(name, color) {
+    return { id: this.S.players.length, name, color, token: crypto.randomBytes(16).toString('hex'), connected: false, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, left: false, autoTurns: 0, vanished: false };
+  }
   join(name, color, token) {
     const S = this.S;
     if (token) {
@@ -100,57 +133,154 @@ class Game {
     if (name.length < 1 || name.length > 16) fail('Bitte einen Namen mit 1–16 Zeichen angeben.');
     if (!COLORS.includes(color)) fail('Bitte eine Farbe wählen.');
     if (S.phase !== 'lobby') fail('Das Spiel läuft bereits. Nur angemeldete Spieler können zurückkehren.');
+    if (S.closed) fail('Der Spielleiter hat die Plätze als besetzt erklärt.');
     if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
     if (S.players.some((p) => p.color === color)) fail('Diese Farbe ist schon vergeben.');
     if (S.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name ist schon vergeben.');
-    const t = crypto.randomBytes(16).toString('hex');
-    const p = { id: S.players.length, name, color, token: t, connected: false, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0 };
+    const p = this.newPlayer(name, color);
     S.players.push(p);
     this.log(`${name} ist dem Spiel beigetreten.`, 'sys', p.id);
+    if (S.players.length > S.settings.plannedPlayers) { S.settings.plannedPlayers = S.players.length; this.regen(); this.log(`Das Spielfeld wurde für ${S.players.length} Spieler neu erzeugt.`, 'sys'); }
     S.v++;
-    return { token: t, pid: p.id };
+    return { token: p.token, pid: p.id };
   }
+  removeFromLobby(p) {
+    const S = this.S, hostTok = S.players[S.host] && S.players[S.host].token;
+    S.players.splice(p.id, 1);
+    S.players.forEach((q, i) => { q.id = i; });
+    const ni = S.players.findIndex((q) => q.token === hostTok);
+    S.host = ni >= 0 ? ni : Math.max(0, S.players.findIndex((q) => q.connected));
+    if (S.host < 0 || S.host >= S.players.length) S.host = 0;
+  }
+  // Menüpunkt „Spiel verlassen“. Gibt true zurück, wenn der Spieler endgültig weg ist.
   leave(token) {
     const S = this.S;
     const p = S.players.find((x) => x.token === token);
-    if (!p) return;
+    if (!p) return false;
     if (S.phase === 'lobby') {
-      S.players.splice(p.id, 1);
-      S.players.forEach((q, i) => { q.id = i; });
-      if (S.host >= S.players.length) S.host = 0;
-      else if (p.id === S.host) S.host = 0;
+      this.removeFromLobby(p);
       this.log(`${p.name} hat die Lobby verlassen.`, 'sys');
-      S.v++;
+    } else {
+      p.left = true; p.auto = true; p.connected = false; p.token = null; p.autoTurns = 0;
+      this.log(`${p.name} hat das Spiel verlassen${S.phase === 'ended' ? '' : ' – der Auto-Modus spielt für diesen Spieler weiter'}.`, 'sys', p.id);
+      if (S.trade && S.trade.from === p.id) S.trade = null;
+      this.settle();
     }
+    S.v++;
+    return true;
   }
-  setConnected(pid, c) { const p = this.pl(pid); if (p && p.connected !== c) { p.connected = c; this.S.v++; } }
+  humans() { return this.S.players.filter((p) => !p.left); }
+  setConnected(pid, c) {
+    const p = this.pl(pid);
+    if (p && p.connected !== c) { p.connected = c; if (c && !p.left && p.auto) { p.auto = false; this.log(`${p.name} ist zurück und spielt wieder selbst.`, 'sys', pid); } this.S.v++; }
+  }
+  // Abwesender Spieler: Auto-Modus ein/aus (Hub ruft das nach Ablauf der Wartezeit)
+  setAbsentAuto(pid, on) {
+    const p = this.pl(pid);
+    if (!p || p.left || p.auto === on) return false;
+    p.auto = on;
+    this.log(on ? `${p.name} ist abwesend – der Auto-Modus übernimmt vorübergehend.` : `${p.name} spielt wieder selbst.`, 'sys', pid);
+    this.S.v++;
+    if (on) this.settle();
+    return true;
+  }
+
+  hostOnly(pid, what) {
+    if (pid !== this.S.host) fail(`Nur der Spielleiter kann ${what}.`);
+    if (this.S.phase !== 'lobby') fail('Das geht nur vor Spielbeginn.');
+  }
+  setSettings(pid, patch) {
+    this.hostOnly(pid, 'die Einstellungen ändern');
+    const S = this.S;
+    let ns;
+    try { ns = ST.merge(S.settings, patch); } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
+    if (ns.plannedPlayers < S.players.length) ns.plannedPlayers = S.players.length;
+    const boardChanged = ns.variant !== S.settings.variant || ns.plannedPlayers !== S.settings.plannedPlayers;
+    S.settings = ns;
+    if (boardChanged) this.regen();
+    S.v++;
+  }
+  kick(pid, target) {
+    this.hostOnly(pid, 'Spieler entfernen');
+    const t = this.S.players[target];
+    if (!t) fail('Diesen Spieler gibt es nicht.');
+    if (target === pid) fail('Du kannst dich nicht selbst entfernen (nutze „Spiel verlassen“).');
+    const tok = t.token;
+    this.removeFromLobby(t);
+    this.log(`${t.name} wurde vom Spielleiter entfernt.`, 'sys');
+    this.S.v++;
+    return tok;
+  }
+
+  // Vorrat an Entwicklungskarten nach Einstellung
+  buildDeck(n) {
+    const S = this.S, d = S.settings.limits.dev;
+    S.deckUnlimited = false; S.deck = [];
+    const mk = (t, c) => { for (let i = 0; i < c; i++) S.deck.push(t); };
+    if (d === 'standard') {
+      if (n >= 5) { mk('ritter', 20); mk('siegpunkt', 5); mk('strassenbau', 3); mk('erfindung', 3); mk('monopol', 3); }
+      else { mk('ritter', 14); mk('siegpunkt', 5); mk('strassenbau', 2); mk('erfindung', 2); mk('monopol', 2); }
+    } else if (d === null) S.deckUnlimited = true;
+    else {
+      const tot = 25, keys = Object.keys(DEV_MIX);
+      const raw = keys.map((k) => ({ k, x: (d * DEV_MIX[k]) / tot }));
+      raw.forEach((r) => { r.c = Math.floor(r.x); });
+      let rest = d - raw.reduce((a, r) => a + r.c, 0);
+      raw.sort((a, b) => (b.x - b.c) - (a.x - a.c));
+      for (let i = 0; rest > 0; i = (i + 1) % raw.length, rest--) raw[i].c++;
+      raw.forEach((r) => mk(r.k, r.c));
+    }
+    S.deck = B.shuffle(S.deck, this.rnd);
+  }
+  drawDev() {
+    const S = this.S;
+    if (S.deckUnlimited) { const keys = Object.keys(DEV_MIX); let x = this.rnd() * 25; for (const k of keys) { x -= DEV_MIX[k]; if (x <= 0) return k; } return 'ritter'; }
+    return S.deck.pop();
+  }
+  devLeft() { return this.S.deckUnlimited ? UNLIMITED : this.S.deck.length; }
 
   start(pid) {
     const S = this.S;
     if (S.phase !== 'lobby') fail('Das Spiel läuft bereits.');
     if (pid !== S.host) fail('Nur der Spielleiter kann das Spiel starten.');
     if (S.players.length < MIN_P) fail(`Es braucht mindestens ${MIN_P} Spieler.`);
-    const n = S.players.length;
-    B.generate(S, n, this.rnd);
-    const bigGame = n >= 5;
-    const mk = (t, c) => { for (let i = 0; i < c; i++) S.deck.push(t); };
-    S.deck = [];
-    if (bigGame) { mk('ritter', 20); mk('siegpunkt', 5); mk('strassenbau', 3); mk('erfindung', 3); mk('monopol', 3); }
-    else { mk('ritter', 14); mk('siegpunkt', 5); mk('strassenbau', 2); mk('erfindung', 2); mk('monopol', 2); }
-    S.deck = B.shuffle(S.deck, this.rnd);
+    const n = S.players.length, set = S.settings;
+    // Vorrat für aufgedeckte Felder (Nebel)
+    S.supply = { terrain: { ...set.limits.fogTerrain }, chips: { ...set.limits.fogChips } };
+    S.fogGold = set.variant === 'nebel' ? 2.2 : 1;
+    this.buildDeck(n);
     S.order = B.shuffle([...Array(n).keys()], this.rnd);
     S.phase = 'setup';
     const seq = [...S.order, ...S.order.slice().reverse()];
     S.setup = { seq, i: 0, stage: 'settlement', last: null };
     S.turn = seq[0];
-    this.log(`Das Spiel beginnt! Reihenfolge: ${S.order.map((i) => this.name(i)).join(' → ')}. Erster zu 14 Punkten gewinnt.`, 'sys');
+    S.stats = { startedAt: Date.now(), endedAt: null, rolls: {}, history: [], players: S.players.map(() => ({ built: { road: 0, ship: 0, settlement: 0, city: 0, dev: 0 }, produced: { holz: 0, lehm: 0, wolle: 0, getreide: 0, erz: 0 }, tradesPlayer: 0, tradesBank: 0, stolenFrom: 0, stolenBy: 0, discarded: 0, robberMoves: 0, sevens: 0, discovered: 0, maxRoute: 0 })) };
+    this.log(`Das Spiel beginnt! Reihenfolge: ${S.order.map((i) => this.name(i)).join(' → ')}. Erster mit ${set.winPoints} Punkten gewinnt.`, 'sys');
     this.log('Aufbau: Jeder setzt zwei Siedlungen samt Straße oder Schiff (die zweite in umgekehrter Reihenfolge) und erhält dafür Startrohstoffe.', 'sys');
     S.v++;
+    this.settle();
+  }
+
+  endGame(pid) {
+    const S = this.S;
+    if (pid !== S.host) fail('Nur der Spielleiter kann das Spiel beenden.');
+    if (S.phase !== 'setup' && S.phase !== 'main') fail('Das Spiel läuft nicht.');
+    this.finish(null, 'host');
+    this.log('Der Spielleiter hat das Spiel beendet.', 'sys');
+  }
+  finish(winner, by) {
+    const S = this.S;
+    S.phase = 'ended'; S.winner = winner; S.endedBy = by; S.aborted = by === 'host'; S.trade = null;
+    if (S.stats) S.stats.endedAt = Date.now();
   }
 
   newGame(pid) {
     if (pid !== this.S.host) fail('Nur der Spielleiter kann ein neues Spiel beginnen.');
     if (this.S.phase !== 'ended') fail('Das Spiel ist noch nicht beendet.');
+    // Verlassene Spieler bleiben draußen
+    const hostTok = this.S.players[this.S.host].token;
+    this.S.players = this.S.players.filter((p) => !p.left);
+    this.S.host = Math.max(0, this.S.players.findIndex((p) => p.token === hostTok));
     this.reset(true);
     this.log('Neue Runde – wartet in der Lobby auf den Start.', 'sys');
     this.S.v++;
@@ -224,7 +354,7 @@ class Game {
     return { from, to };
   }
   ratesFor(pid) {
-    const r = {}; RES.forEach((x) => { r[x] = 4; });
+    const r = {}; RES.forEach((x) => { r[x] = this.S.settings.bankRate; });
     for (const e in this.S.harbors) {
       const h = this.S.harbors[e];
       if (!G.edgeVerts(e).some((v) => { const b = this.buildingAt(v); return b && b.p === pid; })) continue;
@@ -246,10 +376,14 @@ class Game {
       if (S.hexes[h]) continue;
       const hex = B.discover(S, h, this.rnd);
       if (hex.t === 'meer') { this.log(`${this.name(pid)} entdeckt offenes Meer.`, 'info', pid); continue; }
+      this.bump(pid, 'discovered');
       let text = `${this.name(pid)} entdeckt neues Land: ${TERR_DE[hex.t]}${hex.n ? ' (' + hex.n + ')' : ''}!`;
       if (reward && hex.t !== 'wueste') {
         if (hex.t === 'gold') { S.pend.gold[pid] = (S.pend.gold[pid] || 0) + 1; text += ' Als Belohnung darf ein beliebiger Rohstoff gewählt werden.'; }
-        else { const r = B.TERRAIN_RES[hex.t]; this.pl(pid).hand[r]++; text += ` Belohnung: 1× ${RES_DE[r]}.`; }
+        else {
+          const r = B.TERRAIN_RES[hex.t];
+          if (Object.keys(this.bankGive(pid, { [r]: 1 })).length) text += ` Belohnung: 1× ${RES_DE[r]}.`; else text += ` (Die Bank hat kein ${RES_DE[r]} mehr.)`;
+        }
       }
       this.log(text, 'build', pid);
     }
@@ -263,11 +397,11 @@ class Game {
     const pl = this.pl(pid);
     const known = [...isl].some((h) => pl.claimed[h]);
     if (!known) {
-      const bonus = !free && pl.islandBonus < MAX_ISLAND_BONUS;
+      const bonus = !free && pl.islandBonus < S.settings.islandBonusMax && S.settings.islandBonus > 0;
       isl.forEach((h) => { pl.claimed[h] = 1; });
       if (bonus) {
-        pl.svp += 2; pl.islandBonus++;
-        this.log(`${pl.name} gründet die erste Siedlung auf einer neuen Insel: +2 Sonderpunkte!`, 'award', pid);
+        pl.svp += S.settings.islandBonus; pl.islandBonus++;
+        this.log(`${pl.name} gründet die erste Siedlung auf einer neuen Insel: +${S.settings.islandBonus} Sonderpunkte!`, 'award', pid);
       }
     } else isl.forEach((h) => { pl.claimed[h] = 1; });
   }
@@ -280,6 +414,11 @@ class Game {
     if (t === 'chat') return this.chat(pid, a.text);
     if (t === 'start') return this.start(pid);
     if (t === 'new_game') return this.newGame(pid);
+    if (t === 'set_settings') return this.setSettings(pid, a.settings);
+    if (t === 'regen_board') { this.hostOnly(pid, 'das Spielfeld neu würfeln'); this.regen(); this.S.v++; return; }
+    if (t === 'close_seats') { this.hostOnly(pid, 'die Plätze schließen'); this.S.closed = !!a.closed; this.log(this.S.closed ? 'Die Plätze sind besetzt – niemand kann mehr beitreten.' : 'Die Plätze sind wieder offen.', 'sys'); this.S.v++; return; }
+    if (t === 'kick') { this.lastKicked = this.kick(pid, a.pid); return; }
+    if (t === 'end_game') return this.endGame(pid);
     if (S.phase === 'lobby') fail('Das Spiel hat noch nicht begonnen.');
     if (S.phase === 'ended') fail('Das Spiel ist beendet.');
     // Pflichten, die jeder gleichzeitig erledigt
@@ -288,10 +427,15 @@ class Game {
     else if (S.phase === 'setup') this.setupAct(pid, a);
     else this.mainAct(pid, a);
     S.v++;
+    this.afterAction();
+  }
+  afterAction() {
+    const S = this.S;
     if (S.trade && !this.canPay(S.trade.from, S.trade.give)) { // Anbieter hat die Karten inzwischen ausgegeben
       S.trade = null; this.log('Das Angebot wurde automatisch zurückgezogen (Karten nicht mehr vorhanden).', 'trade');
     }
     if (S.phase === 'main') this.checkWin();
+    this.settle();
   }
 
   chat(pid, text) {
@@ -313,14 +457,18 @@ class Game {
     if (!this.canPay(pid, c)) fail('Du besitzt diese Karten nicht.');
     this.pay(pid, c);
     delete S.pend.discard[pid];
+    this.bump(pid, 'discarded', need);
     this.log(`${this.name(pid)} wirft ${need} Karten ab.`, 'steal', pid);
   }
   goldPick(pid, cards) {
     const S = this.S;
-    const need = S.pend.gold[pid];
+    let need = S.pend.gold[pid];
     if (!need) fail('Du hast gerade keine Gold-Wahl.');
+    const total = RES.reduce((a, r) => a + Math.min(99, this.stock(r)), 0);
+    if (total < need) need = total; // Bank hat nicht mehr genug
     const c = cleanCards(cards);
-    if (sum(c) !== need) fail(`Bitte genau ${need} Rohstoff${need > 1 ? 'e' : ''} wählen.`);
+    if (sum(c) !== need) fail(need ? `Bitte genau ${need} Rohstoff${need > 1 ? 'e' : ''} wählen.` : 'Die Bank hat keine Rohstoffe mehr.');
+    for (const r of RES) if (c[r] && c[r] > this.stock(r)) fail(`Die Bank hat nur noch ${this.stock(r)}× ${RES_DE[r]}.`);
     this.give(pid, c);
     delete S.pend.gold[pid];
     this.log(`${this.name(pid)} wählt für Gold: ${fmt(c)}.`, 'info', pid);
@@ -346,7 +494,7 @@ class Game {
           if (hx.t === 'gold') gold++;
           else if (B.TERRAIN_RES[hx.t]) { got[B.TERRAIN_RES[hx.t]]++; parts.push(`${RES_DE[B.TERRAIN_RES[hx.t]]} (${TERR_DE[hx.t]})`); }
         }
-        this.give(pid, got);
+        this.bankGive(pid, got);
         if (gold) S.pend.gold[pid] = gold;
         if (parts.length || gold) this.log(`Startrohstoffe für ${this.name(pid)}: ${parts.join(', ')}${gold ? (parts.length ? ' und ' : '') + gold + '× freie Wahl (Gold)' : ''}.`, 'info', pid);
       }
@@ -380,6 +528,12 @@ class Game {
     const S = this.S;
     S.turn = pid; S.turnNo++; S.ts = { rolled: false, movedShip: false, devPlayed: false, sub: null, rb: 0 };
     S.trade = null; S.sbp = null; S.dice = null;
+    if (S.stats && pid === S.order[0]) S.stats.history.push({ round: S.stats.history.length + 1, vp: S.players.map((q) => this.vp(q.id)) });
+    const pl = this.pl(pid);
+    if (pl.left && !pl.vanished && S.settings.leaver === 'verschwinden') {
+      pl.autoTurns = (pl.autoTurns || 0) + 1;
+      if (pl.autoTurns > S.settings.vanishRounds) this.vanish(pid);
+    }
     this.log(`${this.name(pid)} ist an der Reihe.`, 'sys', pid);
   }
 
@@ -410,7 +564,7 @@ class Game {
       return this.build(pid, t === 'build_road' ? 'road' : 'ship', a.e, true);
     }
     switch (t) {
-      case 'roll': return this.roll(pid);
+      case 'roll': if (S.settings.dice === 'auto') fail('In diesem Spiel würfelt der Server automatisch.'); return this.roll(pid);
       case 'build_road': this.needRolled(); return this.build(pid, 'road', a.e);
       case 'build_ship': this.needRolled(); return this.build(pid, 'ship', a.e);
       case 'build_settlement': this.needRolled(); return this.build(pid, 'settlement', a.v);
@@ -422,6 +576,7 @@ class Game {
       case 'play_yop': return this.playDev(pid, 'erfindung', a);
       case 'play_monopoly': return this.playDev(pid, 'monopol', a);
       case 'bank_trade': this.needRolled(); return this.bankTrade(pid, a);
+      case 'take_over': this.needRolled(); return this.takeOver(pid, a);
       case 'trade_offer': this.needRolled(); return this.tradeOffer(pid, a);
       case 'trade_confirm': return this.tradeConfirm(pid, a);
       case 'trade_cancel': return this.tradeCancel(pid);
@@ -437,20 +592,24 @@ class Game {
     const a = 1 + Math.floor(this.rnd() * 6), b = 1 + Math.floor(this.rnd() * 6), n = a + b;
     S.dice = [a, b]; S.diceSeq++; S.ts.rolled = true; S.trade = null;
     this.log(`${this.name(pid)} würfelt ${n} (${a}+${b}).`, 'roll', pid);
+    if (S.stats) S.stats.rolls[n] = (S.stats.rolls[n] || 0) + 1;
     if (n === 7) {
+      this.bump(pid, 'sevens');
       let any = false;
+      const lim = S.settings.handLimit;
       for (const p of S.players) {
         const sz = this.handSize(p.id);
-        if (sz > 7) { S.pend.discard[p.id] = Math.floor(sz / 2); any = true; }
+        if (lim !== null && sz > lim) { S.pend.discard[p.id] = Math.floor(sz / 2); any = true; }
       }
-      this.log(any ? 'Eine 7! Wer mehr als 7 Karten hat, wirft die Hälfte ab. Dann versetzt der Würfler Räuber oder Pirat.' : 'Eine 7! Niemand muss abwerfen. Der Würfler versetzt Räuber oder Pirat.', 'roll');
+      const who = S.settings.robber === 'auto' ? 'wird der Räuber automatisch versetzt' : 'versetzt der Würfler Räuber oder Pirat';
+      this.log(any ? `Eine 7! Wer mehr als ${lim} Karten hat, wirft die Hälfte ab. Dann ${who}.` : `Eine 7! Niemand muss abwerfen. ${who[0].toUpperCase() + who.slice(1)}.`, 'roll');
       S.ts.sub = 'robber';
       return;
     }
     this.produce(n);
   }
   produce(n) {
-    const S = this.S, got = {}, texts = {};
+    const S = this.S, got = {}, entries = {};
     let blocked = null;
     for (const k in S.hexes) {
       const h = S.hexes[k];
@@ -463,16 +622,33 @@ class Game {
         if (!b) continue;
         if (S.robber === k) { blocked = k; continue; }
         const amt = b.k === 'c' ? 2 : 1;
-        if (isGold) S.pend.gold[b.p] = (S.pend.gold[b.p] || 0) + amt;
+        if (isGold) { S.pend.gold[b.p] = (S.pend.gold[b.p] || 0) + amt; (entries[b.p] = entries[b.p] || []).push({ res: null, amt, desc: `${amt}× freie Wahl (${TERR_DE.gold} ${n})` }); }
         else {
           (got[b.p] = got[b.p] || emptyHand())[res] += amt;
+          (entries[b.p] = entries[b.p] || []).push({ res, amt, label: `${TERR_DE[h.t]} ${n}${b.k === 'c' ? ', Stadt' : ''}` });
         }
-        (texts[b.p] = texts[b.p] || []).push(isGold ? `${amt}× freie Wahl (${TERR_DE.gold} ${n})` : `${amt}× ${RES_DE[res]} (${TERR_DE[h.t]} ${n}${b.k === 'c' ? ', Stadt' : ''})`);
       }
     }
-    const who = Object.keys(texts);
-    if (!who.length && !blocked) this.log(`Niemand besitzt ein Feld mit der ${n}.`, 'info');
-    for (const p of who) { if (got[p]) this.give(+p, got[p]); this.log(`${this.name(+p)} erhält ${texts[p].join(', ')}.`, 'roll', +p); }
+    // Bank-Vorrat: reicht er nicht, bekommt ein einzelner Empfänger den Rest, bei mehreren niemand
+    for (const r of RES) {
+      const holders = Object.keys(got).filter((p) => got[p][r] > 0);
+      const owed = holders.reduce((a, p) => a + got[p][r], 0), st = this.stock(r);
+      if (owed <= st) continue;
+      if (holders.length === 1) { got[holders[0]][r] = st; this.log(`Die Bank hat nur noch ${st}× ${RES_DE[r]}.`, 'info'); }
+      else { holders.forEach((p) => { got[p][r] = 0; }); this.log(`Die Bank hat nicht genug ${RES_DE[r]} für alle (${st} von ${owed}): niemand erhält welches.`, 'info'); }
+    }
+    for (const p of Object.keys(entries)) {
+      const left = got[p] ? { ...got[p] } : {};
+      const parts = [];
+      for (const e of entries[p]) {
+        if (e.res === null) { parts.push(e.desc); continue; }
+        const a = Math.min(e.amt, left[e.res] || 0); left[e.res] -= a;
+        if (a > 0) parts.push(`${a}× ${RES_DE[e.res]} (${e.label})`);
+      }
+      if (got[p]) { this.give(+p, got[p]); RES.forEach((r) => this.bump(+p, 'produced', got[p][r], r)); }
+      if (parts.length) this.log(`${this.name(+p)} erhält ${parts.join(', ')}.`, 'roll', +p);
+    }
+    if (!Object.keys(entries).length && !blocked) this.log(`Niemand besitzt ein Feld mit der ${n}.`, 'info');
     if (blocked) this.log(`Der Räuber blockiert ${TERR_DE[S.hexes[blocked].t]} ${n}: dort gibt es nichts.`, 'info');
   }
 
@@ -491,6 +667,7 @@ class Game {
       }
       if (!free) this.pay(pid, cost);
       S.edges[where] = { p: pid, k: kind, t: S.turnNo };
+      this.bump(pid, 'built', 1, kind === 'r' ? 'road' : 'ship');
       this.log(`${this.name(pid)} baut ${kind === 'r' ? 'eine Straße' : 'ein Schiff'}${free ? ' (Straßenbau)' : ''}.`, 'build', pid);
       this.discoverAround(pid, where, true);
       this.updateAwards();
@@ -502,6 +679,7 @@ class Game {
       if (!this.settlementSpots(pid).includes(where)) fail('Siedlungen brauchen Anschluss an deinen Weg und zwei Wege Abstand zu jedem Gebäude.');
       this.pay(pid, cost);
       this.placeSettlement(pid, where, false);
+      this.bump(pid, 'built', 1, 'settlement');
       this.log(`${this.name(pid)} baut eine Siedlung.`, 'build', pid);
       this.updateAwards();
       return;
@@ -511,6 +689,7 @@ class Game {
       if (!this.citySpots(pid).includes(where)) fail('Städte werden nur aus eigenen Siedlungen ausgebaut.');
       this.pay(pid, cost);
       S.verts[where].k = 'c';
+      this.bump(pid, 'built', 1, 'city');
       this.log(`${this.name(pid)} baut eine Stadt.`, 'build', pid);
     }
   }
@@ -533,10 +712,11 @@ class Game {
 
   buyDev(pid) {
     const S = this.S;
-    if (!S.deck.length) fail('Der Entwicklungskartenstapel ist leer.');
+    if (!this.devLeft()) fail('Der Entwicklungskartenstapel ist leer.');
     if (!this.canPay(pid, COST.dev)) fail(`Dir fehlen Rohstoffe (${fmt(COST.dev)}).`);
     this.pay(pid, COST.dev);
-    const type = S.deck.pop();
+    const type = this.drawDev();
+    this.bump(pid, 'built', 1, 'dev');
     this.pl(pid).dev.push({ id: ++S.seq, type, bought: S.turnNo });
     this.log(`${this.name(pid)} kauft eine Entwicklungskarte.`, 'build', pid);
   }
@@ -548,6 +728,8 @@ class Game {
     if (!card) fail(p.dev.some((d) => d.type === type) ? 'Diese Karte hast du in diesem Zug gekauft – sie ist erst im nächsten Zug spielbar.' : `Du besitzt keine Karte „${DEV_DE[type]}“.`);
     if (type === 'erfindung') {
       if (!RES.includes(a.a) || !RES.includes(a.b)) fail('Wähle zwei Rohstoffe.');
+      const need2 = {}; need2[a.a] = (need2[a.a] || 0) + 1; need2[a.b] = (need2[a.b] || 0) + 1;
+      for (const r of Object.keys(need2)) if (need2[r] > this.stock(r)) fail(`Die Bank hat nicht genug ${RES_DE[r]}.`);
     }
     if (type === 'monopol' && !RES.includes(a.res)) fail('Wähle einen Rohstoff.');
     p.dev.splice(p.dev.indexOf(card), 1);
@@ -578,6 +760,7 @@ class Game {
     if (!S.hexes[hex] || !this.isLandHex(hex)) fail('Der Räuber kann nur auf ein Landfeld gestellt werden.');
     if (hex === S.robber) fail('Der Räuber muss auf ein anderes Feld ziehen.');
     S.robber = hex;
+    this.bump(pid, 'robberMoves');
     this.log(`${this.name(pid)} stellt den Räuber auf ${TERR_DE[S.hexes[hex].t]}${S.hexes[hex].n ? ' ' + S.hexes[hex].n : ''}.`, 'steal', pid);
     const victims = [...new Set(G.hexCorners(hex).map((v) => S.verts[v]).filter((b) => b && b.p !== pid && this.handSize(b.p) > 0).map((b) => b.p))];
     this.afterMove(pid, victims);
@@ -606,6 +789,7 @@ class Game {
     if (pool.length) {
       const r = pool[Math.floor(this.rnd() * pool.length)];
       h[r]--; this.pl(pid).hand[r]++;
+      this.bump(pid, 'stolenBy'); this.bump(target, 'stolenFrom');
       this.log(`${this.name(pid)} stiehlt ${this.name(target)} eine Karte.`, 'steal', pid);
       this.pl(pid).lastStolen = null;
     }
@@ -620,18 +804,25 @@ class Game {
     if (!Number.isInteger(times) || times < 1 || times > 20) fail('Ungültige Anzahl.');
     const rate = this.ratesFor(pid)[a.give];
     if (this.pl(pid).hand[a.give] < rate * times) fail(`Für diesen Tausch brauchst du ${rate * times}× ${RES_DE[a.give]} (Kurs ${rate}:1).`);
+    if (this.stock(a.get) < times) fail(`Die Bank hat nur noch ${this.stock(a.get)}× ${RES_DE[a.get]}.`);
+    this.bump(pid, 'tradesBank');
     this.pl(pid).hand[a.give] -= rate * times; this.pl(pid).hand[a.get] += times;
     this.log(`${this.name(pid)} tauscht mit der Bank ${rate * times}× ${RES_DE[a.give]} gegen ${times}× ${RES_DE[a.get]} (${rate}:1).`, 'trade', pid);
   }
   tradeOffer(pid, a) {
     const S = this.S;
     if (S.sbp) fail('In der Sonderbauphase ist kein Handel mit Spielern erlaubt.');
+    if (!S.settings.playerTrade) fail('In diesem Spiel ist nur der Handel mit der Bank erlaubt.');
     const give = cleanCards(a.give), want = cleanCards(a.want);
     if (!sum(give) || !sum(want)) fail('Ein Angebot braucht Karten auf beiden Seiten.');
     if (RES.some((r) => give[r] && want[r])) fail('Gib nicht dieselbe Ressource, die du verlangst.');
     if (!this.canPay(pid, give)) fail('Du besitzt diese Karten nicht.');
     S.trade = { id: ++S.tradeSeq, from: pid, give, want, responses: {} };
     this.log(`${this.name(pid)} bietet ${fmt(give)} gegen ${fmt(want)}.`, 'trade', pid);
+    // Auto-Spieler nehmen jedes 1:1-Angebot an, wenn sie die verlangte Karte besitzen
+    if (sum(give) === 1 && sum(want) === 1) {
+      for (const q of S.players) if (q.id !== pid && q.auto && this.canPay(q.id, want)) { S.trade.responses[q.id] = { s: 'accept' }; this.log(`${q.name} (Auto) nimmt das 1:1-Angebot an.`, 'trade', q.id); }
+    }
   }
   tradeRespond(pid, a) {
     const S = this.S, tr = S.trade;
@@ -665,6 +856,7 @@ class Game {
     if (!this.canPay(a.with, want)) fail(`${this.name(a.with)} besitzt die Karten nicht mehr.`);
     this.pay(pid, give); this.give(a.with, give);
     this.pay(a.with, want); this.give(pid, want);
+    this.bump(pid, 'tradesPlayer'); this.bump(a.with, 'tradesPlayer');
     this.log(`Handel: ${this.name(pid)} gibt ${fmt(give)} an ${this.name(a.with)} und erhält ${fmt(want)}.`, 'trade', pid);
     S.trade = null;
   }
@@ -690,9 +882,10 @@ class Game {
   }
   // Wer in der Sonderbauphase überhaupt etwas tun könnte (sonst wird automatisch übersprungen)
   canDoSomething(pid) {
+    if (this.pl(pid).auto) return false;
     const h = this.pl(pid).hand, rates = this.ratesFor(pid), L = this.left(pid);
     const spots = { road: this.pathSpots(pid, 'r').length > 0 && L.road > 0, ship: this.pathSpots(pid, 's').length > 0 && L.ship > 0,
-      settlement: this.settlementSpots(pid).length > 0 && L.settlement > 0, city: this.citySpots(pid).length > 0 && L.city > 0, dev: this.S.deck.length > 0 };
+      settlement: this.settlementSpots(pid).length > 0 && L.settlement > 0, city: this.citySpots(pid).length > 0 && L.city > 0, dev: this.devLeft() > 0 };
     for (const k of Object.keys(COST)) {
       if (!spots[k]) continue;
       let deficit = 0, spare = 0;
@@ -712,6 +905,155 @@ class Game {
     }
     S.sbp = null;
     this.startTurn(sb.after);
+  }
+
+  // ---------- Auto-Modus, automatische Abläufe ----------
+  // Führt alles aus, was ohne Menschen erledigt wird: Auto-Würfeln/-Räuber laut Einstellung sowie alle Züge von Auto-Spielern.
+  settle() {
+    const S = this.S;
+    for (let guard = 0; guard < 400; guard++) {
+      if (S.phase === 'ended' || S.phase === 'lobby') return;
+      let acted = false;
+      // offene Pflichten von Auto-Spielern
+      for (const k of Object.keys(S.pend.discard)) {
+        const q = this.pl(+k);
+        if (q.auto) { this.discard(q.id, this.randomCards(q.id, S.pend.discard[k])); acted = true; }
+      }
+      for (const k of Object.keys(S.pend.gold)) {
+        const q = this.pl(+k);
+        if (q.auto) { this.autoGold(q.id); acted = true; }
+      }
+      if (S.phase === 'setup') {
+        this.setupAdvanceIfReady();
+        if (S.phase === 'setup' && this.noPending() && this.pl(S.turn).auto) { this.autoSetup(S.turn); acted = true; }
+        if (acted) continue;
+        return;
+      }
+      if (acted) { S.v++; continue; }
+      if (!this.noPending()) return;
+      const pid = S.sbp ? S.sbp.pid : S.turn, pl = this.pl(pid), ts = S.ts;
+      if (S.sbp) { if (pl.auto) { this.sbpNext(); S.v++; continue; } return; }
+      if (!ts.rolled && !ts.sub && (S.settings.dice === 'auto' || pl.auto)) { this.roll(pid); S.v++; continue; }
+      if (ts.sub === 'robber' && (S.settings.robber === 'auto' || pl.auto)) { this.autoRobber(pid, pl.auto); S.v++; continue; }
+      if (ts.sub === 'steal' && (S.settings.robber === 'auto' || pl.auto)) { this.steal(pid, ts.victims[Math.floor(this.rnd() * ts.victims.length)]); S.v++; continue; }
+      if (pl.auto && ts.rolled && !ts.sub) { this.endTurn(pid); S.v++; if (S.phase === 'main') this.checkWin(); continue; }
+      return;
+    }
+  }
+  randomCards(pid, n) {
+    const h = this.pl(pid).hand, pool = [];
+    RES.forEach((r) => { for (let i = 0; i < h[r]; i++) pool.push(r); });
+    const out = {};
+    for (let i = 0; i < n && pool.length; i++) { const r = pool.splice(Math.floor(this.rnd() * pool.length), 1)[0]; out[r] = (out[r] || 0) + 1; }
+    return out;
+  }
+  autoGold(pid) {
+    const need = this.S.pend.gold[pid], c = {};
+    let n = 0;
+    for (let guard = 0; n < need && guard < 200; guard++) {
+      const r = RES[Math.floor(this.rnd() * 5)];
+      if ((c[r] || 0) < this.stock(r)) { c[r] = (c[r] || 0) + 1; n++; }
+      else if (RES.every((x) => (c[x] || 0) >= this.stock(x))) break;
+    }
+    if (n < need) { delete this.S.pend.gold[pid]; return; } // Bank leer
+    this.goldPick(pid, c);
+  }
+  // Räuber-Ziel: Auto-Spieler zufällig, sonst sinnvoll (Gegner treffen, eigene Felder schonen)
+  autoRobber(pid, randomly) {
+    const S = this.S;
+    const cands = Object.keys(S.hexes).filter((k) => this.isLandHex(k) && k !== S.robber);
+    let best = null, bestScore = -1e9;
+    for (const k of cands) {
+      let score = this.rnd();
+      if (!randomly) {
+        const pips = 6 - Math.abs(7 - (S.hexes[k].n || 7)) || 0;
+        for (const v of G.hexCorners(k)) {
+          const b = S.verts[v];
+          if (!b) continue;
+          score += (b.p === pid ? -3 : 1 + (this.handSize(b.p) > 0 ? 0.5 : 0)) * (b.k === 'c' ? 2 : 1) * (0.5 + pips / 3);
+        }
+      }
+      if (score > bestScore) { bestScore = score; best = k; }
+    }
+    this.moveRobber(pid, best);
+  }
+  autoSetup(pid) {
+    const S = this.S, su = S.setup;
+    if (su.stage === 'settlement') {
+      const spots = this.settlementSpots(pid);
+      this.setupAct(pid, { type: 'place_settlement', v: spots[Math.floor(this.rnd() * spots.length)] });
+    } else {
+      const opts = [...this.setupPathSpots(pid, 'r').map((e) => ['place_road', e]), ...this.setupPathSpots(pid, 's').map((e) => ['place_ship', e])];
+      const [type, e] = opts[Math.floor(this.rnd() * opts.length)];
+      this.setupAct(pid, { type, e });
+    }
+  }
+  // Verlassene Spieler: komplette Infrastruktur verschwindet
+  vanish(pid) {
+    const S = this.S, p = this.pl(pid);
+    for (const e of Object.keys(S.edges)) if (S.edges[e].p === pid) delete S.edges[e];
+    for (const v of Object.keys(S.verts)) if (S.verts[v].p === pid) delete S.verts[v];
+    p.hand = emptyHand(); p.dev = []; p.vanished = true; p.svp = 0; p.knights = 0;
+    this.log(`Die Siedlungen, Straßen und Schiffe von ${p.name} sind verschwunden.`, 'award', pid);
+    this.updateAwards();
+  }
+  // Übernehmbare Infrastruktur verlassener Spieler: muss an eigene Teile angrenzen
+  takeoverSpots(pid) {
+    const S = this.S, out = { edges: [], verts: [] };
+    if (S.settings.leaver !== 'uebernahme') return out;
+    const gone = new Set(S.players.filter((q) => q.left && !q.vanished).map((q) => q.id));
+    if (!gone.size) return out;
+    const anchors = new Set();
+    for (const v in S.verts) if (S.verts[v].p === pid) anchors.add(v);
+    for (const e in S.edges) if (S.edges[e].p === pid) G.edgeVerts(e).forEach((v) => anchors.add(v));
+    const L = this.left(pid);
+    for (const e in S.edges) {
+      const x = S.edges[e];
+      if (!gone.has(x.p) || L[x.k === 'r' ? 'road' : 'ship'] <= 0) continue;
+      if (G.edgeVerts(e).some((v) => anchors.has(v))) out.edges.push(e);
+    }
+    for (const v in S.verts) {
+      const b = S.verts[v];
+      if (!gone.has(b.p) || L[b.k === 'c' ? 'city' : 'settlement'] <= 0) continue;
+      if (anchors.has(v)) out.verts.push(v);
+    }
+    return out;
+  }
+  takeOver(pid, a) {
+    const S = this.S;
+    if (S.ts.movedShip) fail('Du hast in diesem Zug schon ein Schiff versetzt oder etwas übernommen.');
+    const sp = this.takeoverSpots(pid);
+    if (a.kind === 'edge') {
+      if (!sp.edges.includes(a.key)) fail('Diesen Weg kannst du nicht übernehmen (er muss an deine Infrastruktur grenzen und einem Verlassenen gehören).');
+      const x = S.edges[a.key], from = this.name(x.p);
+      x.p = pid; x.t = S.turnNo;
+      this.log(`${this.name(pid)} übernimmt ${x.k === 'r' ? 'eine Straße' : 'ein Schiff'} von ${from}.`, 'build', pid);
+    } else if (a.kind === 'vert') {
+      if (!sp.verts.includes(a.key)) fail('Dieses Gebäude kannst du nicht übernehmen (es muss an deine Infrastruktur grenzen und einem Verlassenen gehören).');
+      const b = S.verts[a.key], from = this.name(b.p);
+      b.p = pid;
+      const pl = this.pl(pid);
+      this.islandAt(a.key).forEach((h) => { pl.claimed[h] = 1; });
+      this.log(`${this.name(pid)} übernimmt ${b.k === 'c' ? 'eine Stadt' : 'eine Siedlung'} von ${from}.`, 'build', pid);
+    } else fail('Unbekannte Übernahme.');
+    S.ts.movedShip = true;
+    this.updateAwards();
+  }
+  statsView() {
+    const S = this.S, st = S.stats;
+    if (!st || S.phase !== 'ended') return null;
+    return {
+      durationSec: Math.round(((st.endedAt || Date.now()) - st.startedAt) / 1000), turns: S.turnNo, aborted: S.aborted,
+      rolls: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [String(i + 2), st.rolls[i + 2] || 0])),
+      history: st.history,
+      players: S.players.map((p) => {
+        const x = st.players[p.id];
+        return { id: p.id, name: p.name, color: p.color, vp: this.vp(p.id) + this.hiddenVp(p.id), svp: p.svp, built: x.built,
+          produced: { ...x.produced, total: RES.reduce((a, r) => a + x.produced[r], 0) }, tradesPlayer: x.tradesPlayer, tradesBank: x.tradesBank,
+          stolenFrom: x.stolenFrom, stolenBy: x.stolenBy, discarded: x.discarded, knights: p.knights, maxRoute: x.maxRoute,
+          discovered: x.discovered, robberMoves: x.robberMoves, sevens: x.sevens };
+      }),
+    };
   }
 
   // ---------- Auszeichnungen / Siegpunkte ----------
@@ -753,11 +1095,13 @@ class Game {
     const S = this.S;
     const lens = S.players.map((p) => this.routeLen(p.id));
     this.lens = lens;
+    if (S.stats) lens.forEach((l, i) => { if (l > S.stats.players[i].maxRoute) S.stats.players[i].maxRoute = l; });
     const max = Math.max(...lens);
     const cands = lens.map((l, i) => (l === max ? i : -1)).filter((i) => i >= 0);
     let nl = S.longest;
-    if (max < 5) nl = null;
-    else if (nl === null || !cands.includes(nl)) nl = cands.length === 1 ? cands[0] : (nl !== null && lens[nl] >= 5 && lens[nl] === max ? nl : null);
+    const LM = S.settings.longestMin;
+    if (max < LM) nl = null;
+    else if (nl === null || !cands.includes(nl)) nl = cands.length === 1 ? cands[0] : (nl !== null && lens[nl] >= LM && lens[nl] === max ? nl : null);
     if (nl !== S.longest) {
       if (nl !== null) this.log(`${this.name(nl)} hat jetzt den Längsten Handelsweg (${lens[nl]})! +2 Punkte.`, 'award', nl);
       else if (S.longest !== null) this.log('Der Längste Handelsweg ist unterbrochen – niemand hat ihn.', 'award');
@@ -765,7 +1109,7 @@ class Game {
     }
     const k = S.players.map((p) => p.knights), kmax = Math.max(...k);
     let na = S.largest;
-    if (kmax >= 3) {
+    if (kmax >= S.settings.armyMin) {
       const kc = k.map((x, i) => (x === kmax ? i : -1)).filter((i) => i >= 0);
       if (na === null || !kc.includes(na)) na = kc.length === 1 ? kc[0] : na;
     }
@@ -781,15 +1125,15 @@ class Game {
     this.updateAwards();
     const pid = S.sbp ? S.sbp.pid : S.turn;
     if (pid === null || pid === undefined) return;
-    if (this.vp(pid) + this.hiddenVp(pid) >= WIN) {
-      S.phase = 'ended'; S.winner = pid; S.trade = null;
+    if (this.vp(pid) + this.hiddenVp(pid) >= S.settings.winPoints) {
+      this.finish(pid, 'win');
       this.log(`🏆 ${this.name(pid)} gewinnt mit ${this.vp(pid) + this.hiddenVp(pid)} Siegpunkten!`, 'award', pid);
     }
   }
 
   // ---------- Sicht für einen Spieler ----------
   legal(pid) {
-    const S = this.S, L = { settlement: [], city: [], road: [], ship: [], shipFrom: [], shipTo: {}, robber: [], pirate: [], steal: [] };
+    const S = this.S, L = { settlement: [], city: [], road: [], ship: [], shipFrom: [], shipTo: {}, robber: [], pirate: [], steal: [], takeover: { edges: [], verts: [] } };
     if (S.phase === 'setup') {
       if (pid === S.turn && this.noPending()) {
         if (S.setup.stage === 'settlement') L.settlement = this.settlementSpots(pid);
@@ -813,7 +1157,7 @@ class Game {
     if (left.ship > 0) L.ship = this.pathSpots(pid, 's');
     if (left.settlement > 0) L.settlement = this.settlementSpots(pid);
     if (left.city > 0) L.city = this.citySpots(pid);
-    if (!S.sbp) { const m = this.shipMoves(pid); L.shipFrom = m.from; L.shipTo = m.to; }
+    if (!S.sbp) { const m = this.shipMoves(pid); L.shipFrom = m.from; L.shipTo = m.to; if (!ts.movedShip) L.takeover = this.takeoverSpots(pid); }
     return L;
   }
   stepOf() {
@@ -854,13 +1198,14 @@ class Game {
     const lens = S.phase === 'main' || S.phase === 'ended' ? (this.updateAwardsView()) : [];
     const turn = S.sbp ? S.sbp.pid : S.turn;
     const v = {
-      v: S.v, phase: S.phase, you: pid, host: S.host, minPlayers: MIN_P, maxPlayers: MAX_P, winPoints: WIN,
+      v: S.v, phase: S.phase, you: pid, host: S.host, minPlayers: MIN_P, maxPlayers: MAX_P, winPoints: S.settings.winPoints,
+      gameId: this.meta.id, gameName: this.meta.name, settings: S.settings, closed: S.closed, endedBy: S.endedBy, stats: this.statsView(),
       players: S.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, connected: p.connected,
+        id: p.id, name: p.name, color: p.color, connected: p.connected, auto: !!p.auto, gone: !!p.left,
         vp: S.phase === 'lobby' ? 0 : this.vp(p.id) + (S.phase === 'ended' ? this.hiddenVp(p.id) : 0), svp: p.svp,
         resCount: this.handSize(p.id), devCount: p.dev.length, knightsPlayed: p.knights, longestRoute: lens[p.id] || 0,
         hasLongest: S.longest === p.id, hasLargest: S.largest === p.id,
-        left: S.phase === 'lobby' ? { road: 15, ship: 15, settlement: 5, city: 4 } : this.left(p.id),
+        left: S.phase === 'lobby' ? { road: this.lim('road') === Infinity ? UNLIMITED : this.lim('road'), ship: this.lim('ship') === Infinity ? UNLIMITED : this.lim('ship'), settlement: this.lim('settlement') === Infinity ? UNLIMITED : this.lim('settlement'), city: this.lim('city') === Infinity ? UNLIMITED : this.lim('city') } : this.left(p.id),
         ...(S.pend.discard[p.id] ? { discarding: S.pend.discard[p.id] } : {}), ...(S.pend.gold[p.id] ? { pickingGold: S.pend.gold[p.id] } : {}),
       })),
       order: S.order, turn, step, dice: S.dice, diceSeq: S.diceSeq,
@@ -879,11 +1224,11 @@ class Game {
       prompt: this.prompt(pid, step),
       pending: S.pend,
       log: S.log, chat: S.chat, winner: S.winner,
-      bank: { dev: S.deck.length }, longestHolder: S.longest, largestHolder: S.largest, sbp: !!S.sbp,
+      bank: { dev: this.devLeft(), stock: Object.fromEntries(RES.map((r) => [r, this.stock(r) === Infinity ? UNLIMITED : this.stock(r)])) }, longestHolder: S.longest, largestHolder: S.largest, sbp: !!S.sbp,
     };
     if (S.phase === 'main' || S.phase === 'ended') {
       const L = this.left(pid);
-      v.afford = { road: L.road > 0 && this.canPay(pid, COST.road), ship: L.ship > 0 && this.canPay(pid, COST.ship), settlement: L.settlement > 0 && this.canPay(pid, COST.settlement), city: L.city > 0 && this.canPay(pid, COST.city), dev: S.deck.length > 0 && this.canPay(pid, COST.dev) };
+      v.afford = { road: L.road > 0 && this.canPay(pid, COST.road), ship: L.ship > 0 && this.canPay(pid, COST.ship), settlement: L.settlement > 0 && this.canPay(pid, COST.settlement), city: L.city > 0 && this.canPay(pid, COST.city), dev: this.devLeft() > 0 && this.canPay(pid, COST.dev) };
     }
     return v;
   }
@@ -895,5 +1240,5 @@ class Game {
   }
 }
 
-Game.COST = COST; Game.COLORS = COLORS; Game.GameError = GameError; Game.WIN = WIN;
+Game.COST = COST; Game.COLORS = COLORS; Game.GameError = GameError;
 module.exports = Game;

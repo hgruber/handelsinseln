@@ -73,7 +73,7 @@ function botAct(game, pid, opts = {}) {
         const d = pick(v.me.dev.filter((x) => x.playable), rnd);
         if (d.type === 'ritter') return act({ type: 'play_knight' });
         if (d.type === 'strassenbau') return act({ type: 'play_roadbuilding' });
-        if (d.type === 'erfindung') return act({ type: 'play_yop', a: 'erz', b: 'getreide' });
+        if (d.type === 'erfindung') { const ok = RES.filter((r) => v.bank.stock[r] >= 2); if (!ok.length) return act({ type: 'end_turn' }); return act({ type: 'play_yop', a: ok[0], b: ok[0] }); }
         if (d.type === 'monopol') return act({ type: 'play_monopoly', res: pick(RES, rnd) });
       }
       if (af.dev && rnd() < 0.6) return act({ type: 'buy_dev' });
@@ -81,9 +81,10 @@ function botAct(game, pid, opts = {}) {
       const need = L.city.length ? { getreide: 2, erz: 3 } : { holz: 1, lehm: 1, wolle: 1, getreide: 1 };
       const missing = RES.filter((r) => h[r] < (need[r] || 0));
       const spare = RES.filter((r) => h[r] - (need[r] || 0) >= v.rates[r]);
-      if (missing.length && spare.length && rnd() < 0.8) return act({ type: 'bank_trade', give: pick(spare, rnd), get: pick(missing, rnd) });
+      const missingOk = missing.filter((r) => v.bank.stock[r] > 0);
+      if (missingOk.length && spare.length && rnd() < 0.8) return act({ type: 'bank_trade', give: pick(spare, rnd), get: pick(missingOk, rnd) });
       // Spielerhandel anbieten
-      if (!sbp && !v.trade && missing.length && total(h) >= 2 && rnd() < 0.25) {
+      if (!sbp && v.settings.playerTrade && !v.trade && missing.length && total(h) >= 2 && rnd() < 0.25) {
         const g = pick(RES.filter((r) => h[r] > 0 && !missing.includes(r)), rnd);
         if (g) return act({ type: 'trade_offer', give: { [g]: 1 }, want: { [pick(missing, rnd)]: 1 } });
       }

@@ -7,6 +7,7 @@
 <title>Die Handelsinseln</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/lobby.css">
 </head>
 <body>
 <!-- gemeinsame Gradienten/Clips (Art.defs) – bewusst NICHT display:none -->
@@ -17,35 +18,59 @@
 
 <!-- Anmeldung -->
 <main id="login" class="screen" hidden>
-  <form id="loginForm" class="card glass" autocomplete="off">
+  <form id="loginForm" class="card glass login" autocomplete="off">
     <div class="logo" aria-hidden="true"></div>
     <h1>Die Handelsinseln</h1>
     <p class="sub">Erweiterung</p>
     <label class="fld"><span>Dein Name</span>
       <input id="nameIn" maxlength="20" required placeholder="z. B. Käpt'n Anna" autocomplete="nickname">
     </label>
-    <div class="fld"><span>Deine Farbe</span><div id="swatches" class="swatches" role="radiogroup" aria-label="Farbe"></div></div>
-    <button class="btn gold big" id="joinBtn" type="submit">Beitreten</button>
+    <div class="fld"><span id="swLabel">Deine Farbe</span><div id="swatches" class="swatches" role="radiogroup" aria-labelledby="swLabel"></div></div>
+    <div class="fld"><span>Spiele</span><div id="gameList" class="games" role="listbox" aria-label="Beitretbare Spiele"></div></div>
+    <div class="login-act">
+      <button class="btn gold big" id="joinBtn" type="submit">Beitreten</button>
+      <button class="btn big ghostb" id="createBtn" type="button">Neues Spiel eröffnen</button>
+    </div>
     <p id="loginInfo" class="hint"></p>
   </form>
 </main>
 
 <!-- Lobby -->
-<main id="lobby" class="screen" hidden>
-  <section class="card glass wide">
-    <h1>Lobby</h1>
-    <p class="sub">Wartet, bis alle da sind – ab 2 Spielern geht es los.</p>
-    <ul id="lobbyList" class="lobby-list"></ul>
-    <div class="row center" id="lobbyAct"></div>
-    <button class="link" id="leaveBtn" type="button">Lobby verlassen</button>
-  </section>
+<main id="lobby" class="screen lobby" hidden>
+  <div class="lb-wrap">
+    <section class="lb-prev" aria-label="Spielfeld-Vorschau">
+      <div class="lb-prevbar glass"><b>Spielfeld</b><span id="lbVariantName" class="muted"></span><span class="grow"></span><span id="lbRegen"></span></div>
+      <div id="lobbyPreview" class="lb-prevarea"></div>
+    </section>
+    <section class="lb-side glass">
+      <header class="lb-head"><div><h1>Lobby</h1><p id="lbGame" class="sub"></p></div><button class="link" id="leaveBtn" type="button">Lobby verlassen</button></header>
+      <div class="lb-scroll">
+        <h3 class="lb-h">Spieler <small id="lbCount"></small></h3>
+        <ul id="lobbyList" class="lobby-list"></ul>
+        <div id="lobbyVoice" class="lb-voice"></div>
+        <h3 class="lb-h">Spielfeld &amp; Variante</h3>
+        <div id="lobbyVariants" class="variants"></div>
+        <div id="lobbySeats" class="lb-seats"></div>
+        <div id="lobbySettings"></div>
+        <h3 class="lb-h">Chat</h3>
+        <div id="lobbyChat" class="lb-chat scroll"></div>
+        <form id="lobbyChatForm" class="lb-chatform"><input id="lobbyChatIn" maxlength="200" placeholder="Nachricht…" autocomplete="off"><button class="btn small" type="submit">Senden</button></form>
+      </div>
+      <div class="row center lb-act" id="lobbyAct"></div>
+    </section>
+  </div>
 </main>
+
+<!-- Statistik nach Spielende -->
+<main id="stats" class="screen stats" hidden></main>
 
 <!-- Spiel-HUD -->
 <div id="hud" hidden>
   <div id="banner" role="status" aria-live="polite"></div>
   <aside id="players" aria-label="Spieler"></aside>
   <div id="camBtns">
+    <button class="ibtn" id="btnMenu" title="Spielmenü" aria-label="Spielmenü" aria-haspopup="true"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4,7 H20 M4,12 H20 M4,17 H20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    <span id="hudMic"></span>
     <button class="ibtn" id="btnFit" title="Zentrieren (Doppelklick auf das Brett)" aria-label="Zentrieren">
       <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4,9 V4 H9 M15,4 H20 V9 M20,15 V20 H15 M9,20 H4 V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg></button>
     <button class="ibtn" id="btnIn" title="Heranzoomen" aria-label="Heranzoomen">+</button>
@@ -83,12 +108,17 @@
 </div>
 
 <div id="modalRoot"></div>
+<div id="dlgRoot"></div>
+<div id="voiceAudio" hidden></div>
 <div id="toasts" aria-live="assertive"></div>
 <div id="conn" hidden>Verbindung wird neu aufgebaut…</div>
 
 <script src="/shared/geom.js"></script>
 <script src="/art.js"></script>
 <script src="/trade.js"></script>
+<script src="/voice.js"></script>
+<script src="/lobby.js"></script>
+<script src="/menu.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -125,8 +125,9 @@ settings: {                   // gilt in Lobby (änderbar durch Spielleiter) und
   }
 }
 players[].auto: bool          // Auto-Modus aktiv (verlassen oder länger abwesend)
-players[].left: bool          // hat das Spiel verlassen (endgültig)
-players[].left (Figuren): unbegrenzte Limits erscheinen als 999 in `left:{road,…}` – im Client als „∞“ anzeigen
+players[].gone: bool          // hat das Spiel verlassen (endgültig)   (ACHTUNG: `players[].left` bleibt der Figurenzähler {road,ship,settlement,city})
+unbegrenzte Limits erscheinen als 999 in `players[].left:{road,…}` – im Client als „∞“ anzeigen
+bank: { dev: Zahl (999 = unbegrenzt), stock: {holz:n,…} }   // Bank-Vorrat je Rohstoff (999 = unbegrenzt)
 phase 'lobby': hexes/fog/harbors/robber/pirate enthalten die VORSCHAU des Spielfelds (gleiche Struktur wie im Spiel) → Brett darstellen.
 stats: null | { durationSec, turns, aborted: bool, rolls:{"2":n,…,"12":n}, history:[{round, vp:[pid-Reihenfolge…]}],
   players:[{id,name,color,vp,svp,built:{road,ship,settlement,city,dev},produced:{holz,lehm,wolle,getreide,erz,total},
@@ -146,7 +147,7 @@ Im Spiel: `take_over {kind:'edge'|'vert', key}` (Infrastruktur eines Verlassenen
 ## Auto-Modus (Verlassene / Abwesende)
 Spieler mit `auto:true` erhalten weiter Erträge, nehmen jedes Angebot an, das genau 1 Karte gegen 1 Karte tauscht (wenn sie die verlangte Karte haben),
 werfen zufällig ab, wählen Gold zufällig, versetzen den Räuber auf ein Zufallsfeld, würfeln und beenden ihren Zug selbst; ihre Infrastruktur bleibt.
-Bei `leaver:'uebernahme'` kann ein Mitspieler Teile der Infrastruktur eines **Verlassenen** (`left`) übernehmen (`legal.takeover`), bei `'verschwinden'`
+Bei `leaver:'uebernahme'` kann ein Mitspieler Teile der Infrastruktur eines **Verlassenen** (`gone`) übernehmen (`legal.takeover`), bei `'verschwinden'`
 wird alle Infrastruktur und Hand eines Verlassenen nach `vanishRounds` seiner Züge entfernt.
 
 ## Sprachchat (WebRTC, Mesh über den Server-Signalweg)
