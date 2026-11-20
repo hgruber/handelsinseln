@@ -6,6 +6,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ### Geändert
 - Das Spiel heißt jetzt „Die Handelsinseln“ (Titel, Anmeldeseite, README).
+- Neues Logo (Sechseck mit Segelschiff, mit Flux/Forge erzeugt) auf der Anmeldeseite.
 
 ### Hinzugefügt
 - Vierte Variante „Archipel“ (viele kleine Inseln, viel Gold, viele Häfen).
