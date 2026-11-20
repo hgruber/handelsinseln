@@ -79,3 +79,78 @@ Handel: `bank_trade {give:res, get:res}` (Kurs = `rates[give]`), `trade_offer {g
 (auch auf ein Gegenangebot: dann gelten dessen give/want), `trade_cancel`.
 Pflichten: `discard {cards:{res:n}}`, `gold_pick {cards:{res:n}}`, `move_robber {hex}`, `move_pirate {hex}`, `steal {target}`.
 Sonderbau: `sbp_done`. Sonstiges: `chat {text}`.
+
+---
+# Erweiterung v2 (mehrere Spiele, Einstellungen, Statistik, Auto-Modus, Sprachchat)
+
+## Mehrere parallele Spiele
+Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau einem Spiel zugeordnet (über seinen Token).
+- `GET /api/games` → `{games:[{id, name, host:'Name', phase, closed, joinable, variant, players:[{name,color}], plannedPlayers, maxPlayers:6}]}`.
+  `joinable` = Lobby-Phase, nicht voll, nicht `closed`. Der Client zeigt dem Neuankömmling alle `joinable`-Spiele zur Auswahl
+  (+ Schaltfläche „Neues Spiel eröffnen“). Gibt es keins, eröffnet er automatisch ein neues. Die Farbwahl ist pro Spiel
+  (belegte Farben aus `players` des gewählten Spiels ausgrauen). Alle 2–3 s neu abfragen, solange der Anmeldebildschirm offen ist.
+- `POST /api/join {name, color, game?:id, create?:true, token?}` → `{token, pid, game}`.
+  Ohne `game` und ohne `create`: genau ein joinbares Spiel → beitreten, keins → neues anlegen, mehrere → Fehler
+  `{error, games:[…]}` (Client zeigt Auswahl). Mit `create:true` wird immer ein neues Spiel angelegt (Beitretender = Spielleiter).
+  Mit `token` (Reconnect) werden die übrigen Felder ignoriert.
+- `GET /api/config` → `{stun: null|'stun:…'}` (für WebRTC; meist null → nur lokale Kandidaten).
+- `POST /api/leave {token}` = Menüpunkt „Spiel verlassen“: In der Lobby wird der Spieler entfernt; im laufenden Spiel übernimmt für ihn
+  der Auto-Modus (siehe unten) und sein Token wird ungültig (Client → Anmeldebildschirm). Das Spiel endet vollständig (wird gelöscht),
+  sobald der letzte Mensch es verlässt oder seinen Tab schließt (≈ 20 s Kulanz für Neuladen). Das Schließen des Tabs allein macht den Spieler
+  zunächst nur „getrennt“; nach 60 s Abwesenheit spielt der Auto-Modus für ihn, bei Rückkehr (gleicher Token) übernimmt er wieder.
+- SSE-Event `kicked` (Daten leer): Spielleiter hat dich entfernt → Token verwerfen, Hinweis „Du wurdest vom Spielleiter entfernt“, zurück zum Anmeldebildschirm.
+
+## Neue View-Felder (zusätzlich zu v1)
+```
+gameId, gameName,
+closed: bool,                 // Spielleiter hat die Plätze als „fertig besetzt“ erklärt (nur Lobby)
+settings: {                   // gilt in Lobby (änderbar durch Spielleiter) und im Spiel (nur Anzeige)
+  variant: 'klassisch'|'nebel'|'inseln',   // klassisch: Hauptinsel + Inseln + Nebel; nebel: kleine Startinsel in dichtem Nebel; inseln: jeder Spieler eigene Heimatinsel
+  plannedPlayers: 2..6,        // Spielerzahl, für die das Brett erzeugt wird (wächst automatisch, wenn mehr beitreten)
+  dice: 'manuell'|'auto',      // auto: Server würfelt am Zugbeginn selbst
+  robber: 'manuell'|'auto',    // auto: Räuber/Pirat und Opfer werden zufällig/sinnvoll vom Server gewählt
+  winPoints: 14,               // 3..30
+  handLimit: 7|null,           // null = unbegrenzt (bei einer 7 wirft ab, wer MEHR als handLimit Karten hat; Hälfte)
+  bankRate: 4,                 // 2..6 Standard-Bankkurs
+  playerTrade: true,           // false: nur Handel mit der Bank
+  islandBonus: 2, islandBonusMax: 2,   // Sonderpunkte je neuer Insel / für höchstens so viele Inseln pro Spieler
+  longestMin: 5, armyMin: 3,
+  leaver: 'uebernahme'|'verschwinden', vanishRounds: 5,   // Verhalten bei verlassenem Spiel (siehe Auto-Modus)
+  limits: {
+    road:15, ship:15, settlement:5, city:4,   // Zahl 1..99 oder null = unbegrenzt
+    dev: 'standard'|Zahl 1..99|null,          // Entwicklungskarten: Standardstapel (25, ab 5 Spielern 34) / Stapelgröße / unbegrenzt (Ziehen mit Zurücklegen)
+    bank: {holz:null, lehm:null, wolle:null, getreide:null, erz:null},   // Rohstoff-Vorrat der Bank je Sorte: Zahl 1..99 oder null=unbegrenzt
+    fogTerrain: {wald:null, huegel:null, weide:null, acker:null, gebirge:null, gold:null, wueste:null, meer:null},  // Vorrat an aufdeckbaren Feldern je Sorte (null = unbegrenzt)
+    fogChips: {"2":null,"3":null,…,"12":null}   // Vorrat an Wertechips je Zahl für aufgedeckte Felder (null = unbegrenzt)
+  }
+}
+players[].auto: bool          // Auto-Modus aktiv (verlassen oder länger abwesend)
+players[].left: bool          // hat das Spiel verlassen (endgültig)
+players[].left (Figuren): unbegrenzte Limits erscheinen als 999 in `left:{road,…}` – im Client als „∞“ anzeigen
+phase 'lobby': hexes/fog/harbors/robber/pirate enthalten die VORSCHAU des Spielfelds (gleiche Struktur wie im Spiel) → Brett darstellen.
+stats: null | { durationSec, turns, aborted: bool, rolls:{"2":n,…,"12":n}, history:[{round, vp:[pid-Reihenfolge…]}],
+  players:[{id,name,color,vp,svp,built:{road,ship,settlement,city,dev},produced:{holz,lehm,wolle,getreide,erz,total},
+            tradesPlayer,tradesBank,stolenFrom,stolenBy,discarded,knights,maxRoute,discovered,robberMoves,sevens}] }   // nur phase 'ended'
+legal.takeover: {edges:[Kante…], verts:[Ecke…]}    // übernehmbare Infrastruktur verlassener Spieler (nur wenn du am Zug im Schritt 'main' bist und noch nichts versetzt/übernommen hast)
+```
+`winner` ist bei vom Spielleiter beendetem Spiel `null` (`stats.aborted:true`); `view.endedBy`: `'win'|'host'|null`.
+`step` in der Lobby = `'lobby'`; `prompt` wie bisher.
+
+## Neue Aktionen (`POST /api/act`)
+Nur Spielleiter, nur Lobby: `set_settings {settings:{…}}` (Teilobjekt, wird tief gemischt und serverseitig geprüft → bei Fehler `{error}`),
+`regen_board` (neue Vorschau mit denselben Einstellungen), `kick {pid}`, `close_seats {closed:true|false}`.
+Nur Spielleiter, im laufenden Spiel: `end_game` (beendet das Spiel sofort, alle bekommen `stats`).
+Im Spiel: `take_over {kind:'edge'|'vert', key}` (Infrastruktur eines Verlassenen übernehmen, braucht Nachbarschaft zur eigenen Infrastruktur, belegt den „Schiff versetzen“-Zug).
+`start` verlangt ≥ 2 Spieler. Nach `phase:'ended'` bringt `new_game` (Spielleiter) alle zurück in die Lobby (Einstellungen bleiben).
+
+## Auto-Modus (Verlassene / Abwesende)
+Spieler mit `auto:true` erhalten weiter Erträge, nehmen jedes Angebot an, das genau 1 Karte gegen 1 Karte tauscht (wenn sie die verlangte Karte haben),
+werfen zufällig ab, wählen Gold zufällig, versetzen den Räuber auf ein Zufallsfeld, würfeln und beenden ihren Zug selbst; ihre Infrastruktur bleibt.
+Bei `leaver:'uebernahme'` kann ein Mitspieler Teile der Infrastruktur eines **Verlassenen** (`left`) übernehmen (`legal.takeover`), bei `'verschwinden'`
+wird alle Infrastruktur und Hand eines Verlassenen nach `vanishRounds` seiner Züge entfernt.
+
+## Sprachchat (WebRTC, Mesh über den Server-Signalweg)
+- `POST /api/signal {token, to:pid|'all', data:{…}}` → Server leitet an die Mitspieler desselben Spiels als SSE-Event `signal` `{from:pid, data}` weiter (≤ 16 KB, Ratenbegrenzung).
+  Genutzt für `hello`/`bye`, SDP `offer`/`answer` und ICE-Kandidaten. Ablauf-Vorschlag: wer den Sprachchat betritt, sendet `{t:'hello'}` an `'all'`;
+  jeder Empfänger mit aktiver Sprache antwortet mit `{t:'hello'}` an den Absender; der mit der kleineren pid sendet das Offer.
+- `getUserMedia` funktioniert nur in sicherem Kontext (https oder localhost). Der Server kann mit `TLS_CERT`/`TLS_KEY` selbst https sprechen.
