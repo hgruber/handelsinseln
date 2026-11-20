@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- Das Spiel heißt jetzt „Die Handelsinseln“ (Titel, Anmeldeseite, README).
+
 ### Hinzugefügt
 - Vierte Variante „Archipel“ (viele kleine Inseln, viel Gold, viele Häfen).
 - Seitenleiste „Regeln“ mit allen vom Standard abweichenden Einstellungen (Lobby und Spiel).
