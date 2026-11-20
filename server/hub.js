@@ -10,6 +10,7 @@ class Hub {
     this.graceMs = opts.graceMs ?? 20000;       // so lange darf ein Spiel ohne verbundenen Menschen weiterleben (Tab neu laden …)
     this.absentMs = opts.absentMs ?? 60000;     // nach so langer Abwesenheit übernimmt der Auto-Modus
     this.lobbyAbsentMs = opts.lobbyAbsentMs ?? 120000;
+    this.maxGames = opts.maxGames ?? Infinity;   // Obergrenze gleichzeitiger Spiele
     this.rnd = opts.rnd;
     this.now = opts.now || Date.now;
   }
@@ -60,7 +61,10 @@ class Hub {
       else room = null;
     }
     const fresh = !room;
-    if (fresh) room = this.newRoom();
+    if (fresh) {
+      if (this.rooms.size >= this.maxGames) throw new Game.GameError(`Es laufen schon ${this.maxGames} Spiele – bitte warte, bis eines endet, oder tritt einem bei.`);
+      room = this.newRoom();
+    }
     try {
       const r = room.game.join(b.name, b.color);
       room.emptySince = this.now();

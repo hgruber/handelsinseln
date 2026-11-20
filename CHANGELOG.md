@@ -5,6 +5,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- Es laufen höchstens 3 Spiele gleichzeitig (`MAX_GAMES`); ein viertes neues Spiel wird mit Hinweis abgelehnt.
+- Neue Umgebungsvariable `LISTEN` (`Adresse:Port`) für den http-Listener, z. B. `127.0.0.1:8080` hinter einem Reverse-Proxy.
 - Das Spiel heißt jetzt „Die Handelsinseln“ (Titel, Anmeldeseite, README).
 - Neues Logo (Sechseck mit Segelschiff, mit Flux/Forge erzeugt) auf der Anmeldeseite.
 

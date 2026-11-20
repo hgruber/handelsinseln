@@ -166,7 +166,7 @@ function createServer(opts = {}) {
 }
 
 function loadHub() {
-  const hub = new Hub({ graceMs: +process.env.GRACE_MS || undefined, absentMs: +process.env.ABSENT_MS || undefined });
+  const hub = new Hub({ graceMs: +process.env.GRACE_MS || undefined, absentMs: +process.env.ABSENT_MS || undefined, maxGames: +process.env.MAX_GAMES || 3 });
   try {
     hub.load(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')), 300000);
     console.log(`Spielstand geladen: ${hub.rooms.size} Spiel(e).`);
@@ -178,7 +178,10 @@ if (require.main === module) {
   const hub = loadHub();
   const httpsPort = process.env.HTTPS_PORT !== undefined ? +process.env.HTTPS_PORT : 8443; // 0 = kein https
   const server = createServer({ hub, https: httpsPort > 0, httpsPort: httpsPort > 0 ? httpsPort : null });
-  server.listen(PORT, () => console.log(`Handelsinseln läuft auf Port ${PORT} (http)`));
+  // LISTEN="Adresse:Port" (z. B. 127.0.0.1:8080 oder [::1]:8080) hat Vorrang vor PORT
+  const m = /^(.*):(\d+)$/.exec(process.env.LISTEN || '');
+  const host = m ? m[1].replace(/^\[(.*)\]$/, '$1') || undefined : undefined, port = m ? +m[2] : PORT;
+  server.listen(port, host, () => console.log(`Handelsinseln läuft auf ${host ? host + ':' : 'Port '}${port} (http)`));
   if (server.httpsServer) server.httpsServer.listen(httpsPort, () => console.log(`und auf Port ${httpsPort} (https, für das Mikrofon im Browser)`));
   const bye = () => { try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(hub.toJSON())); } catch (e) { /* egal */ } process.exit(0); };
   process.on('SIGTERM', bye); process.on('SIGINT', bye);
