@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Behoben
+- Handel: Bots boten dasselbe, gerade abgelehnte Angebot im selben Zug sofort erneut an, sodass es nach dem Wegklicken kurz wieder auftauchte. Ein Bot wiederholt ein Angebot (gleiche Karten) jetzt nicht mehr im selben Zug.
 - Verzögerte Mausklicks: Die funkelnden Sterne auf dem Brett (Opacity-Animation je Stern) ließen den Browser das ganze Brett ununterbrochen neu zeichnen und belegten den Hauptthread fast dauernd (Messung: ca. 14 s von 15 s Last, Klicks bis 200 ms verspätet). Die Sterne sind jetzt statisch; die Last sinkt auf etwa 2–4 s von 15 s.
 - Neuladen des Browser-Tabs loggt nicht mehr aus: Der beim Entladen abgebrochene Ereignisstrom wurde als Sitzungsende gewertet und löschte den Token.
 - Figurenlimit: Ein Stadtausbau gibt die Siedlung wieder frei. Man kann jetzt gleichzeitig bis zu 5 Siedlungen und 4 Städte besitzen (bisher zählten Städte gegen das Siedlungslimit).

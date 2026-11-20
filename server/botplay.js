@@ -39,7 +39,7 @@ function botPlay(game, pid, opts = {}) {
   const rnd = opts.rnd || game.rnd;
   const v = game.view(pid), L = v.legal, hand = v.me.hand;
   const act = (a) => { game.act(pid, a); return true; };
-  if (!pl.bm || pl.bm.turn !== S.turnNo) pl.bm = { turn: S.turnNo, bank: 0, offers: 0, offerAt: 0 };
+  if (!pl.bm || pl.bm.turn !== S.turnNo) pl.bm = { turn: S.turnNo, bank: 0, offers: 0, offerAt: 0, tried: [] };
   const bm = pl.bm;
   const win = v.winPoints;
 
@@ -275,7 +275,8 @@ function botPlay(game, pid, opts = {}) {
   if (!sbp && v.settings.playerTrade && !v.trade && goal && deficit.length && bm.offers < P.offers && total(hand) >= 2) {
     const want = bestOf(deficit, (r) => goal.need[r] - hand[r]);
     const give = bestOf(RES.filter((r) => hand[r] - (goal.need[r] || 0) >= 1 && r !== want), (r) => hand[r] - (goal.need[r] || 0));
-    if (give && want) {
+    if (give && want && !bm.tried.includes(give + '>' + want)) { // dasselbe Angebot nicht im selben Zug wiederholen
+      bm.tried.push(give + '>' + want);
       bm.offers++; bm.offerAt = (opts.now || Date.now)();
       return act({ type: 'trade_offer', give: { [give]: 1 }, want: { [want]: 1 } });
     }
