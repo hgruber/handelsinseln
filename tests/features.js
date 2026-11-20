@@ -482,4 +482,19 @@ test('Simulation: komplette Partien mit Auto-Würfeln/-Räuber, harten Limits un
   }
 });
 
+test('Brett: Startecken sind ausgeglichen (Würfelauswahl ist besser als zufällige Karten, Streuung begrenzt)', () => {
+  for (const variant of ['klassisch', 'nebel', 'inseln', 'archipel']) {
+    const rnd = rng(11); let neu = 0, alt = 0; const N = 25;
+    for (let i = 0; i < N; i++) {
+      const a = { supply: {} }, b = { supply: {} };
+      B.generateOnce(a, 4, rnd, { variant }); B.generate(b, 4, rnd, { variant });
+      alt += B.startImbalance(a, 4, variant, B.homeIslands(a, new Set(a.home)));
+      const c = B.startImbalance(b, 4, variant, B.homeIslands(b, new Set(b.home)));
+      neu += c; assert(c < 1e8, 'Startplätze reichen nicht für alle (' + variant + ')');
+    }
+    assert(neu < alt, `${variant}: Bewertung bringt keine Verbesserung (${(neu / N).toFixed(1)} statt ${(alt / N).toFixed(1)})`);
+    assert(neu / N <= 4, `${variant}: Ø Unausgewogenheit zu hoch (${(neu / N).toFixed(1)})`);
+  }
+});
+
 console.log(`${passed} Funktionstests bestanden`);

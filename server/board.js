@@ -129,7 +129,7 @@ function placeIslands(S, n, rnd, variant) {
   return { land, islands, home: new Set(main), desertIn: main, exploredR: variant === 'nebel' ? 1 : 2, neutral: islands.slice(1), mainCount };
 }
 
-function generate(S, nPlayers, rnd, settings) {
+function generateOnce(S, nPlayers, rnd, settings) {
   const variant = (settings && settings.variant) || 'klassisch';
   S.hexes = {}; S.harbors = {}; S.numBag = []; S.landBag = []; S.robber = null;
   const L = placeIslands(S, nPlayers, rnd, variant);
@@ -190,6 +190,79 @@ function generate(S, nPlayers, rnd, settings) {
     if (tryHarbor(S, e, kinds[placed])) placed++;
   }
   S.harborKinds = kinds.slice(placed);
+}
+
+// ---- Ausgleich der Startecken ------------------------------------------------------------
+const pipsOf = (n) => (n ? 6 - Math.abs(7 - n) : 0);
+
+// Wert einer Ecke: Wahrscheinlichkeitspunkte der angrenzenden Landfelder und die Rohstoffe (Gold = Joker).
+function cornerInfo(S, v) {
+  let pips = 0; const res = new Set();
+  for (const h of G.vertHexes(v)) {
+    const x = S.hexes[h];
+    if (!x || !isLand(x.t)) continue;
+    pips += pipsOf(x.n);
+    if (x.t === 'gold') res.add('gold'); else if (TERRAIN_RES[x.t]) res.add(TERRAIN_RES[x.t]);
+  }
+  return { pips, res };
+}
+
+// Simuliert den Aufbau (Schlangenreihenfolge 1..n, n..1, jeder nimmt gierig die beste freie Ecke mit Blick auf neue Rohstoffe)
+// und liefert eine Unausgewogenheit: je kleiner, desto fairer. Spielerzahl n, Heimatfelder S.home.
+function startImbalance(S, n, variant, islands) {
+  const verts = new Map();
+  for (const h of S.home) for (const v of G.hexCorners(h)) if (!verts.has(v)) { const c = cornerInfo(S, v); if (c.pips > 0) verts.set(v, c); }
+  const taken = new Set(), blocked = new Set();
+  const have = Array.from({ length: n }, () => new Set()), total = new Array(n).fill(0);
+  const order = [...Array(n).keys(), ...[...Array(n).keys()].reverse()];
+  for (const p of order) {
+    let bestV = null, bestS = -1;
+    for (const [v, c] of verts) {
+      if (taken.has(v) || blocked.has(v)) continue;
+      const sc = c.pips + 1.2 * [...c.res].filter((r) => !have[p].has(r)).length;
+      if (sc > bestS) { bestS = sc; bestV = v; }
+    }
+    if (!bestV) return 1e9; // Platz reicht nicht für alle
+    const c = verts.get(bestV);
+    taken.add(bestV); G.vertNeighbors(bestV).forEach((x) => blocked.add(x));
+    total[p] += c.pips; c.res.forEach((r) => have[p].add(r));
+  }
+  const score = total.map((t, p) => t + 2 * have[p].size);
+  let cost = Math.max(...score) - Math.min(...score);
+  cost += 4 * have.filter((h) => h.size < 3).length;          // wenig Rohstoffvielfalt
+  cost += 0.5 * Math.max(0, 12 - Math.min(...total));          // sehr schwache Startpunkte
+  if (variant === 'inseln') { // jede Heimatinsel soll ähnlich viel hergeben
+    const val = islands.map((isl) => [...isl].reduce((a, k) => a + pipsOf(S.hexes[k] && S.hexes[k].n), 0));
+    if (val.length) cost += 0.5 * (Math.max(...val) - Math.min(...val));
+  }
+  return cost;
+}
+
+// Würfelt mehrere Karten und nimmt die mit den ausgewogensten Startecken.
+const TRIES = 40;
+const BOARD_FIELDS = ['hexes', 'harbors', 'numBag', 'landBag', 'robber', 'home', 'pirate', 'harborKinds'];
+function generate(S, nPlayers, rnd, settings) {
+  const variant = (settings && settings.variant) || 'klassisch';
+  let best = null, bestCost = Infinity;
+  for (let t = 0; t < TRIES; t++) {
+    generateOnce(S, nPlayers, rnd, settings);
+    const hs = new Set(S.home);
+    const islands = Object.keys(S.hexes).length ? homeIslands(S, hs) : [];
+    const cost = startImbalance(S, nPlayers, variant, islands);
+    if (cost < bestCost) { bestCost = cost; best = {}; for (const f of BOARD_FIELDS) best[f] = JSON.parse(JSON.stringify(S[f] === undefined ? null : S[f])); }
+    if (cost <= (variant === 'inseln' ? 3.5 : 2)) break; // gut genug
+  }
+  for (const f of BOARD_FIELDS) S[f] = best[f];
+}
+// Zusammenhängende Heimatinseln (nur für die Inselbewertung)
+function homeIslands(S, hs) {
+  const seen = new Set(), out = [];
+  for (const k of hs) {
+    if (seen.has(k)) continue;
+    const isl = island(S, k); isl.forEach((x) => seen.add(x));
+    if ([...isl].every((x) => hs.has(x))) out.push(isl);
+  }
+  return out;
 }
 
 // Hafen auf Kante legen, wenn Land/Meer-Kante und Ecken noch frei von anderen Häfen
@@ -262,4 +335,4 @@ function fog(S) {
   return [...out];
 }
 
-module.exports = { RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, discover, fog, drawNumber, tryHarbor };
+module.exports = { RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, generateOnce, startImbalance, homeIslands, discover, fog, drawNumber, tryHarbor };

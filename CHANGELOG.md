@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- Ausgeglichene Startecken: Beim Erzeugen eines Spielfelds werden bis zu 40 Karten gewürfelt und der Aufbau (Schlangenreihenfolge, beste freie Ecke zuerst) simuliert; genommen wird die Karte mit der geringsten Streuung der Wahrscheinlichkeitspunkte, mit ausreichender Rohstoffvielfalt je Spieler und – bei „Vier Heimatinseln“ – ähnlich ertragreichen Inseln.
 - Das Spiel heißt nur noch „Die Handelsinseln“ (README, Quelltext-Kommentar, Changelog).
 - Ereigniskarten (Ritter, Siegpunkt, Straßenbau, Erfindung, Monopol) mit Flux/Forge neu gemalt (`public/img/dev-*.webp`).
 - README mit Screenshots aus echten Bot-Partien (`docs/screenshots`, erzeugt mit `tests/mock/readme.js` und `readme_shots.py`).
