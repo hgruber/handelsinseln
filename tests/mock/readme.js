@@ -4,9 +4,10 @@
 const fs = require('fs'), path = require('path');
 const Game = require('../../server/game');
 const { botAct } = require('../../server/bot');
+const { botPlay } = require('../../server/botplay');
 
 function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-const NAMES = ['Anna', 'Bernd', 'Clara', 'Dirk'], COL = ['rot', 'blau', 'orange', 'weiss'];
+const COL = ['rot', 'blau', 'orange', 'weiss'];
 const seed0 = +process.argv[2] || 7;
 
 // Bewertet einen Moment: viele Bauten, volle Hand, Entwicklungskarten, hohe Punktestände.
@@ -23,7 +24,7 @@ function scene(variant, seed, ended) {
   for (let k = 0; k < 6; k++) {
     const rnd = rng(seed * 100 + k);
     const g = new Game({ rnd, meta: { id: 'g1', name: 'Käpt\'n Annas Runde' } });
-    NAMES.forEach((n, i) => g.join(n, COL[i]));
+    g.join('Anna', COL[0]); ['baumeister', 'haendler', 'ritter'].forEach((kind) => g.addBot(0, kind)); // Anna (Testspieler) + die drei Bots
     g.setSettings(0, { variant, plannedPlayers: 4 });
     g.act(0, { type: 'start' });
     for (let steps = 0; steps < 30000 && g.S.phase !== 'ended' && g.S.turnNo < 150; steps++) {
@@ -31,7 +32,7 @@ function scene(variant, seed, ended) {
         const v = g.view(0), sc = score(v);
         if (sc > bestS) { bestS = sc; best = JSON.parse(JSON.stringify(v)); }
       }
-      for (let pid = 0; pid < 4 && g.S.phase !== 'ended'; pid++) botAct(g, pid, { rnd });
+      for (let pid = 0; pid < 4 && g.S.phase !== 'ended'; pid++) { if (g.S.players[pid].bot) botPlay(g, pid, { rnd }); else botAct(g, pid, { rnd }); }
     }
     if (ended && g.S.phase === 'ended') return g.view(0);
   }

@@ -2,6 +2,8 @@
 // Verwaltung mehrerer paralleler Spiele („Räume“): Anlegen, Beitreten, Aufräumen, Abwesenheit.
 const crypto = require('crypto');
 const Game = require('./game');
+const { botPlay } = require('./botplay');
+const { botAct } = require('./bot');
 
 class Hub {
   constructor(opts = {}) {
@@ -38,7 +40,7 @@ class Hub {
       id: room.id, name: S.players.length ? `Spiel von ${S.players[S.host] ? S.players[S.host].name : S.players[0].name}` : room.game.meta.name,
       host: S.players[S.host] ? S.players[S.host].name : '', phase: S.phase, closed: S.closed, variant: S.settings.variant,
       plannedPlayers: S.settings.plannedPlayers, maxPlayers: 6,
-      players: S.players.filter((p) => !p.left).map((p) => ({ name: p.name, color: p.color })),
+      players: S.players.filter((p) => !p.left).map((p) => ({ name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null })),
       joinable: S.phase === 'lobby' && !S.closed && S.players.length < 6,
     };
   }
@@ -66,7 +68,7 @@ class Hub {
       room = this.newRoom();
     }
     try {
-      const r = room.game.join(b.name, b.color);
+      const r = room.game.join(b.name, b.color, undefined, b.avatar);
       room.emptySince = this.now();
       return { ...r, game: room.id, room };
     } catch (e) {
@@ -101,7 +103,7 @@ class Hub {
           if (!p.left && !p.connected && !p.auto && since !== undefined && t - since >= this.absentMs) { if (g.setAbsentAuto(p.id, true)) changed.add(room); }
         }
       }
-      const connectedHumans = S.players.filter((p) => !p.left && p.connected).length;
+      const connectedHumans = S.players.filter((p) => !p.left && !p.bot && p.connected).length;
       const humans = g.humans().length;
       if (!humans) { this.deleteRoom(room.id); removed.push(room); continue; }
       if (connectedHumans) room.emptySince = null;
@@ -113,6 +115,23 @@ class Hub {
     return { changed: [...changed], removed };
   }
 
+  // Bots: jeder macht höchstens eine Aktion je Aufruf. Gibt true zurück, wenn sich etwas geändert hat.
+  botStep(room) {
+    const g = room.game, S = g.S;
+    if (S.phase !== 'setup' && S.phase !== 'main') return false;
+    let changed = false;
+    for (const p of S.players) {
+      if (!p.bot || p.left) continue;
+      try { if (botPlay(g, p.id, { rnd: this.rnd })) changed = true; } catch (e) {
+        if (!(e instanceof Game.GameError)) throw e;
+        // Eine abgelehnte Bot-Aktion darf das Spiel nicht blockieren: Notlauf über die Pflichten (Zug beenden o. Ä.)
+        console.error(`Bot ${p.name}: Aktion abgelehnt (${e.message})`);
+        try { if (botAct(g, p.id, { rnd: this.rnd, minimal: true })) changed = true; } catch (e2) { if (!(e2 instanceof Game.GameError)) throw e2; }
+      }
+    }
+    return changed;
+  }
+
   // ---------- Persistenz ----------
   toJSON() { return { counter: this.counter, rooms: [...this.rooms.values()].map((r) => ({ id: r.id, meta: r.game.meta, S: r.game.S })) }; }
   load(data, loadGraceMs) {
@@ -120,8 +139,8 @@ class Hub {
     for (const r of data.rooms || []) {
       if (!r.S || !r.S.settings) continue; // alter Spielstand ohne Einstellungen
       const game = Game.fromJSON(r.S, { rnd: this.rnd, meta: r.meta });
-      game.S.players.forEach((p) => { p.connected = false; });
-      this.rooms.set(r.id, { id: r.id, game, absent: new Map(game.S.players.map((p) => [p.token, this.now()])), emptySince: this.now(), createdAt: this.now(), graceMs: loadGraceMs });
+      game.S.players.forEach((p) => { p.connected = !!p.bot; });
+      this.rooms.set(r.id, { id: r.id, game, absent: new Map(game.S.players.filter((p) => !p.bot).map((p) => [p.token, this.now()])), emptySince: this.now(), createdAt: this.now(), graceMs: loadGraceMs });
     }
   }
 }

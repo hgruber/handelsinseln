@@ -161,6 +161,10 @@ function createServer(opts = {}) {
   }, +process.env.TICK_MS || opts.tickMs || 2000);
   server.on('close', () => clearInterval(timer));
   timer.unref();
+  // Bots ziehen im Takt (damit Menschen den Zügen folgen können)
+  const botTimer = setInterval(() => { for (const room of hub.rooms.values()) if (hub.botStep(room)) broadcast(room); }, +process.env.BOT_MS || opts.botMs || 800);
+  server.on('close', () => clearInterval(botTimer));
+  botTimer.unref();
   server.hub = hub; server.broadcast = broadcast;
   return server;
 }

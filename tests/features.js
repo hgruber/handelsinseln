@@ -497,4 +497,77 @@ test('Brett: Startecken sind ausgeglichen (Würfelauswahl ist besser als zufäll
   }
 });
 
+test('Avatare: zufällig, nie doppelt, Wunsch nur wenn frei, Bot-Avatare nicht wählbar', () => {
+  const AV = require('../shared/avatars');
+  const g = lobby(0);
+  const wish = AV.HUMAN_IDS[2];
+  g.join('A', 'rot', undefined, wish);
+  assert.strictEqual(g.S.players[0].avatar, wish, 'Wunsch wird erfüllt');
+  g.join('B', 'blau', undefined, wish);
+  assert.notStrictEqual(g.S.players[1].avatar, wish, 'vergebener Wunsch wird ersetzt');
+  g.join('C', 'orange', undefined, 'biber');
+  assert(AV.HUMAN_IDS.includes(g.S.players[2].avatar), 'Bot-Avatar ist nicht wählbar');
+  g.join('D', 'weiss', undefined, 'gibtsnicht');
+  assert(AV.HUMAN_IDS.includes(g.S.players[3].avatar), 'ungültiger Avatar wird ersetzt');
+  g.join('E', 'gruen'); g.join('F', 'violett');
+  assert.strictEqual(new Set(g.S.players.map((p) => p.avatar)).size, 6, 'sechs Spieler, sechs verschiedene Avatare');
+  for (let seed = 1; seed < 30; seed++) { // ohne Wunsch: immer verschieden, auch in vielen Spielen
+    const h = new Game({ rnd: rng(seed) }); for (let i = 0; i < 6; i++) h.join('S' + i, COL[i]);
+    assert.strictEqual(new Set(h.S.players.map((p) => p.avatar)).size, 6);
+  }
+  assert.strictEqual(g.view(0).players[0].avatar, wish, 'die Sicht enthält den Avatar');
+});
+
+test('Bots: Spielleiter setzt Bots (je Sorte einmal), feste Namen/Avatare, Regeln für Platz und Namen', () => {
+  const AV = require('../shared/avatars');
+  const g = lobby(2);
+  throws(() => g.act(1, { type: 'add_bot', kind: 'ritter' }), /Spielleiter/);
+  g.act(0, { type: 'add_bot', kind: 'ritter' });
+  const r = g.S.players[2];
+  assert.strictEqual(r.bot, 'ritter'); assert.strictEqual(r.avatar, 'ente'); assert.strictEqual(r.name, AV.BOTS.ritter.name);
+  assert(r.connected && !r.token, 'Bot ist immer verbunden und hat keinen Token');
+  throws(() => g.act(0, { type: 'add_bot', kind: 'ritter' }), /schon dabei/);
+  throws(() => g.act(0, { type: 'add_bot', kind: 'zauberer' }), /gibt es nicht/);
+  throws(() => g.join('polly profit', 'gruen'), /Bot/);
+  assert.notStrictEqual(g.S.players[0].color, r.color, 'Bot bekommt eine freie Farbe');
+  g.act(0, { type: 'add_bot', kind: 'haendler' }); g.act(0, { type: 'add_bot', kind: 'baumeister' });
+  assert.strictEqual(g.S.players.length, 5);
+  assert.strictEqual(g.humans().length, 2, 'humans() zählt keine Bots');
+  assert.strictEqual(g.S.settings.plannedPlayers, 5, 'Spielfeld wächst mit den Bots');
+  assert.strictEqual(new Set(g.S.players.map((p) => p.avatar)).size, 5);
+  g.join('H', COL.find((c) => !g.S.players.some((p) => p.color === c))); throws(() => g.act(0, { type: 'add_bot', kind: 'ritter' }));
+  const v = g.view(0); assert.strictEqual(v.players[3].bot, 'haendler');
+  const tok = g.act(0, { type: 'kick', pid: 2 }); // Bot entfernen (Token null)
+  assert.strictEqual(g.S.players.some((p) => p.bot === 'ritter'), false, 'Spielleiter kann Bots entfernen');
+  g.act(0, { type: 'close_seats', closed: true });
+  throws(() => g.act(0, { type: 'add_bot', kind: 'ritter' }), /besetzt/);
+  // Hub: Bots zählen nicht als anwesende Menschen
+  const hub = new Hub({ rnd: rng(3) });
+  const a = hub.join({ name: 'Hanna', color: 'rot', create: true });
+  a.room.game.act(0, { type: 'add_bot', kind: 'baumeister' });
+  assert.strictEqual(hub.summary(a.room).players.find((p) => p.bot).avatar, 'biber');
+  hub.connected(a.room, a.room.game.S.players[0]);
+  a.room.game.leave(a.token);
+  assert(!a.room.game.humans().length); hub.tick(); assert.strictEqual(hub.rooms.size, 0, 'Raum ohne Menschen verschwindet trotz Bot');
+});
+
+test('Bots: spielen im Hub selbstständig bis zum Ziel (Aufbau, Würfeln, Bauen, Handel mit Auto-Mensch)', () => {
+  for (const variant of ['klassisch', 'nebel', 'inseln', 'archipel']) {
+    const hub = new Hub({ rnd: rng(9) });
+    const a = hub.join({ name: 'Hanna', color: 'rot', create: true }), g = a.room.game;
+    g.act(0, { type: 'set_settings', settings: { variant } });
+    for (const k of ['baumeister', 'haendler', 'ritter']) g.act(0, { type: 'add_bot', kind: k });
+    g.act(0, { type: 'start' });
+    g.setAbsentAuto(0, true); // der Mensch ist abwesend: Auto-Modus
+    let n = 0;
+    while (g.S.phase !== 'ended' && n++ < 60000 && g.S.turnNo < 400) hub.botStep(a.room);
+    assert(g.S.turnNo > 20, `Bots kommen voran (${variant})`);
+    JSON.stringify(g.S);
+    const botVerts = Object.values(g.S.verts).filter((x) => g.S.players[x.p].bot).length;
+    assert(botVerts >= 6, `Bots haben gebaut (${variant}: ${botVerts})`);
+    const json = JSON.stringify(hub.toJSON()); const h2 = new Hub({ rnd: rng(1) }); h2.load(JSON.parse(json));
+    assert(h2.rooms.size === 1 && [...h2.rooms.values()][0].game.S.players.filter((p) => p.bot).every((p) => p.connected), 'Bots bleiben nach Laden verbunden');
+  }
+});
+
 console.log(`${passed} Funktionstests bestanden`);

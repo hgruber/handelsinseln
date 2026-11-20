@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const G = require('../shared/geom');
 const B = require('./board');
 const ST = require('./settings');
+const AV = require('../shared/avatars');
 
 const RES = B.RES;
 const COLORS = ['rot', 'blau', 'orange', 'weiss', 'gruen', 'violett'];
@@ -120,10 +121,17 @@ class Game {
   isSeaHex(k) { return this.hexT(k) === 'meer'; }
 
   // ---------- Lobby ----------
-  newPlayer(name, color) {
-    return { id: this.S.players.length, name, color, token: crypto.randomBytes(16).toString('hex'), connected: false, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, left: false, autoTurns: 0, vanished: false };
+  newPlayer(name, color, avatar, bot) {
+    return { id: this.S.players.length, name, color, avatar, bot: bot || null, token: bot ? null : crypto.randomBytes(16).toString('hex'), connected: !!bot, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, left: false, autoTurns: 0, vanished: false };
   }
-  join(name, color, token) {
+  // Freier Avatar: der gewünschte, falls gültig und unvergeben, sonst ein zufälliger (Bot-Avatare sind nie wählbar)
+  pickAvatar(want) {
+    const taken = new Set(this.S.players.map((p) => p.avatar));
+    if (AV.HUMAN_IDS.includes(want) && !taken.has(want)) return want;
+    const free = AV.HUMAN_IDS.filter((a) => !taken.has(a));
+    return free[Math.floor(this.rnd() * free.length)] || AV.HUMAN_IDS[0];
+  }
+  join(name, color, token, avatar) {
     const S = this.S;
     if (token) {
       const p = S.players.find((x) => x.token === token);
@@ -137,19 +145,36 @@ class Game {
     if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
     if (S.players.some((p) => p.color === color)) fail('Diese Farbe ist schon vergeben.');
     if (S.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name ist schon vergeben.');
-    const p = this.newPlayer(name, color);
+    if (Object.values(AV.BOTS).some((b) => b.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name gehört einem Bot.');
+    const p = this.newPlayer(name, color, this.pickAvatar(avatar));
     S.players.push(p);
     this.log(`${name} ist dem Spiel beigetreten.`, 'sys', p.id);
     if (S.players.length > S.settings.plannedPlayers) { S.settings.plannedPlayers = S.players.length; this.regen(); this.log(`Das Spielfeld wurde für ${S.players.length} Spieler neu erzeugt.`, 'sys'); }
     S.v++;
     return { token: p.token, pid: p.id };
   }
+  // Spielleiter setzt einen Bot (je Sorte höchstens einer: feste Namen und Avatare)
+  addBot(pid, kind) {
+    this.hostOnly(pid, 'Bots hinzufügen');
+    const S = this.S, B0 = AV.BOTS[kind];
+    if (!B0) fail('Diesen Bot gibt es nicht.');
+    if (S.closed) fail('Die Plätze sind als besetzt erklärt.');
+    if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
+    if (S.players.some((p) => p.bot === kind)) fail(`${B0.name} ist schon dabei.`);
+    if (S.players.some((p) => p.name.toLowerCase() === B0.name.toLowerCase())) fail('Dieser Name ist schon vergeben.');
+    const color = COLORS.find((c) => !S.players.some((p) => p.color === c));
+    const p = this.newPlayer(B0.name, color, B0.avatar, kind);
+    S.players.push(p);
+    this.log(`${p.name} (Bot: ${B0.label}) ist dem Spiel beigetreten.`, 'sys', p.id);
+    if (S.players.length > S.settings.plannedPlayers) { S.settings.plannedPlayers = S.players.length; this.regen(); this.log(`Das Spielfeld wurde für ${S.players.length} Spieler neu erzeugt.`, 'sys'); }
+    S.v++;
+  }
   removeFromLobby(p) {
     const S = this.S, hostTok = S.players[S.host] && S.players[S.host].token;
     S.players.splice(p.id, 1);
     S.players.forEach((q, i) => { q.id = i; });
-    const ni = S.players.findIndex((q) => q.token === hostTok);
-    S.host = ni >= 0 ? ni : Math.max(0, S.players.findIndex((q) => q.connected));
+    const ni = hostTok ? S.players.findIndex((q) => q.token === hostTok) : -1;
+    S.host = ni >= 0 ? ni : Math.max(0, S.players.findIndex((q) => q.connected && !q.bot));
     if (S.host < 0 || S.host >= S.players.length) S.host = 0;
   }
   // Menüpunkt „Spiel verlassen“. Gibt true zurück, wenn der Spieler endgültig weg ist.
@@ -169,7 +194,7 @@ class Game {
     S.v++;
     return true;
   }
-  humans() { return this.S.players.filter((p) => !p.left); }
+  humans() { return this.S.players.filter((p) => !p.left && !p.bot); }
   setConnected(pid, c) {
     const p = this.pl(pid);
     if (p && p.connected !== c) { p.connected = c; if (c && !p.left && p.auto) { p.auto = false; this.log(`${p.name} ist zurück und spielt wieder selbst.`, 'sys', pid); } this.S.v++; }
@@ -417,6 +442,7 @@ class Game {
     if (t === 'set_settings') return this.setSettings(pid, a.settings);
     if (t === 'regen_board') { this.hostOnly(pid, 'das Spielfeld neu würfeln'); this.regen(); this.S.v++; return; }
     if (t === 'close_seats') { this.hostOnly(pid, 'die Plätze schließen'); this.S.closed = !!a.closed; this.log(this.S.closed ? 'Die Plätze sind besetzt – niemand kann mehr beitreten.' : 'Die Plätze sind wieder offen.', 'sys'); this.S.v++; return; }
+    if (t === 'add_bot') return this.addBot(pid, a.kind);
     if (t === 'kick') { this.lastKicked = this.kick(pid, a.pid); return; }
     if (t === 'end_game') return this.endGame(pid);
     if (S.phase === 'lobby') fail('Das Spiel hat noch nicht begonnen.');
@@ -1201,7 +1227,7 @@ class Game {
       v: S.v, phase: S.phase, you: pid, host: S.host, minPlayers: MIN_P, maxPlayers: MAX_P, winPoints: S.settings.winPoints,
       gameId: this.meta.id, gameName: this.meta.name, settings: S.settings, closed: S.closed, endedBy: S.endedBy, stats: this.statsView(),
       players: S.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, connected: p.connected, auto: !!p.auto, gone: !!p.left,
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, connected: p.connected, auto: !!p.auto, gone: !!p.left,
         vp: S.phase === 'lobby' ? 0 : this.vp(p.id) + (S.phase === 'ended' ? this.hiddenVp(p.id) : 0), svp: p.svp,
         resCount: this.handSize(p.id), devCount: p.dev.length, knightsPlayed: p.knights, longestRoute: lens[p.id] || 0,
         hasLongest: S.longest === p.id, hasLargest: S.largest === p.id,

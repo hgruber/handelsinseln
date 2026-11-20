@@ -37,7 +37,8 @@
   const initial = (n) => (Array.from(String(n || '?'))[0] || '?').toUpperCase();
   const avatar = (pid, size = 30) => {
     const p = st.view.players[pid];
-    return `<span class="av" style="--pc:${colorOf(pid)};--sz:${size}px" aria-hidden="true">${esc(initial(p && p.name))}</span>`;
+    const pic = p && p.avatar;
+    return `<span class="av${pic ? ' pic' : ''}" style="--pc:${colorOf(pid)};--sz:${size}px" aria-hidden="true">${pic ? `<img src="img/av/${esc(pic)}.webp" alt="" draggable="false">` : esc(initial(p && p.name))}</span>`;
   };
   const sumO = (o) => RES.reduce((a, r) => a + (o && o[r] > 0 ? o[r] : 0), 0);
   const missingOf = (hand, need) => RES.filter((r) => (need[r] || 0) > (hand[r] || 0)).map((r) => `${need[r] - (hand[r] || 0)}× ${RN[r]}`);
@@ -555,7 +556,7 @@
         : p.auto ? '<span class="bdg auto" title="Auto-Modus: Der Server spielt für diesen Spieler (abwesend). Er würfelt, tauscht 1:1 und beendet den Zug selbst.">Auto</span>' : '';
       const badges = gone + (p.hasLongest ? `<span class="bdg" title="Längster Handelsweg (${p.longestRoute})">${Art.pieceIcon('road', p.color, 16)}Längste</span>` : '') + (p.hasLargest ? `<span class="bdg" title="Stärkste Schutzmacht (${p.knightsPlayed} Ritter)">${Art.dev('ritter', 16)}Schutzmacht</span>` : '');
       return `<div class="pc${turn ? ' turn' : ''}${pid === v.you ? ' me' : ''}${p.connected && !p.gone ? '' : ' off'}${p.gone ? ' gone' : ''}" data-pid="${pid}" style="--pc:${Art.COLORS[p.color]}">` +
-        `${avatar(pid, 38)}<div class="info"><div class="top"><b class="nm">${esc(p.name)}</b>${pid === v.host ? '<span class="crown" title="Spielleiter">♛</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}" title="${p.connected ? 'verbunden' : 'getrennt'}"></span>${Voice.badge(pid)}</div>` +
+        `${avatar(pid, 38)}<div class="info"><div class="top"><b class="nm">${esc(p.name)}</b>${p.bot ? `<span class="botTag" title="Computerspieler: ${esc((Avatars.BOTS[p.bot] || {}).label || '')}">Bot</span>` : ''}${pid === v.host ? '<span class="crown" title="Spielleiter">♛</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}" title="${p.connected ? 'verbunden' : 'getrennt'}"></span>${Voice.badge(pid)}</div>` +
         `<div class="stats"><span title="Rohstoffkarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#e8dcc0" stroke="#7a6a48"/></svg>${p.resCount}</span>` +
         `<span title="Entwicklungskarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#6a7bb0" stroke="#2c3560"/><path d="M8,5 l1,2 2,.3 -1.5,1.4 .4,2 -1.9,-1 -1.9,1 .4,-2 -1.5,-1.4 2,-.3z" fill="#ffe27a"/></svg>${p.devCount}</span>` +
         `<span title="Gespielte Ritter">${Art.dev('ritter', 14)}${p.knightsPlayed}</span>` +

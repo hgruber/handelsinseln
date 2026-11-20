@@ -4,6 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Bots mit Strategie:** Der Spielleiter kann in der Lobby bis zu drei Computerspieler hinzufügen – Bruno Biber (Baumeister), Polly Profit (Händler) und Sir Quakalot (Ritter) – mit festen, lustigen Avataren. Sie bewerten Startecken, Bauplätze, Räuber, Handel und Entwicklungskarten nach unterschiedlichen Gewichten und ziehen im Takt (`BOT_MS`).
+- **Avatare:** 8 mit Flux/Forge gemalte Tierporträts zur Auswahl beim Beitritt; zufälliger Vorschlag, im Spiel vergebene sind gesperrt, der Server vergibt nie doppelt. Bot-Avatare sind für Menschen nicht wählbar. Die Avatare erscheinen in Spielerkarten, Lobby, Handel und Statistik.
+- Tests: `tests/bots.js` (Bot-Turnier), `tests/browser_bots.py` (Avatare und Bots im Browser), neue Funktionstests.
+
 ### Geändert
 - Ausgeglichene Startecken: Beim Erzeugen eines Spielfelds werden bis zu 40 Karten gewürfelt und der Aufbau (Schlangenreihenfolge, beste freie Ecke zuerst) simuliert; genommen wird die Karte mit der geringsten Streuung der Wahrscheinlichkeitspunkte, mit ausreichender Rohstoffvielfalt je Spieler und – bei „Vier Heimatinseln“ – ähnlich ertragreichen Inseln.
 - Das Spiel heißt nur noch „Die Handelsinseln“ (README, Quelltext-Kommentar, Changelog).

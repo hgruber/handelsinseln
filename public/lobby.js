@@ -18,7 +18,8 @@
   // ======================================================================================
   // Anmeldung: Name, Farbe, Spieleliste
   // ======================================================================================
-  const L = { games: [], sel: null, color: null, timer: 0, notice: '', err: '' };
+  const L = { games: [], sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
+  const AVS = root.Avatars;
   const joinable = () => L.games.filter((g) => g.joinable !== false);
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
   const takenColors = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.color) : []; };
@@ -28,6 +29,20 @@
     if (L.sel !== 'new' && !j.some((g) => g.id === L.sel)) L.sel = null;
     if (!L.sel && j.length === 1) L.sel = j[0].id;
     if (!j.length) L.sel = 'new';
+  }
+  const takenAvatars = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.avatar).filter(Boolean) : []; };
+  // Avatar: gemerkter oder zufälliger Vorschlag; ist er im gewählten Spiel schon vergeben, wird ein freier zufällig gewählt
+  function pickAvatar() {
+    const t = takenAvatars();
+    if (L.avatar && (t.includes(L.avatar) || !AVS.HUMAN_IDS.includes(L.avatar))) L.avatar = null;
+    if (!L.avatar) { const free = AVS.HUMAN_IDS.filter((a) => !t.includes(a)); L.avatar = free[Math.floor(Math.random() * free.length)] || AVS.HUMAN_IDS[0]; }
+  }
+  function renderAvatars() {
+    const t = takenAvatars();
+    C.setHTML($('avatars'), AVS.HUMAN.map((a) => {
+      const tk = t.includes(a.id);
+      return `<button type="button" class="avb${L.avatar === a.id ? ' on' : ''}${tk ? ' taken' : ''}" data-a="${a.id}" role="radio" aria-checked="${L.avatar === a.id}" ${tk ? 'disabled' : ''} title="${C.esc(a.name)}${tk ? ' (in diesem Spiel vergeben)' : ''}"><img src="img/av/${a.id}.webp" alt="${C.esc(a.name)}" draggable="false"></button>`;
+    }).join(''));
   }
   function pickColor() {
     const t = takenColors();
@@ -53,7 +68,7 @@
       (names ? `<span class="gnames">${names}</span>` : '') + '</button>';
   }
   function renderGames() {
-    normalizeSel(); pickColor(); renderSwatches();
+    normalizeSel(); pickColor(); renderSwatches(); pickAvatar(); renderAvatars();
     const j = joinable(), other = L.games.length - j.length;
     let html;
     if (!j.length) html = `<p class="gempty">Noch kein offenes Spiel – eröffne das erste!${other ? ` <span class="muted">(${other} laufende${other === 1 ? 's' : ''} Spiel${other === 1 ? '' : 'e'} nicht beitretbar)</span>` : ''}</p>`;
@@ -86,8 +101,8 @@
     if (!L.color) { C.toast('Bitte wähle eine Farbe.', 'warn'); return; }
     const j = joinable();
     if (!forceCreate && j.length > 1 && !selGame() && L.sel !== 'new') { C.toast('Wähle zuerst ein Spiel aus der Liste oder eröffne ein neues.', 'warn'); return; }
-    localStorage.setItem('handelsinseln.name', name); localStorage.setItem('handelsinseln.color', L.color);
-    const body = { name, color: L.color };
+    localStorage.setItem('handelsinseln.name', name); localStorage.setItem('handelsinseln.color', L.color); localStorage.setItem('handelsinseln.avatar', L.avatar);
+    const body = { name, color: L.color, avatar: L.avatar };
     if (forceCreate || !j.length || L.sel === 'new') body.create = true; else body.game = L.sel;
     if (C.mockLogin) { C.toast('Mock-Modus: join ' + JSON.stringify(body), 'info'); return; }
     ['joinBtn', 'createBtn'].forEach((i) => $(i).classList.add('dis'));
@@ -102,10 +117,12 @@
   }
   function initLogin() {
     $('swatches').addEventListener('click', (e) => { const b = e.target.closest('.sw'); if (!b || b.disabled) return; L.color = b.dataset.c; localStorage.setItem('handelsinseln.color', L.color); renderSwatches(); });
+    $('avatars').addEventListener('click', (e) => { const b = e.target.closest('.avb'); if (!b || b.disabled) return; L.avatar = b.dataset.a; localStorage.setItem('handelsinseln.avatar', L.avatar); renderAvatars(); });
     $('gameList').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (!b) return; L.sel = L.sel === b.dataset.g ? null : b.dataset.g; L.color = L.color; renderGames(); });
     $('loginForm').addEventListener('submit', (e) => { e.preventDefault(); if ($('joinBtn').getAttribute('aria-disabled') === 'true') { C.toast($('joinBtn').title, 'warn'); return; } doJoin(false); });
     $('createBtn').addEventListener('click', () => doJoin(true));
     L.color = localStorage.getItem('handelsinseln.color') || null;
+    L.avatar = localStorage.getItem('handelsinseln.avatar') || null;
   }
   function loginShown() { renderGames(); pollGames(); }
   function setNotice(t) { L.notice = t || ''; }
@@ -382,15 +399,22 @@
     if (!(act && act.matches && act.matches('#lobbyList input[type=range]'))) {
       C.setHTML($('lobbyList'), v.players.map((p, i) => {
         const off = !p.connected && !p.gone;
-        return `<li class="${i === me ? 'me' : ''}${off ? ' off' : ''}" data-pid="${i}" style="--pc:${C.colorOf(i)}">${C.avatar(i, 42)}<span class="nm">${C.esc(p.name)}</span>` +
+        return `<li class="${i === me ? 'me' : ''}${off ? ' off' : ''}" data-pid="${i}" style="--pc:${C.colorOf(i)}">${C.avatar(i, 42)}<span class="nm">${C.esc(p.name)}</span>${p.bot ? `<span class="botTag" title="${C.esc((AVS.BOTS[p.bot] || {}).desc || '')}">Bot · ${C.esc((AVS.BOTS[p.bot] || {}).label || '')}</span>` : ''}` +
           `${i === v.host ? '<span class="crown" title="Spielleiter">♛ Spielleiter</span>' : ''}${i === me ? '<span class="you">du</span>' : ''}` +
           `${off ? '<span class="away" title="Die Verbindung ist unterbrochen.">getrennt</span>' : ''}${p.auto ? '<span class="away auto" title="Der Auto-Modus spielt für diesen Spieler.">Auto</span>' : ''}` +
-          `${root.Voice ? root.Voice.badge(i) + (i !== me && root.Voice.inVoice(i) ? root.Voice.rowCtl(i) : '') : ''}` +
+          `${root.Voice && !p.bot ? root.Voice.badge(i) + (i !== me && root.Voice.inVoice(i) ? root.Voice.rowCtl(i) : '') : ''}` +
           `<span class="grow"></span>${host && i !== me ? `<button type="button" class="btn small red" data-kick="${i}" title="${C.esc(p.name)} aus der Lobby entfernen">Entfernen</button>` : ''}</li>`;
       }).join('') || '<li class="muted">Noch niemand hier.</li>');
       if (root.Voice) root.Voice.paintSpeaking();
     }
     C.setHTML($('lobbyVoice'), root.Voice ? root.Voice.panel() : '');
+    // Bots hinzufügen (nur Spielleiter)
+    const full = v.players.length >= (v.maxPlayers || 6), here = new Set(v.players.map((p) => p.bot).filter(Boolean));
+    C.setHTML($('lobbyBots'), host ? `<h3 class="lb-h">Bots hinzufügen</h3><div class="botcards">` + Object.entries(AVS.BOTS).map(([k, b]) => {
+      const dis = here.has(k) || full || !!v.closed;
+      return `<div class="botcard${here.has(k) ? ' here' : ''}"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
+        `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${here.has(k) ? 'Ist schon dabei' : full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">${here.has(k) ? 'dabei' : 'Hinzufügen'}</button></div>`;
+    }).join('') + '</div>' : '');
 
     // Variante, Spielerzahl, Plaetze
     const cur = eff('variant') || 'klassisch';
@@ -433,6 +457,7 @@
       if (start) { if (start.getAttribute('aria-disabled') === 'true') { C.toast(start.title || 'Zu wenige Spieler.', 'warn'); return; } await C.act('start'); return; }
       const vc = e.target.closest('[data-var]'); if (vc && !vc.disabled && isHost()) { ovr.set('variant', { val: vc.dataset.var, until: Infinity }); queue('variant', vc.dataset.var); renderLobby(v); return; }
       const pl = e.target.closest('[data-plan]'); if (pl && !pl.disabled && isHost()) { const n = Math.max(2, Math.min(v.maxPlayers || 6, (eff('plannedPlayers') || 2) + Number(pl.dataset.plan))); queue('plannedPlayers', n); renderLobby(v); return; }
+      const ab = e.target.closest('[data-addbot]'); if (ab && !ab.disabled && isHost()) { ab.disabled = true; await C.act('add_bot', { kind: ab.dataset.addbot }); return; }
       const cs = e.target.closest('[data-closeseats]'); if (cs && !cs.disabled) { await C.act('close_seats', { closed: cs.dataset.closeseats === '1' }); return; }
       const rg = e.target.closest('[data-regen]'); if (rg && !rg.disabled) { rg.disabled = true; await C.act('regen_board'); setTimeout(() => { rg.disabled = false; }, 500); return; }
       const k = e.target.closest('[data-kick]');
