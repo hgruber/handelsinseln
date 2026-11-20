@@ -1,5 +1,5 @@
 'use strict';
-// Spiellogik "Die Handelsinseln". Zustand ist reines JSON (speicherbar).
+// Spiellogik "Die Handelsinseln" (Grundspiel + Erweiterung). Zustand ist reines JSON (speicherbar).
 const crypto = require('crypto');
 const G = require('../shared/geom');
 const B = require('./board');

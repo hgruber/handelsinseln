@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- Das Spiel heißt nur noch „Die Handelsinseln“ (README, Quelltext-Kommentar, Changelog).
 - Ereigniskarten (Ritter, Siegpunkt, Straßenbau, Erfindung, Monopol) mit Flux/Forge neu gemalt (`public/img/dev-*.webp`).
 - README mit Screenshots aus echten Bot-Partien (`docs/screenshots`, erzeugt mit `tests/mock/readme.js` und `readme_shots.py`).
 - Mit Flux/Forge neu erzeugt: ruhigere Meeres-Hexagone, Rohstoffkarten-Bilder (Holz, Lehm, Wolle, Getreide, Erz) und ein dezenter Meereshintergrund ohne Animations-Overlay (die Wellen-Ebenen und ihr Parallax entfallen).
@@ -34,7 +35,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - Auto-Modus für Verlassene/Abwesende (Erträge, 1:1-Angebote, Räuber, Zug) mit Übernahme der Infrastruktur oder Verschwinden nach n Runden.
 - Sprachchat per Mikrofon (WebRTC) mit Stummschaltung; optionales https (`TLS_CERT`/`TLS_KEY`).
 - Gemalte Geländetexturen (Flux/Forge) statt rein vektorieller Felder.
-- Erstes lauffähiges Spiel: Die Handelsinseln für 2–6 Spieler im Browser (Podman-Container, 14 Siegpunkte).
+- Erstes lauffähiges Spiel: Die Handelsinseln (Brettspiel) für 2–6 Spieler im Browser (Podman-Container, 14 Siegpunkte).
 - Zufälliges, unbegrenzt entdeckbares Spielfeld (Schiffe/Straßen decken Land- und Meerfelder auf).
 - Lobby mit Namen und Farbwahl; der erste Spieler startet das Spiel.
 - Handelsdialog mit Bank-Tausch, Angeboten an alle und Gegenangeboten.
