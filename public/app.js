@@ -137,6 +137,7 @@
   function applyView(v) {
     const old = st.view;
     st.view = v;
+    if (!old) Fx.reset(); // neue Sitzung: bisherige Kartenbewegungen nicht nachspielen
     if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
     // Modus-Aufraeumen: nur gueltig im eigenen Hauptschritt
     if (!(isMe() && (v.step === 'main' || v.step === 'sbp'))) { st.mode = null; st.moveFrom = null; }
@@ -161,6 +162,7 @@
     if (st.lastSeq == null) { setDice(v.dice, false); }
     else if (seq !== st.lastSeq) { setDice(v.dice, true); if (v.dice) pulseNumber(v.dice[0] + v.dice[1]); }
     st.lastSeq = seq;
+    Fx.play(v); // Kartenanimation (Quelle → Ziel)
     void old;
   }
 
@@ -571,7 +573,7 @@
     const res = RES.map((r) => {
       const n = hand[r] || 0, gain = prevHand[r] != null && n > prevHand[r];
       prevHand[r] = n;
-      return `<div class="rcard${n ? '' : ' zero'}${gain ? ' gain' : ''}" style="--rc:${Art.RES_COLORS[r]}" title="${RN[r]}: ${n}"><div class="sk s${Math.min(n, 4)}"></div><div class="face">${Art.res(r, 42)}<span class="rn">${RN[r]}</span></div><b class="cnt">${n}</b></div>`;
+      return `<div class="rcard${n ? '' : ' zero'}${gain ? ' gain' : ''}" data-res="${r}" style="--rc:${Art.RES_COLORS[r]}" title="${RN[r]}: ${n}"><div class="sk s${Math.min(n, 4)}"></div><div class="face">${Art.res(r, 42)}<span class="rn">${RN[r]}</span></div><b class="cnt">${n}</b></div>`;
     }).join('');
     setHTML($('resRow'), res);
     const cards = v.me.dev.map((d) => {
@@ -866,6 +868,7 @@
     const ctx = { get mockLogin() { return st.loginMock; }, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); },
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
+    Fx.init({ Art, hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
     Trade.init({ root: $('tradeDock'), view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
     const mock = q.get('mock');

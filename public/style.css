@@ -377,3 +377,15 @@ body.moving #world * { animation-play-state: paused; }
 body.moving .glass, body.moving .ibtn, body.moving .bn, body.moving .pc, body.moving .sc { backdrop-filter: none; -webkit-backdrop-filter: none; }
 /* Wellen-Pulse und treibender Schaum pro Feld sind ~230 Dauer-Animationen auf SVG (nicht compositor-fähig): statisch lassen */
 .hex .wv, .fb { animation: none; }
+
+/* Kartenanimation (fx.js): Rohstoffkarten fliegen von der Quelle zum Ziel */
+#fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.fxc { position: absolute; left: 0; top: 0; display: grid; place-items: center; border-radius: 8px; will-change: transform, opacity; opacity: 0;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--rc, #888) 55%, #fff), var(--rc, #888)); border: 2px solid rgba(255, 255, 255, .75); box-shadow: 0 4px 10px rgba(0, 0, 0, .5); }
+.fxc .ri { display: block; }
+.fxc.mine { border-color: #fff3c4; box-shadow: 0 0 0 2px rgba(248, 220, 146, .9), 0 0 18px rgba(248, 220, 146, .85), 0 6px 14px rgba(0, 0, 0, .55); }
+.fxc.back { background: repeating-linear-gradient(45deg, #27406b 0 5px, #1d3358 5px 10px); border-color: #9fb4d8; }
+.fxc.back.mine { border-color: #fff3c4; }
+.pc.fxpulse, #hand.fxpulse { animation: fxpulse .45s ease-out; }
+@keyframes fxpulse { 0% { filter: brightness(1); } 40% { filter: brightness(1.45) drop-shadow(0 0 8px rgba(248, 220, 146, .9)); } 100% { filter: brightness(1); } }
+@media (prefers-reduced-motion: reduce) { #fxLayer { display: none; } }

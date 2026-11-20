@@ -570,4 +570,54 @@ test('Bots: spielen im Hub selbstständig bis zum Ziel (Aufbau, Würfeln, Bauen,
   }
 });
 
+test('Figurenlimit: Stadtausbau gibt die Siedlung zurück (5 Siedlungen + 4 Städte gleichzeitig möglich)', () => {
+  const g = mainBoard(2); const S = g.S;
+  const vs = [V('0,0', '0,-1', '1,-1'), V('1,0', '1,-1', '2,-1'), V('2,0', '2,-1', '3,-1'), V('3,0', '3,-1', '4,-1'), V('4,0', '4,-1', '5,-1')];
+  vs.forEach((v) => { S.verts[v] = { p: 0, k: 's' }; });
+  assert.strictEqual(g.left(0).settlement, 0, 'fünf Siedlungen: keine weitere');
+  assert.strictEqual(g.left(0).city, 4);
+  hand(g, 0, { holz: 1, lehm: 1, wolle: 1, getreide: 4, erz: 3 });
+  throws(() => g.act(0, { type: 'build_settlement', v: V('0,0', '0,1', '-1,1') }), /keine Siedlungen mehr/);
+  g.act(0, { type: 'build_city', v: vs[0] });
+  assert.strictEqual(g.left(0).settlement, 1, 'durch die Stadt ist wieder eine Siedlung frei');
+  assert.strictEqual(g.left(0).city, 3);
+  [1, 2, 3].forEach((i) => { S.verts[vs[i]].k = 'c'; });
+  assert.strictEqual(g.left(0).settlement, 4, 'mit 4 Städten und 1 Siedlung sind noch 4 Siedlungen möglich'); assert.strictEqual(g.left(0).city, 0, 'vier Städte gebaut');
+  assert.strictEqual(Object.values(S.verts).filter((x) => x.p === 0 && x.k === 'c').length, 4);
+});
+
+test('Karten-Ereignisse (fx): Quelle, Ziel, Sichtbarkeit je Spieler', () => {
+  const g = mainBoard(3); const S = g.S;
+  const fxOf = (pid) => g.view(pid).fx;
+  // Würfelertrag: Feld -> Spieler, öffentlich
+  S.verts[V('0,0', '0,-1', '1,-1')] = { p: 1, k: 's' }; S.verts[V('0,0', '0,-1', '-1,0')] = { p: 2, k: 'c' };
+  g.produce(4);
+  let ev = fxOf(0).filter((e) => e.why === 'roll');
+  assert.strictEqual(ev.length, 2); assert(ev.every((e) => e.f === 'h:0,0' && e.pub && e.c.holz > 0), 'Ertrag kommt vom Feld, mit sichtbaren Karten für alle');
+  assert.deepStrictEqual(ev.map((e) => [e.t, e.n]).sort(), [['p:1', 1], ['p:2', 2]]);
+  // Bankhandel: Spieler <-> Bank
+  hand(g, 0, { holz: 4 });
+  g.act(0, { type: 'bank_trade', give: 'holz', get: 'erz' });
+  ev = fxOf(2).filter((e) => e.why === 'bank');
+  assert.deepStrictEqual(ev.map((e) => [e.f, e.t, e.n]), [['p:0', 'bank', 4], ['bank', 'p:0', 1]]);
+  // Bauen: Kosten gehen an die Bank
+  hand(g, 0, { holz: 1, lehm: 1 }); S.verts[V('0,0', '0,1', '-1,1')] = { p: 0, k: 's' };
+  const road = g.pathSpots(0, 'r')[0];
+  g.act(0, { type: 'build_road', e: road });
+  assert(fxOf(1).some((e) => e.why === 'build' && e.f === 'p:0' && e.t === 'bank' && e.c.holz === 1 && e.c.lehm === 1));
+  // Stehlen: nur Beteiligte sehen die Karte, Dritte nur die Anzahl
+  S.ts.sub = 'robber'; hand(g, 1, { erz: 1 }); hand(g, 2, {});
+  S.verts[V('1,0', '1,-1', '0,0')] = { p: 1, k: 's' };
+  g.act(0, { type: 'move_robber', hex: '1,0' });
+  const st = (pid) => fxOf(pid).find((e) => e.why === 'steal');
+  assert(st(0) && st(0).c && st(0).f === 'p:1' && st(0).t === 'p:0' && st(0).c.erz === 1, 'Dieb sieht die Karte');
+  assert(st(1) && st(1).c, 'Opfer sieht die Karte');
+  assert(st(2) && !st(2).c && st(2).n === 1 && st(2).pub === false, 'Unbeteiligte sehen nur einen Kartenrücken');
+  // Ids steigen, Liste bleibt begrenzt
+  const ids = fxOf(0).map((e) => e.id); assert.deepStrictEqual(ids, [...ids].sort((a, b) => a - b));
+  for (let i = 0; i < 80; i++) g.fx('bank', 'p:0', { holz: 1 }, true, 'x');
+  assert(fxOf(0).length <= 40);
+  JSON.stringify(g.S);
+});
+
 console.log(`${passed} Funktionstests bestanden`);

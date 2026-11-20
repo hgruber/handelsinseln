@@ -15,6 +15,7 @@ run "Browser Spielen auto"  python3 tests/browser_play.py 3 90 auto
 run "Browser Dauerlauf 6"   python3 tests/browser_soak.py 6 80
 run "Browser Sprachchat"    python3 tests/browser_voice.py
 run "Browser https+Mikro"   python3 tests/browser_https_voice.py
+run "Browser Kartenanimation" python3 tests/browser_fx.py
 run "Browser Bots+Avatare" python3 tests/browser_bots.py
 run "Bot-Turnier 3"        node tests/bots.js 3
 run "Browser Übernahme"     python3 tests/browser_takeover.py

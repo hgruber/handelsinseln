@@ -52,7 +52,7 @@ class Game {
     const settings = keepPlayers && this.S ? this.S.settings : ST.defaults();
     const host = keepPlayers && this.S ? this.S.host : 0;
     this.S = {
-      v: 0, phase: 'lobby', players: old.map((p) => ({ ...p, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, autoTurns: 0, vanished: false })),
+      v: 0, fx: [], fxId: (this.S && this.S.fxId) || 0, phase: 'lobby', players: old.map((p) => ({ ...p, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, autoTurns: 0, vanished: false })),
       settings, closed: false, endedBy: null, aborted: false, stats: null, supply: null, deckUnlimited: false, fogGold: 1,
       host, log: [], chat: [], logId: 0, seq: 0,
       hexes: {}, harbors: {}, verts: {}, edges: {}, robber: null, pirate: null,
@@ -93,7 +93,7 @@ class Game {
     const f = (x) => (x === Infinity ? UNLIMITED : x);
     return {
       road: f(this.lim('road') - this.countE(pid, 'r')), ship: f(this.lim('ship') - this.countE(pid, 's')),
-      settlement: f(this.lim('settlement') - this.count(pid, 's') - this.count(pid, 'c')), city: f(this.lim('city') - this.count(pid, 'c')),
+      settlement: f(this.lim('settlement') - this.count(pid, 's')), city: f(this.lim('city') - this.count(pid, 'c')),
     };
   }
   canPay(pid, cost) { const h = this.pl(pid).hand; return Object.keys(cost).every((r) => h[r] >= cost[r]); }
@@ -106,6 +106,20 @@ class Game {
     if (l === null || l === undefined) return Infinity;
     return Math.max(0, l - this.S.players.reduce((a, p) => a + p.hand[res], 0));
   }
+  // Kartenbewegungen für die Animation im Browser: von/nach 'bank', 'p:<Spieler>' oder 'h:<Feld>'. pub = für alle sichtbar (sonst sehen Unbeteiligte nur die Kartenrücken)
+  fx(from, to, cards, pub, why) {
+    const c = {}; let n = 0;
+    for (const r of RES) if (cards && cards[r] > 0) { c[r] = cards[r]; n += cards[r]; }
+    if (!n) return;
+    const S = this.S; S.fx = S.fx || []; S.fxId = S.fxId || 0;
+    S.fx.push({ id: ++S.fxId, f: from, t: to, c, n, pub: !!pub, why });
+    if (S.fx.length > 40) S.fx.shift();
+  }
+  fxFor(pid) {
+    const me = 'p:' + pid;
+    return (this.S.fx || []).map((e) => (e.pub || e.f === me || e.t === me ? e : { id: e.id, f: e.f, t: e.t, n: e.n, pub: false, why: e.why }));
+  }
+  payBank(pid, cost) { this.pay(pid, cost); this.fx('p:' + pid, 'bank', cost, true, 'build'); }
   bankGive(pid, cost) { // gibt, was die Bank hergeben kann; Rückgabe: tatsächlich ausgegebene Karten
     const out = {};
     for (const r of RES) if (cost[r]) { const n = Math.min(cost[r], this.stock(r)); if (n > 0) { this.pl(pid).hand[r] += n; out[r] = n; } }
@@ -407,7 +421,7 @@ class Game {
         if (hex.t === 'gold') { S.pend.gold[pid] = (S.pend.gold[pid] || 0) + 1; text += ' Als Belohnung darf ein beliebiger Rohstoff gewählt werden.'; }
         else {
           const r = B.TERRAIN_RES[hex.t];
-          if (Object.keys(this.bankGive(pid, { [r]: 1 })).length) text += ` Belohnung: 1× ${RES_DE[r]}.`; else text += ` (Die Bank hat kein ${RES_DE[r]} mehr.)`;
+          if (Object.keys(this.bankGive(pid, { [r]: 1 })).length) { this.fx('bank', 'p:' + pid, { [r]: 1 }, true, 'gold'); text += ` Belohnung: 1× ${RES_DE[r]}.`; } else text += ` (Die Bank hat kein ${RES_DE[r]} mehr.)`;
         }
       }
       this.log(text, 'build', pid);
@@ -481,7 +495,7 @@ class Game {
     const c = cleanCards(cards);
     if (sum(c) !== need) fail(`Bitte genau ${need} Karten abwerfen.`);
     if (!this.canPay(pid, c)) fail('Du besitzt diese Karten nicht.');
-    this.pay(pid, c);
+    this.pay(pid, c); this.fx('p:' + pid, 'bank', c, false, 'discard');
     delete S.pend.discard[pid];
     this.bump(pid, 'discarded', need);
     this.log(`${this.name(pid)} wirft ${need} Karten ab.`, 'steal', pid);
@@ -495,7 +509,7 @@ class Game {
     const c = cleanCards(cards);
     if (sum(c) !== need) fail(need ? `Bitte genau ${need} Rohstoff${need > 1 ? 'e' : ''} wählen.` : 'Die Bank hat keine Rohstoffe mehr.');
     for (const r of RES) if (c[r] && c[r] > this.stock(r)) fail(`Die Bank hat nur noch ${this.stock(r)}× ${RES_DE[r]}.`);
-    this.give(pid, c);
+    this.give(pid, c); this.fx('bank', 'p:' + pid, c, true, 'gold');
     delete S.pend.gold[pid];
     this.log(`${this.name(pid)} wählt für Gold: ${fmt(c)}.`, 'info', pid);
     if (S.phase === 'setup') this.setupAdvanceIfReady();
@@ -520,7 +534,8 @@ class Game {
           if (hx.t === 'gold') gold++;
           else if (B.TERRAIN_RES[hx.t]) { got[B.TERRAIN_RES[hx.t]]++; parts.push(`${RES_DE[B.TERRAIN_RES[hx.t]]} (${TERR_DE[hx.t]})`); }
         }
-        this.bankGive(pid, got);
+        const out = this.bankGive(pid, got);
+        for (const h of G.vertHexes(a.v)) { const rs = S.hexes[h] && B.TERRAIN_RES[S.hexes[h].t]; if (rs && out[rs] > 0) { out[rs]--; this.fx('h:' + h, 'p:' + pid, { [rs]: 1 }, true, 'setup'); } }
         if (gold) S.pend.gold[pid] = gold;
         if (parts.length || gold) this.log(`Startrohstoffe für ${this.name(pid)}: ${parts.join(', ')}${gold ? (parts.length ? ' und ' : '') + gold + '× freie Wahl (Gold)' : ''}.`, 'info', pid);
       }
@@ -651,7 +666,7 @@ class Game {
         if (isGold) { S.pend.gold[b.p] = (S.pend.gold[b.p] || 0) + amt; (entries[b.p] = entries[b.p] || []).push({ res: null, amt, desc: `${amt}× freie Wahl (${TERR_DE.gold} ${n})` }); }
         else {
           (got[b.p] = got[b.p] || emptyHand())[res] += amt;
-          (entries[b.p] = entries[b.p] || []).push({ res, amt, label: `${TERR_DE[h.t]} ${n}${b.k === 'c' ? ', Stadt' : ''}` });
+          (entries[b.p] = entries[b.p] || []).push({ res, amt, hex: k, label: `${TERR_DE[h.t]} ${n}${b.k === 'c' ? ', Stadt' : ''}` });
         }
       }
     }
@@ -669,7 +684,7 @@ class Game {
       for (const e of entries[p]) {
         if (e.res === null) { parts.push(e.desc); continue; }
         const a = Math.min(e.amt, left[e.res] || 0); left[e.res] -= a;
-        if (a > 0) parts.push(`${a}× ${RES_DE[e.res]} (${e.label})`);
+        if (a > 0) { parts.push(`${a}× ${RES_DE[e.res]} (${e.label})`); this.fx('h:' + e.hex, 'p:' + p, { [e.res]: a }, true, 'roll'); }
       }
       if (got[p]) { this.give(+p, got[p]); RES.forEach((r) => this.bump(+p, 'produced', got[p][r], r)); }
       if (parts.length) this.log(`${this.name(+p)} erhält ${parts.join(', ')}.`, 'roll', +p);
@@ -691,7 +706,7 @@ class Game {
         if (kind === 's' && S.pirate && G.edgeHexes(where || '').includes(S.pirate)) fail('Der Pirat blockiert diese Küste.');
         fail(kind === 'r' ? 'Straßen müssen an Land liegen und an deine Straße/Siedlung anschließen.' : 'Schiffe müssen Meer berühren und an dein Schiff/deine Küstensiedlung anschließen.');
       }
-      if (!free) this.pay(pid, cost);
+      if (!free) this.payBank(pid, cost);
       S.edges[where] = { p: pid, k: kind, t: S.turnNo };
       this.bump(pid, 'built', 1, kind === 'r' ? 'road' : 'ship');
       this.log(`${this.name(pid)} baut ${kind === 'r' ? 'eine Straße' : 'ein Schiff'}${free ? ' (Straßenbau)' : ''}.`, 'build', pid);
@@ -701,9 +716,9 @@ class Game {
       return;
     }
     if (what === 'settlement') {
-      if (L.settlement <= 0) fail('Du hast keine Siedlungen mehr (erst Städte bauen).');
+      if (L.settlement <= 0) fail('Du hast keine Siedlungen mehr (baue eine zur Stadt aus, dann wird wieder eine frei).');
       if (!this.settlementSpots(pid).includes(where)) fail('Siedlungen brauchen Anschluss an deinen Weg und zwei Wege Abstand zu jedem Gebäude.');
-      this.pay(pid, cost);
+      this.payBank(pid, cost);
       this.placeSettlement(pid, where, false);
       this.bump(pid, 'built', 1, 'settlement');
       this.log(`${this.name(pid)} baut eine Siedlung.`, 'build', pid);
@@ -713,7 +728,7 @@ class Game {
     if (what === 'city') {
       if (L.city <= 0) fail('Du hast keine Städte mehr.');
       if (!this.citySpots(pid).includes(where)) fail('Städte werden nur aus eigenen Siedlungen ausgebaut.');
-      this.pay(pid, cost);
+      this.payBank(pid, cost);
       S.verts[where].k = 'c';
       this.bump(pid, 'built', 1, 'city');
       this.log(`${this.name(pid)} baut eine Stadt.`, 'build', pid);
@@ -740,7 +755,7 @@ class Game {
     const S = this.S;
     if (!this.devLeft()) fail('Der Entwicklungskartenstapel ist leer.');
     if (!this.canPay(pid, COST.dev)) fail(`Dir fehlen Rohstoffe (${fmt(COST.dev)}).`);
-    this.pay(pid, COST.dev);
+    this.payBank(pid, COST.dev);
     const type = this.drawDev();
     this.bump(pid, 'built', 1, 'dev');
     this.pl(pid).dev.push({ id: ++S.seq, type, bought: S.turnNo });
@@ -771,11 +786,11 @@ class Game {
       if (!this.rbPossible(pid)) { this.endRoadBuilding(); this.log('Es gibt keinen freien Platz für Wege – Karte verfällt.', 'info'); }
     } else if (type === 'erfindung') {
       const c = emptyHand(); c[a.a]++; c[a.b]++;
-      this.give(pid, c);
+      this.give(pid, c); this.fx('bank', 'p:' + pid, c, true, 'dev');
       this.log(`${p.name} spielt Erfindung und nimmt ${RES_DE[a.a]} und ${RES_DE[a.b]} von der Bank.`, 'info', pid);
     } else if (type === 'monopol') {
       let tot = 0;
-      for (const q of S.players) if (q.id !== pid) { tot += q.hand[a.res]; p.hand[a.res] += q.hand[a.res]; q.hand[a.res] = 0; }
+      for (const q of S.players) if (q.id !== pid) { tot += q.hand[a.res]; this.fx('p:' + q.id, 'p:' + pid, { [a.res]: q.hand[a.res] }, true, 'dev'); p.hand[a.res] += q.hand[a.res]; q.hand[a.res] = 0; }
       this.log(`${p.name} spielt Monopol auf ${RES_DE[a.res]} und erhält ${tot} Karten.`, 'steal', pid);
     }
   }
@@ -814,7 +829,7 @@ class Game {
     const pool = []; RES.forEach((r) => { for (let i = 0; i < h[r]; i++) pool.push(r); });
     if (pool.length) {
       const r = pool[Math.floor(this.rnd() * pool.length)];
-      h[r]--; this.pl(pid).hand[r]++;
+      h[r]--; this.pl(pid).hand[r]++; this.fx('p:' + target, 'p:' + pid, { [r]: 1 }, false, 'steal');
       this.bump(pid, 'stolenBy'); this.bump(target, 'stolenFrom');
       this.log(`${this.name(pid)} stiehlt ${this.name(target)} eine Karte.`, 'steal', pid);
       this.pl(pid).lastStolen = null;
@@ -833,6 +848,7 @@ class Game {
     if (this.stock(a.get) < times) fail(`Die Bank hat nur noch ${this.stock(a.get)}× ${RES_DE[a.get]}.`);
     this.bump(pid, 'tradesBank');
     this.pl(pid).hand[a.give] -= rate * times; this.pl(pid).hand[a.get] += times;
+    this.fx('p:' + pid, 'bank', { [a.give]: rate * times }, true, 'bank'); this.fx('bank', 'p:' + pid, { [a.get]: times }, true, 'bank');
     this.log(`${this.name(pid)} tauscht mit der Bank ${rate * times}× ${RES_DE[a.give]} gegen ${times}× ${RES_DE[a.get]} (${rate}:1).`, 'trade', pid);
   }
   tradeOffer(pid, a) {
@@ -882,6 +898,7 @@ class Game {
     if (!this.canPay(a.with, want)) fail(`${this.name(a.with)} besitzt die Karten nicht mehr.`);
     this.pay(pid, give); this.give(a.with, give);
     this.pay(a.with, want); this.give(pid, want);
+    this.fx('p:' + pid, 'p:' + a.with, give, true, 'trade'); this.fx('p:' + a.with, 'p:' + pid, want, true, 'trade');
     this.bump(pid, 'tradesPlayer'); this.bump(a.with, 'tradesPlayer');
     this.log(`Handel: ${this.name(pid)} gibt ${fmt(give)} an ${this.name(a.with)} und erhält ${fmt(want)}.`, 'trade', pid);
     S.trade = null;
@@ -1249,7 +1266,7 @@ class Game {
       trade: S.trade ? { id: S.trade.id, from: S.trade.from, give: S.trade.give, want: S.trade.want, responses: S.trade.responses } : null,
       prompt: this.prompt(pid, step),
       pending: S.pend,
-      log: S.log, chat: S.chat, winner: S.winner,
+      log: S.log, chat: S.chat, winner: S.winner, fx: this.fxFor(pid),
       bank: { dev: this.devLeft(), stock: Object.fromEntries(RES.map((r) => [r, this.stock(r) === Infinity ? UNLIMITED : this.stock(r)])) }, longestHolder: S.longest, largestHolder: S.largest, sbp: !!S.sbp,
     };
     if (S.phase === 'main' || S.phase === 'ended') {

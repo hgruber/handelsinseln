@@ -4,7 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- Figurenlimit: Ein Stadtausbau gibt die Siedlung wieder frei. Man kann jetzt gleichzeitig bis zu 5 Siedlungen und 4 Städte besitzen (bisher zählten Städte gegen das Siedlungslimit).
+
 ### Hinzugefügt
+- **Kartenanimation:** Rohstoffkarten fliegen bei Erträgen (vom Feld), Bank- und Spielerhandel, Bauen, Abwerfen, Gold, Erfindung, Monopol und Diebstahl von der Quelle zum Ziel, jede leicht versetzt. Eigene Karten sind groß, golden umrandet und mit Gesicht; öffentliche Bewegungen anderer klein mit Gesicht; gestohlene und abgeworfene Karten unter anderen nur als Kartenrücken. Der Server liefert dafür `view.fx` (nur Beteiligte erfahren, welche Karte gestohlen wurde); beim Verbinden wird nichts nachgespielt; `prefers-reduced-motion` schaltet es ab.
 - **Bots mit Strategie:** Der Spielleiter kann in der Lobby (Aufklapp-Liste „Bots hinzufügen“ unter den Spielern, standardmäßig zugeklappt; bereits hinzugefügte Bots verschwinden aus der Liste) bis zu drei Computerspieler hinzufügen – Bruno Biber (Baumeister), Polly Profit (Händler) und Sir Quakalot (Ritter) – mit festen, lustigen Avataren. Sie bewerten Startecken, Bauplätze, Räuber, Handel und Entwicklungskarten nach unterschiedlichen Gewichten und ziehen im Takt (`BOT_MS`).
 - **Avatare:** 8 mit Flux/Forge gemalte Tierporträts zur Auswahl beim Beitritt; zufälliger Vorschlag, im Spiel vergebene sind gesperrt, der Server vergibt nie doppelt. Bot-Avatare sind für Menschen nicht wählbar. Die Avatare erscheinen in Spielerkarten, Lobby, Handel und Statistik.
 - Tests: `tests/bots.js` (Bot-Turnier), `tests/browser_bots.py` (Avatare und Bots im Browser), neue Funktionstests.
