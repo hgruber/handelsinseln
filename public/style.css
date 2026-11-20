@@ -19,12 +19,12 @@ svg { display: block; }
 
 /* ================= Meer-Hintergrund ================= */
 #sea { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 30%, #1d6a94 0%, #0f3d68 45%, #081e3b 100%); }
-#sea .wv { position: absolute; inset: -400px; will-change: transform, background-position; }
+#sea .wv { position: absolute; inset: -400px; will-change: transform, translate; }
 #sea .w1 { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cg fill='none' stroke='white' stroke-opacity='.13' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M10 30 q10 -8 20 0 t20 0 t20 0'/%3E%3Cpath d='M130 90 q10 -8 20 0 t20 0 t20 0'/%3E%3Cpath d='M180 24 q8 -6 16 0 t16 0'/%3E%3C/g%3E%3C/svg%3E"); background-size: 240px 120px; transform: translate(var(--ox1, 0), var(--oy1, 0)); animation: wave1 26s linear infinite; }
 #sea .w2 { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='170'%3E%3Cg fill='none' stroke='%23bfe9ff' stroke-opacity='.10' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M30 40 q14 -10 28 0 t28 0 t28 0'/%3E%3Cpath d='M200 120 q14 -10 28 0 t28 0 t28 0'/%3E%3C/g%3E%3Cg fill='white' fill-opacity='.14'%3E%3Ccircle cx='260' cy='46' r='2'/%3E%3Ccircle cx='80' cy='140' r='1.6'/%3E%3Ccircle cx='150' cy='80' r='1.4'/%3E%3C/g%3E%3C/svg%3E"); background-size: 340px 170px; transform: translate(var(--ox2, 0), var(--oy2, 0)); animation: wave2 38s linear infinite reverse; }
 #sea .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(2, 8, 20, .55) 100%); pointer-events: none; }
-@keyframes wave1 { to { background-position: 240px 0; } }
-@keyframes wave2 { to { background-position: 340px 0; } }
+@keyframes wave1 { to { translate: 240px 0; } }   /* translate statt background-position: läuft auf dem Compositor, kein Repaint */
+@keyframes wave2 { to { translate: 340px 0; } }
 
 /* ================= Brett ================= */
 #board { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
@@ -355,3 +355,9 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .modal.m-help { width: min(780px, 94vw); }
 .cost-t td:last-child { white-space: nowrap; }
 #board.calm .tw, #board.calm .hex .wv, #board.calm .fo, #board.calm .fb, #board.calm .shimmer, #board.calm .q { animation: none; }
+
+/* Während Ziehen/Zoomen (body.moving, siehe applyCam): Ambient-Animationen anhalten und Glas ohne Blur, das hält die Bildrate oben */
+body.moving #world *, body.moving #sea .wv { animation-play-state: paused; }
+body.moving .glass, body.moving .ibtn, body.moving .bn, body.moving .pc, body.moving .sc { backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* Wellen-Pulse und treibender Schaum pro Feld sind ~230 Dauer-Animationen auf SVG (nicht compositor-fähig): statisch lassen */
+.hex .wv, .fb { animation: none; }

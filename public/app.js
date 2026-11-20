@@ -395,7 +395,9 @@
   const cam = { x: 0, y: 0, k: 0.6 }, tgt = { x: 0, y: 0, k: 0.6 };
   let animOn = false, lastT = 0;
   const KMIN = 0.12, KMAX = 2.6;
+  let movingT = 0;
   function applyCam() {
+    document.body.classList.add('moving'); clearTimeout(movingT); movingT = setTimeout(() => document.body.classList.remove('moving'), 220);
     const W = board.clientWidth, H = board.clientHeight;
     world.setAttribute('transform', `translate(${(W / 2 - cam.x * cam.k).toFixed(2)},${(H / 2 - cam.y * cam.k).toFixed(2)}) scale(${cam.k.toFixed(4)})`);
     const ox = W / 2 - cam.x * cam.k, oy = H / 2 - cam.y * cam.k, md = (a, m) => (((a % m) + m) % m).toFixed(0) + 'px';
