@@ -408,12 +408,13 @@
       if (root.Voice) root.Voice.paintSpeaking();
     }
     C.setHTML($('lobbyVoice'), root.Voice ? root.Voice.panel() : '');
-    // Bots hinzufügen (nur Spielleiter)
+    // Bots hinzufügen (nur Spielleiter): bereits dabeigesetzte verschwinden aus der Liste, sind alle dabei, entfällt sie ganz
     const full = v.players.length >= (v.maxPlayers || 6), here = new Set(v.players.map((p) => p.bot).filter(Boolean));
-    C.setHTML($('lobbyBots'), host ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${here.size} von ${Object.keys(AVS.BOTS).length} dabei</small></summary><div class="botcards">` + Object.entries(AVS.BOTS).map(([k, b]) => {
-      const dis = here.has(k) || full || !!v.closed;
-      return `<div class="botcard${here.has(k) ? ' here' : ''}"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
-        `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${here.has(k) ? 'Ist schon dabei' : full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">${here.has(k) ? 'dabei' : 'Hinzufügen'}</button></div>`;
+    const avail = Object.entries(AVS.BOTS).filter(([k]) => !here.has(k));
+    C.setHTML($('lobbyBots'), host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
+      const dis = full || !!v.closed;
+      return `<div class="botcard"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
+        `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">Hinzufügen</button></div>`;
     }).join('') + '</div></details>' : '');
 
     // Variante, Spielerzahl, Plaetze
