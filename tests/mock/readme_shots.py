@@ -15,9 +15,9 @@ shots = [  # (Datei, Query)
 with sync_playwright() as p:
     b = p.chromium.launch()
     for name, q in shots:
-        pg = b.new_page(viewport={'width': 1440, 'height': 900})
+        pg = b.new_page(viewport={'width': 1440, 'height': 1000 if name == 'statistik' else 900})
         pg.goto(URL + q)
-        pg.wait_for_timeout(2000)
+        pg.wait_for_timeout(4000)  # Einblend-Animationen (Statistik) abwarten
         pg.screenshot(path=f'{out}/{name}.png')
         if name == 'klassisch':  # Kartenleiste (Rohstoff- und Entwicklungskarten) als Ausschnitt
             pg.goto(URL + q.split('&')[0]); pg.wait_for_timeout(1500)
