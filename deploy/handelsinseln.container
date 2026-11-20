@@ -1,0 +1,21 @@
+# Die Handelsinseln – Quadlet-Vorlage für systemd/podman (nach /etc/containers/systemd/ kopieren, dann systemctl daemon-reload).
+# TLS übernimmt ein Reverse-Proxy davor (HTTPS_PORT=0). Spielstand im Volume handelsinseln (/data/state.json).
+[Unit]
+Description=Die Handelsinseln (Browserspiel)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=localhost/handelsinseln:latest
+HostName=handelsinseln
+Volume=handelsinseln:/data
+Environment=TZ=Europe/Berlin
+Environment=PORT=8080
+Environment=HTTPS_PORT=0
+Environment=MAX_GAMES=3
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
