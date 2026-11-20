@@ -47,6 +47,7 @@ python3 tests/browser_lobby.py       # drei echte Browser: Lobby, Variante, Entf
 python3 tests/browser_play.py 4 120 [auto]  # Browser-Spieler klickt Aufbau, Würfeln, Bauen, Handeln selbst
 python3 tests/browser_soak.py 6 90   # echte Browser sehen eine ganze Partie, Konsolenfehler werden geprüft
 python3 tests/browser_voice.py       # Sprachchat (WebRTC) mit Fake-Mikrofon gegen den echten Server
+python3 tests/browser_takeover.py    # Übernahme der Infrastruktur eines Verlassenen in der echten Oberfläche
 ```
 
 ## Regeln (Quellen: offizielle Regel 2015, 5-6-Spieler-Erweiterung)

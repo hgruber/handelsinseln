@@ -58,7 +58,7 @@ try:
         page2.fill('#nameIn', 'Browser-Berta')
         page2.wait_for_selector('#gameList [data-g]', timeout=6000)
         page2.locator('#gameList [data-g]').first.click()
-        page2.locator('#swatches .sw:not([disabled])').nth(1).click()
+        page2.locator('#swatches .sw:not([disabled])').last.click()
         page2.click('#joinBtn')
         page2.wait_for_function("localStorage.getItem('handelsinseln.token')", timeout=5000)
         tokens.append(page2.evaluate("localStorage.getItem('handelsinseln.token')"))
