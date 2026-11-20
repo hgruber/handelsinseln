@@ -18,7 +18,7 @@
   // ======================================================================================
   // Anmeldung: Name, Farbe, Spieleliste
   // ======================================================================================
-  const L = { games: [], sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
+  const L = { botsOpen: false, games: [], sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
   const AVS = root.Avatars;
   const joinable = () => L.games.filter((g) => g.joinable !== false);
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
@@ -410,11 +410,11 @@
     C.setHTML($('lobbyVoice'), root.Voice ? root.Voice.panel() : '');
     // Bots hinzufügen (nur Spielleiter)
     const full = v.players.length >= (v.maxPlayers || 6), here = new Set(v.players.map((p) => p.bot).filter(Boolean));
-    C.setHTML($('lobbyBots'), host ? `<h3 class="lb-h">Bots hinzufügen</h3><div class="botcards">` + Object.entries(AVS.BOTS).map(([k, b]) => {
+    C.setHTML($('lobbyBots'), host ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${here.size} von ${Object.keys(AVS.BOTS).length} dabei</small></summary><div class="botcards">` + Object.entries(AVS.BOTS).map(([k, b]) => {
       const dis = here.has(k) || full || !!v.closed;
       return `<div class="botcard${here.has(k) ? ' here' : ''}"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
         `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${here.has(k) ? 'Ist schon dabei' : full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">${here.has(k) ? 'dabei' : 'Hinzufügen'}</button></div>`;
-    }).join('') + '</div>' : '');
+    }).join('') + '</div></details>' : '');
 
     // Variante, Spielerzahl, Plaetze
     const cur = eff('variant') || 'klassisch';
@@ -464,6 +464,7 @@
       if (k) { const pid = Number(k.dataset.kick), name = v.players[pid] ? v.players[pid].name : ''; if (await Menu.confirm('Spieler entfernen?', `${name} wird aus der Lobby entfernt.`, 'Entfernen', true)) await C.act('kick', { pid }); }
     });
     $('lobbyChatForm').addEventListener('submit', async (e) => { e.preventDefault(); const t = $('lobbyChatIn').value.trim(); if (!t) return; $('lobbyChatIn').value = ''; await C.act('chat', { text: t }); });
+    $('lobbyBots').addEventListener('toggle', (e) => { if (e.target.classList.contains('botdrop')) L.botsOpen = e.target.open; }, true); // Auf-/Zuklappen merken, auch wenn die Liste neu gezeichnet wird
     $('leaveBtn').addEventListener('click', () => C.leave());
   }
   const resetLocal = () => { ovr.clear(); patch = {}; clearTimeout(flushT); lastSettings = null; $('lobbySettings').replaceChildren(); };

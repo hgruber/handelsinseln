@@ -304,6 +304,14 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .avb.on { border-color: #fff; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(248, 220, 146, .85), 0 8px 18px rgba(0, 0, 0, .55); }
 .avb.taken { filter: grayscale(1) brightness(.5); cursor: not-allowed; }
 .botTag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font: 700 11px/1.5 var(--sans, sans-serif); letter-spacing: .03em; color: #0d1830; background: #8fd0ff; vertical-align: middle; }
+.botdrop { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .04); }
+.botdrop > summary { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; list-style: none; font: 700 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold2, #f1d27a); }
+.botdrop > summary::-webkit-details-marker { display: none; }
+.botdrop > summary::before { content: '▸'; transition: transform .15s; } .botdrop[open] > summary::before { transform: rotate(90deg); }
+.botdrop > summary small { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.botdrop > summary:hover { color: #fff; }
+.botdrop > summary small { color: var(--muted, #9fb0cf); }
+.botdrop .botcards { padding: 0 8px 8px; }
 .lb-bots .botcards { display: grid; gap: 8px; }
 .botcard { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .05); }
 .botcard.here { opacity: .65; }

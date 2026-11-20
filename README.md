@@ -63,7 +63,7 @@ Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-
   Das Spiel endet komplett, wenn der letzte Spieler den Tab schließt oder im Menü „Spiel verlassen“ wählt (≈ 20 s Kulanz für Neuladen).
 - **Avatare:** Beim Beitritt wählt jeder eines von 8 Tierporträts (mit Forge/Flux gemalt); vorgeschlagen wird zufällig eines, im gewählten Spiel schon vergebene sind gesperrt.
   Der Server vergibt nie einen Avatar doppelt (bei Kollision bekommt man zufällig einen freien).
-- **Bots:** Der Spielleiter kann in der Lobby bis zu drei Computerspieler hinzufügen, je Sorte einen, mit festem Avatar und Namen:
+- **Bots:** Der Spielleiter kann in der Lobby (Aufklapp-Liste „Bots hinzufügen“ unter den Spielern) bis zu drei Computerspieler hinzufügen, je Sorte einen, mit festem Avatar und Namen:
   *Bruno Biber* (Baumeister – baut Straßen und Siedlungen, jagt den Längsten Handelsweg), *Polly Profit* (Händler – Häfen, viel Tauschen, früh Städte)
   und *Sir Quakalot* (Ritter – Entwicklungskarten, Schutzmacht, stört den Führenden mit dem Räuber). Menschen können die Bot-Avatare und -Namen nicht wählen.
   Bots nutzen nur öffentliche Informationen und ziehen im Takt (`BOT_MS`, Standard 800 ms). Der Spielleiter kann sie vor Spielbeginn wieder entfernen.
