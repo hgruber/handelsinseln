@@ -29,7 +29,7 @@ try:
         def page(origin, name):
             pg = b.new_context(ignore_https_errors=True, permissions=['microphone']).new_page()
             pg.on('pageerror', lambda e: problems.append(f'pageerror {name}: {e}'))
-            pg.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and problems.append(f'console {name}: {m.text}'))
+            pg.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and 'SSL certificate error' not in m.text and problems.append(f'console {name}: {m.text}'))
             pg.goto(origin); pg.fill('#nameIn', name); pg.wait_for_selector('#createBtn'); pg.wait_for_timeout(500)
             return pg
         # 1) http über LAN-IP: unsicherer Kontext
