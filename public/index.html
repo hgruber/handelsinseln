@@ -2,10 +2,18 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1a30">
 <title>Die Handelsinseln</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="/icon/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" href="/icon/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/icon/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="application-name" content="Die Handelsinseln">
+<meta name="apple-mobile-web-app-title" content="Handelsinseln">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/lobby.css">
 </head>
@@ -32,6 +40,7 @@
       <button class="btn big ghostb" id="createBtn" type="button">Neues Spiel eröffnen</button>
     </div>
     <p id="loginInfo" class="hint"></p>
+    <p id="ver" class="ver"></p>
   </form>
 </main>
 
@@ -73,12 +82,6 @@
   <aside id="players" aria-label="Spieler"></aside>
   <div id="camBtns">
     <button class="ibtn" id="btnMenu" title="Spielmenü" aria-label="Spielmenü" aria-haspopup="true"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4,7 H20 M4,12 H20 M4,17 H20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
-    <span id="hudMic"></span>
-    <button class="ibtn" id="btnFit" title="Zentrieren (Doppelklick auf das Brett)" aria-label="Zentrieren">
-      <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4,9 V4 H9 M15,4 H20 V9 M20,15 V20 H15 M9,20 H4 V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg></button>
-    <button class="ibtn" id="btnIn" title="Heranzoomen" aria-label="Heranzoomen">+</button>
-    <button class="ibtn" id="btnOut" title="Herauszoomen" aria-label="Herauszoomen">−</button>
-    <button class="ibtn" id="btnHelp" title="Spielregeln &amp; Baukosten" aria-label="Hilfe">?</button>
   </div>
   <button id="sideToggle" class="tab" title="Protokoll &amp; Chat ein-/ausklappen" aria-label="Protokoll ein- oder ausklappen"></button>
   <aside id="side">
@@ -99,7 +102,6 @@
     <div id="hand">
       <div id="resRow"></div>
       <div id="devRow"></div>
-      <div id="score"></div>
     </div>
     <div id="build"></div>
     <div id="dicebox">
@@ -109,6 +111,7 @@
       </div>
       <div id="primary"></div>
     </div>
+    <div id="score"></div>
   </footer>
 </div>
 
@@ -124,6 +127,7 @@
 <script src="/trade.js"></script>
 <script src="/voice.js"></script>
 <script src="/fx.js"></script>
+<script src="/sound.js"></script>
 <script src="/lobby.js"></script>
 <script src="/menu.js"></script>
 <script src="/app.js"></script>

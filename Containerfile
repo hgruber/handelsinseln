@@ -1,5 +1,6 @@
 FROM docker.io/library/node:20-slim
 WORKDIR /app
+COPY package.json ./
 COPY server ./server
 COPY shared ./shared
 COPY public ./public

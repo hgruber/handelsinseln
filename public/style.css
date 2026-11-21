@@ -165,8 +165,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .vp b { font: 700 28px var(--serif); color: var(--gold2); text-shadow: 0 2px 8px rgba(232, 185, 90, .35); } .vp i { font-style: normal; color: var(--gold); font-size: 12px; margin-top: -1px; }
 .vp small { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-#camBtns { position: fixed; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; }
-.side-open #camBtns { right: 396px; }
+#camBtns { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); display: flex; }
 
 #side { position: fixed; right: 12px; top: 12px; bottom: calc(var(--bh) + 24px); width: 372px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 #side > * { pointer-events: auto; }
@@ -346,15 +345,77 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
   #players { width: 214px; } .pc .stats { gap: 6px; } .rcard { width: 48px; height: 80px; } .rcard .face svg { width: 32px; height: 32px; } .rcard .rn { display: none; }
   .rcard .cnt { min-width: 24px; height: 24px; font-size: 15px; } .bb { width: 62px; height: 90px; } .bb .cost .cc svg { width: 13px; height: 13px; } .bb .ic svg { width: 32px; height: 32px; } .dcard { width: 50px; height: 76px; font-size: 9.5px; }
   .die { width: 44px; height: 44px; } .f1 { transform: translateZ(22px); } .f6 { transform: rotateY(180deg) translateZ(22px); } .f3 { transform: rotateY(90deg) translateZ(22px); } .f4 { transform: rotateY(-90deg) translateZ(22px); } .f2 { transform: rotateX(90deg) translateZ(22px); } .f5 { transform: rotateX(-90deg) translateZ(22px); }
-  .dface { padding: 5px; } .dface i { width: 7px; height: 7px; } #side { width: 320px; } .side-open #camBtns { right: 344px; } #bottom { grid-template-columns: minmax(0, 1fr) auto; } #dicebox { grid-column: 1 / 3; justify-content: flex-end; }
+  .dface { padding: 5px; } .dface i { width: 7px; height: 7px; } #side { width: 320px; } #bottom { grid-template-columns: minmax(0, 1fr) auto; } #dicebox { grid-column: 1 / 3; justify-content: flex-end; }
 }
-@media (max-width: 900px) {
-  :root { --bh: 190px; }
-  #players { top: 56px; left: 8px; right: 8px; width: auto; flex-direction: row; overflow-x: auto; max-height: none; } #banner, .side-open #banner { left: 8px; right: 8px; }
-  .pc { flex: none; min-width: 190px; } .pc.turn { transform: none; } #banner { top: 6px; } .bn { font-size: 14px; }
-  #camBtns { top: auto; bottom: calc(var(--bh) + 24px); right: 10px; flex-direction: row; } .side-open #camBtns { right: 10px; }
-  #side { width: min(360px, 92vw); top: 120px; } #bottom { left: 6px; right: 6px; bottom: 6px; grid-template-columns: 1fr; gap: 6px; } #build { overflow-x: auto; }
-  #hand { flex-wrap: wrap; } .helpgrid { grid-template-columns: 1fr; } .card { padding: 24px 20px; }
+/* Kompakt (Handy, kleines Tablet, Querformat): Hamburger links oben, Mitspieler nur als kleine Logos (Antippen zeigt Werte),
+   Karten und Bauknöpfe in schmalen Leisten zum Wischen, Protokoll/Chat als Schublade von rechts. */
+@media (max-width: 900px), (max-height: 520px) {
+  :root { --bh: 146px; --sw: min(340px, calc(100vw - 64px)); }
+  #camBtns { top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); }
+  .ibtn { width: 38px; height: 38px; border-radius: 11px; }
+  #banner, .side-open #banner { top: calc(8px + env(safe-area-inset-top)); left: calc(54px + env(safe-area-inset-left)); right: 8px; justify-content: flex-start; }
+  .bn { font-size: 13.5px; padding: 5px 12px 5px 6px; gap: 8px; border-radius: 20px; min-height: 38px; }
+  .bn .av { --sz: 26px !important; }
+  .bn .btn.small { padding: 3px 8px; font-size: 12px; }
+
+  #players { top: calc(50px + env(safe-area-inset-top)); left: calc(4px + env(safe-area-inset-left)); width: auto; max-width: calc(100vw - 8px); padding: 4px; gap: 6px; overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - var(--bh) - 70px); pointer-events: none; }
+  #players > * { pointer-events: auto; }
+  .pc { padding: 2px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--pc); gap: 0; cursor: pointer; flex: none; box-shadow: 0 3px 8px rgba(0, 0, 0, .5); }
+  .pc .av { --sz: 32px !important; border-width: 1px; }
+  .pc .info, .pc .vp, .pc .arrow { display: none; }
+  .pc.turn { transform: none; border-color: var(--gold2); box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(248, 220, 146, .8); }
+  .pc.open { width: min(262px, calc(100vw - 16px)); height: auto; min-height: 44px; border-radius: 16px; padding: 4px 10px 4px 4px; gap: 8px; border-width: 1px; border-left-width: 5px; z-index: 2; }
+  .pc.open .info, .pc.open .vp { display: block; }
+  .pc.open .vp { display: grid; }
+  .pc.open .info { display: block; }
+
+  #side { top: calc(54px + env(safe-area-inset-top)); bottom: calc(var(--bh) + 14px); right: 8px; width: var(--sw); }
+  #sideToggle { width: 26px; height: 64px; top: 56%; }
+  #side:has(#tradeDock:not(:empty)) #logPanel { display: none; } #tradeDock { max-height: 100%; }
+  .side-open #sideToggle { right: calc(var(--sw) + 8px); }
+
+  #bottom { left: 6px; right: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); min-height: 0; padding: 6px 8px; gap: 4px 8px; border-radius: 16px;
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "hand dice" "build dice"; align-items: center; }
+  #hand { grid-area: hand; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 6px 18px 4px 2px; scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x; }
+  #hand::-webkit-scrollbar, #build::-webkit-scrollbar { display: none; }
+  #resRow { gap: 6px; }
+  #devRow { flex: none; overflow: visible; padding: 0; gap: 5px; }
+  #devRow > .muted { display: none; }
+  .rcard { width: 40px; height: 58px; }
+  .rcard .face { padding-bottom: 10px; border-width: 1px; border-radius: 8px; }
+  .rcard .face svg { width: 26px; height: 26px; } .rcard .rn { display: none; }
+  .rcard .cnt { min-width: 20px; height: 20px; font-size: 13px; right: -5px; bottom: -5px; border-width: 1px; border-radius: 10px; }
+  .dcard { width: 42px; height: 58px; font-size: 8px; padding: 2px; border-width: 1px; gap: 0; border-radius: 8px; }
+  .dcard svg { width: 24px; height: 24px; }
+  #build { grid-area: build; gap: 5px; overflow-x: auto; overflow-y: hidden; padding: 6px 18px 2px 2px; scrollbar-width: none; touch-action: pan-x; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); }
+  .bb { width: 56px; height: 62px; flex: none; padding: 3px 2px 2px; border-radius: 10px; }
+  .bb .ic { height: 26px; } .bb .ic svg { width: 26px; height: 26px; } .bb .lb { font-size: 10px; line-height: 1.05; text-align: center; }
+  .bb .cost { min-height: 12px; } .bb .cost .cc svg { width: 11px; height: 11px; } .bb .cost.small { font-size: 8px; }
+  .bb:hover { transform: none; }
+  .stk { top: -5px; right: -4px; font-size: 9px; padding: 0 4px; }
+  #dicebox { grid-area: dice; flex-direction: column; gap: 2px; }
+  #dice { gap: 10px; padding: 4px 4px 2px; }
+  .die { width: 30px; height: 30px; }
+  .f1 { transform: translateZ(15px); } .f6 { transform: rotateY(180deg) translateZ(15px); } .f3 { transform: rotateY(90deg) translateZ(15px); } .f4 { transform: rotateY(-90deg) translateZ(15px); } .f2 { transform: rotateX(90deg) translateZ(15px); } .f5 { transform: rotateX(-90deg) translateZ(15px); }
+  .dface { padding: 4px; border-radius: 7px; } .dface i { width: 5px; height: 5px; } .f1 i.p { width: 8px; height: 8px; }
+  #primary { min-width: 0; }
+  #primary .btn { padding: 8px 12px; font-size: 15px; border-radius: 11px; white-space: nowrap; }
+  #primary .btn.huge { padding: 10px 14px; font-size: 16px; }
+  .waitbox { font-size: 12.5px; max-width: 104px; line-height: 1.15; }
+  #score { left: 14px; top: -24px; } .sc { padding: 2px 10px 3px; } .sc b { font-size: 17px; } .sc span { font-size: 12px; } .sc small { font-size: 9px; }
+  #conn { bottom: calc(var(--bh) + 20px); }
+  .helpgrid { grid-template-columns: 1fr; } .card { padding: 24px 20px; }
+}
+/* Querformat am Handy: Handkarten, Bauknöpfe und Würfel in einer Zeile, damit das Brett Platz behält */
+@media (max-height: 520px) and (min-width: 600px) {
+  :root { --bh: 84px; }
+  #bottom { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "hand build dice"; gap: 8px; padding: 5px 8px; }
+  #build { max-width: 46vw; padding-top: 5px; }
+  #dicebox { flex-direction: row; gap: 6px; }
+  #dice { gap: 7px; padding: 2px; } .die { width: 28px; height: 28px; }
+  .rcard { height: 54px; } .dcard { height: 54px; } .bb { height: 58px; }
+  #score { top: -22px; }
+  #players { max-height: calc(100vh - var(--bh) - 62px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
@@ -394,3 +455,4 @@ body.moving .glass, body.moving .ibtn, body.moving .bn, body.moving .pc, body.mo
 .ds-card { display: grid; justify-items: center; gap: 8px; width: 230px; padding: 22px 16px 18px; border-radius: 18px; background: linear-gradient(180deg, #fff3c4, #f0cd6e 60%, #d6a232); border: 4px solid var(--pc, #fff); box-shadow: 0 0 0 3px var(--gold), 0 0 60px rgba(248, 220, 146, .8), 0 20px 50px rgba(0, 0, 0, .6); color: #2a1a05; font: 700 24px var(--serif); text-align: center; }
 .ds-who { padding: 4px 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--pc, var(--line)); color: #fff; font-weight: 700; font-size: 18px; }
 @keyframes devshow { 0% { opacity: 0; transform: scale(.6); } 12% { opacity: 1; transform: scale(1.06); } 20% { transform: scale(1); } 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.96); } }
+@media (max-width: 420px) { .tact.three .btn { font-size: 11.5px; padding: 9px 2px; } .tact.three { gap: 5px; } }

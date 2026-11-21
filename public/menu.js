@@ -71,6 +71,8 @@
     const I = {
       info: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,11 V17 M12,7.5 V8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
       help: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5,9.5 a2.6,2.6 0 1 1 3.6,2.4 c-.8,.4 -1.1,.9 -1.1,1.8 M12,17 V17.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+      sound: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4,9.5 H8 L13,5 V19 L8,14.5 H4z" fill="currentColor"/><path d="M16,9 a4,4 0 0 1 0,6 M18.5,6.5 a7.5,7.5 0 0 1 0,11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      fit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4,9 V4 H9 M15,4 H20 V9 M20,15 V20 H15 M9,20 H4 V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>',
       mic: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5,11 a6.5,6.5 0 0 0 13,0 M12,17.5 V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       exit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M10,4 H5 V20 H10 M14,8 L19,12 L14,16 M19,12 H9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
@@ -79,12 +81,14 @@
     pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') +
       item('voice', I.mic, joined ? 'Sprachchat verlassen' : 'Sprachchat beitreten') +
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
+      item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
+      item('fit', I.fit, 'Brett zentrieren') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
       (host && running ? item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
-    pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + 'px';
+    pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
     $('btnMenu').setAttribute('aria-expanded', 'true');
     const f = pop.querySelector('button'); if (f) f.focus();
   }
@@ -95,6 +99,8 @@
     else if (id === 'mute') root.Voice.toggleMute();
     else if (id === 'voicepanel') showVoice();
     else if (id === 'help') C.help();
+    else if (id === 'sound') root.Sound.toggle();
+    else if (id === 'fit') C.fit();
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
     else if (id === 'leave') leaveGame();
   }

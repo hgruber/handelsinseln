@@ -61,20 +61,21 @@
     const dots = (g.players || []).map((p) => `<i class="gd" style="--c:${C.Art.COLORS[p.color] || '#888'}" title="${C.esc(p.name)}"></i>`).join('') +
       Array.from({ length: Math.max(0, plan - n) }, () => '<i class="gd empty" title="freier Platz"></i>').join('');
     const names = (g.players || []).map((p) => C.esc(p.name)).join(', ');
-    return `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}">` +
+    // Nicht beitretbar (läuft, beendet, Plätze geschlossen oder voll): ausgegraut, nicht anwählbar
+    const off = g.joinable === false, why = g.phase === 'ended' ? 'Beendet' : g.phase !== 'lobby' ? 'Läuft bereits' : g.closed ? 'Plätze besetzt' : 'Voll';
+    const tag = off ? `<div class="gcard off" role="option" aria-disabled="true" aria-selected="false" title="${why} – Beitritt nicht mehr möglich.">` : `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}">`;
+    return tag +
       `<span class="gtop"><b class="gname">${C.esc(g.name || 'Spiel')}</b><span class="gvar">${C.esc(VNAME[g.variant] || g.variant || '')}</span></span>` +
       `<span class="ghost-line">Spielleiter: <b>${C.esc(g.host)}</b></span>` +
-      `<span class="gbot"><span class="gdots">${dots}</span><span class="gcnt">${n}/${plan > n ? plan : max}</span></span>` +
-      (names ? `<span class="gnames">${names}</span>` : '') + '</button>';
+      `<span class="gbot"><span class="gdots">${dots}</span>${off ? `<span class="goff">${why}</span>` : `<span class="gcnt">${n}/${plan > n ? plan : max}</span>`}</span>` +
+      (names ? `<span class="gnames">${names}</span>` : '') + (off ? '</div>' : '</button>');
   }
   function renderGames() {
     normalizeSel(); pickColor(); renderSwatches(); pickAvatar(); renderAvatars();
-    const j = joinable(), other = L.games.length - j.length;
-    let html;
-    if (!j.length) html = `<p class="gempty">Noch kein offenes Spiel – eröffne das erste!${other ? ` <span class="muted">(${other} laufende${other === 1 ? 's' : ''} Spiel${other === 1 ? '' : 'e'} nicht beitretbar)</span>` : ''}</p>`;
-    else html = j.map(gameCard).join('') + (other ? `<p class="gempty small">${other} weitere${other === 1 ? 's' : ''} Spiel${other === 1 ? '' : 'e'} laufen bereits.</p>` : '');
+    const j = joinable(), rest = L.games.filter((g) => g.joinable === false);
+    const html = (j.length ? '' : '<p class="gempty">Noch kein offenes Spiel – eröffne das erste!</p>') + j.map(gameCard).join('') + rest.map(gameCard).join('');
     C.setHTML($('gameList'), html);
-    $('gameList').closest('.fld').hidden = !j.length;
+    $('gameList').closest('.fld').hidden = !L.games.length;
     const jb = $('joinBtn'); jb.hidden = !j.length;
     const needPick = j.length > 1 && !selGame();
     jb.classList.toggle('dis', needPick); jb.setAttribute('aria-disabled', String(needPick)); jb.title = needPick ? 'Wähle zuerst ein Spiel aus der Liste.' : '';

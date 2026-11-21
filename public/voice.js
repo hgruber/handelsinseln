@@ -189,11 +189,6 @@
     on: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5,11 a6.5,6.5 0 0 0 13,0 M12,17.5 V21 M8.5,21 H15.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     off: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" opacity=".55"/><path d="M5.5,11 a6.5,6.5 0 0 0 13,0 M12,17.5 V21 M8.5,21 H15.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/><path d="M3.5,3.5 L20.5,20.5" stroke="#ff8f84" stroke-width="2.6" stroke-linecap="round"/></svg>',
   };
-  // Immer sichtbarer Stummschalter im Spiel-HUD
-  function hudMic() {
-    const t = !S.joined ? 'Sprachchat beitreten (Mikrofon einschalten)' : micOn() ? 'Mikrofon ist AN – klicken zum Stummschalten' : S.ptt ? 'Push-to-talk: Leertaste gedrückt halten' : 'Mikrofon ist AUS – klicken zum Einschalten';
-    return `<button class="ibtn mic ${!S.joined ? 'idle' : micOn() ? 'live' : 'muted'}${S.speaking.has(myPid()) ? ' speaking' : ''}" data-v="mic" data-pid="${myPid()}" title="${t}" aria-label="${t}" aria-pressed="${micOn()}">${micOn() ? ICON.on : ICON.off}</button>`;
-  }
   function rowCtl(pid) {
     const pr = S.prefs.get(pid) || { vol: 1, muted: false };
     return `<span class="vrow" title="Lautstärke dieses Mitspielers"><button type="button" class="vmini${pr.muted ? ' off' : ''}" data-vm="${pid}" aria-label="Mitspieler stummschalten" aria-pressed="${!!pr.muted}">${pr.muted ? ICON.off : ICON.on}</button>` +
@@ -260,7 +255,7 @@
       C = ctx; wire();
       if (!window.isSecureContext) fetch('/api/config').then((r) => r.json()).then((j) => { if (j && j.httpsPort) { S.httpsPort = j.httpsPort; notify(); } }).catch(() => { /* kein Server (Mock) */ });
     },
-    onSignal, join, leave, toggleMute, panel, hudMic, badge, rowCtl, paintSpeaking,
+    onSignal, join, leave, toggleMute, panel, badge, rowCtl, paintSpeaking,
     isJoined: () => S.joined, isSupported: supported, micOn,
     inVoice: (pid) => S.joined && (pid === myPid() || S.members.has(pid)),
     // Testhilfe

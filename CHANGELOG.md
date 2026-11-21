@@ -5,12 +5,22 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Behoben
+- Handy: Protokoll, Chat und Regeln ließen sich nach dem Ausklappen nicht mehr einklappen, weil der Pfeil außerhalb des Bildschirms lag. Der Pfeil sitzt jetzt immer am Rand der Schublade.
+- Lobby: Das Spielfeld ließ sich dort nicht zoomen oder verschieben (Mausrad, Ziehen, Pinch), weil Brett und Vollbild-Lobby alle Zeigerereignisse abfingen.
+- Handelsangebot: Der Knopf „Gegenangebot“ lief auf schmalen Handys rechts aus dem Fenster.
 - Handel: Bots boten dasselbe, gerade abgelehnte Angebot im selben Zug sofort erneut an, sodass es nach dem Wegklicken kurz wieder auftauchte. Ein Bot wiederholt ein Angebot (gleiche Karten) jetzt nicht mehr im selben Zug.
 - Verzögerte Mausklicks: Die funkelnden Sterne auf dem Brett (Opacity-Animation je Stern) ließen den Browser das ganze Brett ununterbrochen neu zeichnen und belegten den Hauptthread fast dauernd (Messung: ca. 14 s von 15 s Last, Klicks bis 200 ms verspätet). Die Sterne sind jetzt statisch; die Last sinkt auf etwa 2–4 s von 15 s.
 - Neuladen des Browser-Tabs loggt nicht mehr aus: Der beim Entladen abgebrochene Ereignisstrom wurde als Sitzungsende gewertet und löschte den Token.
 - Figurenlimit: Ein Stadtausbau gibt die Siedlung wieder frei. Man kann jetzt gleichzeitig bis zu 5 Siedlungen und 4 Städte besitzen (bisher zählten Städte gegen das Siedlungslimit).
 
 ### Hinzugefügt
+- **Release-Prozess:** `package.json` führt die Version (aktuell 0.9.0); `scripts/release.sh 1.0.0 [--build] [--skip-tests]` prüft master und Arbeitsbaum, lässt alle Tests laufen, macht aus „Unveröffentlicht“ den Versionsabschnitt, committet „Release X“ und setzt das Tag `vX` (nie automatisch pushen). Die Version steht in `/api/config` und unten auf der Anmeldeseite. Ablauf in der README.
+- **Töne:** dezente, synthetisierte Töne für neue Chatnachrichten (auch in der Lobby), den eigenen Zug, Würfeln, Bauen, Diebstahl, eingehende Handelsangebote, neue Mitspieler in der Lobby und Spielende. Im Spielmenü „Töne ein-/ausschalten“ (wird gemerkt). Beim Neuladen bleibt es still.
+- **App installieren:** Web-App-Manifest (`manifest.webmanifest`), Icons (192/512, maskierbar, Apple-Touch-Icon), minimaler Service-Worker und Meta-Tags; der Link lässt sich auf Android/iOS als eigenständige App ohne Adressleiste installieren.
+- **Handelsinseln-Icon im Browser:** Favicon und Tab-Symbol aus dem Logo (`public/icon/`).
+- Anmeldung: Laufende, beendete oder volle Spiele erscheinen ausgegraut (nicht wählbar) unter den offenen Spielen.
+- Spielmenü: „Brett zentrieren“ und „Töne ein-/ausschalten“; Doppeltippen auf das Brett zentriert auch am Handy.
+- Test `tests/browser_mobile.py` (Handy hoch/klein/quer, Desktop: Anordnung, Überlappungen, Schublade, Lobby-Zoom, Manifest).
 - Handel: Ein Angebot, für das dir ein verlangter Rohstoff fehlt, wird nach 2 Sekunden automatisch abgelehnt (nicht, solange du ein Gegenangebot zusammenstellst).
 - Bauen: Die Bauknöpfe sind auch freigeschaltet, wenn die Rohstoffe per Bank-Tausch (4:1, 3:1, 2:1 je Hafen, Bank-Vorrat berücksichtigt) zusammenkommen. Beim Klick wird vorher automatisch getauscht; der Tooltip nennt den Tausch.
 - Eine gespielte Entwicklungskarte erscheint für alle Spieler 2 Sekunden groß in der Bildschirmmitte, mit dem Namen des Spielers.
@@ -21,6 +31,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - Tests: `tests/bots.js` (Bot-Turnier), `tests/browser_bots.py` (Avatare und Bots im Browser), neue Funktionstests.
 
 ### Geändert
+- **Kompakte Ansicht für Handys** (Breite ≤ 900 px oder Höhe ≤ 520 px): Hamburger-Menü links oben in der Ecke; Mitspieler nur als kleine Logos untereinander (Antippen zeigt Werte, Tippen daneben blendet sie aus); Rohstoff-/Entwicklungskarten und Bauknöpfe in schmalen, wischbaren Leisten; Würfel und „Zug beenden“ kompakt daneben (Querformat: alles in einer Zeile); Protokoll/Chat/Regeln als Schublade, bei offenem Handel hat der Handel Vorrang.
+- **Alle Schaltflächen außer dem Hamburger-Menü entfallen** (auch am Desktop): Zoomen per Mausrad/Pinch, Zentrieren per Doppelklick/Doppeltippen oder Menü, Hilfe und Mikrofon-Stummschaltung über das Menü (Leertaste bleibt Push-to-talk). Das Spielmenü öffnet links unter dem Knopf.
 - Ausgeglichene Startecken: Beim Erzeugen eines Spielfelds werden bis zu 40 Karten gewürfelt und der Aufbau (Schlangenreihenfolge, beste freie Ecke zuerst) simuliert; genommen wird die Karte mit der geringsten Streuung der Wahrscheinlichkeitspunkte, mit ausreichender Rohstoffvielfalt je Spieler und – bei „Vier Heimatinseln“ – ähnlich ertragreichen Inseln.
 - Das Spiel heißt nur noch „Die Handelsinseln“ (README, Quelltext-Kommentar, Changelog).
 - Ereigniskarten (Ritter, Siegpunkt, Straßenbau, Erfindung, Monopol) mit Flux/Forge neu gemalt (`public/img/dev-*.webp`).

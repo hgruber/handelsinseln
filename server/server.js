@@ -12,9 +12,11 @@ const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 8080;
 const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 const STATE_FILE = path.join(DATA, 'state.json');
+const VERSION = (() => { try { return require('../package.json').version; } catch (e) { return null; } })();
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon' };
+  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json; charset=utf-8' };
 
 function createServer(opts = {}) {
   const hub = opts.hub || new Hub({ graceMs: opts.graceMs ?? (+process.env.GRACE_MS || undefined), absentMs: opts.absentMs ?? (+process.env.ABSENT_MS || undefined), rnd: opts.rnd });
@@ -65,7 +67,7 @@ function createServer(opts = {}) {
     const url = new URL(req.url, 'http://x');
     try {
       if (url.pathname === '/api/games' || url.pathname === '/api/lobby') return json(res, 200, { games: hub.list() });
-      if (url.pathname === '/api/config') return json(res, 200, { stun: process.env.STUN_URL || null, httpsPort: opts.httpsPort || null });
+      if (url.pathname === '/api/config') return json(res, 200, { stun: process.env.STUN_URL || null, httpsPort: opts.httpsPort || null, version: VERSION });
       if (url.pathname === '/api/events') {
         const token = url.searchParams.get('token');
         const f = hub.findByToken(token);

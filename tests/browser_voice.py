@@ -53,9 +53,9 @@ try:
         if not good: problems.append('Verbindung riss beim Spielstart ab')
         pages[0].screenshot(path=os.environ.get('SHOT', '/tmp') + '/voice_spiel.png')
         # Stummschalten
-        pages[0].click('#hudMic'); pages[0].wait_for_timeout(300)
+        pages[0].click('#btnMenu'); pages[0].click('[data-mi=mute]'); pages[0].wait_for_timeout(300)  # Stummschalten über das Spielmenü
         mic = pages[0].evaluate('Voice.micOn()')
-        print('Mikrofon an nach Klick auf Knopf (soll False sein, falls vorher an):', mic)
+        print('Mikrofon an nach Menüpunkt „stummschalten“ (soll False sein, falls vorher an):', mic)
         # Verlassen
         pages[1].click('#btnMenu'); pages[1].click('[data-mi=voice]'); pages[1].wait_for_timeout(800)
         left = pages[0].evaluate('Voice.debug()')

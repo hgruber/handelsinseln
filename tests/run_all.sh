@@ -10,6 +10,7 @@ run "Simulation 2"          node tests/sim.js "${SIM_SEEDS:-2}"
 run "E2E HTTP"              node tests/e2e.js
 run "Browser Lobby"         python3 tests/browser_lobby.py
 run "Browser Vorschau"      python3 tests/browser_lobby_preview.py
+run "Browser Mobil+Lobbyzoom" python3 tests/browser_mobile.py
 run "Browser Spielen"       python3 tests/browser_play.py 4 90
 run "Browser Spielen auto"  python3 tests/browser_play.py 3 90 auto
 run "Browser Dauerlauf 6"   python3 tests/browser_soak.py 6 80

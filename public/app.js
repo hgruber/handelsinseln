@@ -20,12 +20,14 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const compactMQ = matchMedia('(max-width: 900px), (max-height: 520px)'); // Handy/kleines Tablet: kompaktes HUD (siehe style.css)
+  const compact = () => compactMQ.matches;
   const S = 100;
 
   const st = {
     token: localStorage.getItem('handelsinseln.token') || null, view: null, mode: null, moveFrom: null, mock: null,
     es: null, logOpen: innerWidth > 1150, tab: 'log', modal: null, modalKey: '', draft: {}, draftKey: '',
-    firstBoard: true, known: new Set(), lastSeq: null, lastHand: null, chatSeen: 0, seenChat: -1, color: null,
+    openPc: null, firstBoard: true, known: new Set(), lastSeq: null, lastHand: null, chatSeen: 0, seenChat: -1, color: null,
   };
 
   // ======================================================================================
@@ -140,6 +142,7 @@
   function applyView(v) {
     const old = st.view;
     st.view = v;
+    Sound.onView(old, v);
     if (!old) Fx.reset(); // neue Sitzung: bisherige Kartenbewegungen nicht nachspielen
     if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
     // Modus-Aufraeumen: nur gueltig im eigenen Hauptschritt
@@ -405,7 +408,7 @@
     for (const c of L.hex.map.values()) if (c.el.dataset.n === String(n)) c.el.classList.toggle('hl', on);
   }
   board.addEventListener('click', (e) => {
-    if (moved) return;
+    if (moved || !V() || V().phase === 'lobby') return;
     const c = e.target.closest && e.target.closest('.chip'); if (!c) return;
     st.chipN = +c.dataset.n; st.modal = 'chiphelp'; renderModal(V());
   });
@@ -444,11 +447,11 @@
     const W = board.clientWidth, H = board.clientHeight, g = (id) => $(id).getBoundingClientRect();
     if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top + 48, right: r.right, bottom: r.bottom, W, H }; }
     const pl = g('players'), bt = g('bottom'), bn = g('banner'), sd = g('side');
-    const narrow = W < 900;
-    const left = narrow ? 12 : pl.right + 14;
+    const cp = compact();
+    const left = cp ? 54 : pl.right + 14;
     const sideUsed = $('hud').classList.contains('side-open');
-    const right = sideUsed ? W - sd.left + 12 : 64;
-    const top = Math.max(76, bn.bottom + 10) + (narrow ? pl.height : 0);
+    const right = sideUsed ? W - sd.left + 12 : cp ? 8 : 64;
+    const top = cp ? Math.max(54, bn.bottom + 6) : Math.max(76, bn.bottom + 10);
     const bottom = H - bt.top + 12;
     return { left, top, right: W - right, bottom: H - bottom, W, H };
   }
@@ -501,6 +504,14 @@
   board.addEventListener('pointerup', up); board.addEventListener('pointercancel', up);
   board.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0017)), e.clientX, e.clientY); }, { passive: false });
   board.addEventListener('dblclick', (e) => { if (!e.target.closest('[data-t]')) fit(false); });
+  // Doppeltippen am Handy (dblclick feuert dort nicht überall): Brett zentrieren
+  let lastTap = null;
+  board.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch' || moved || ptrs.size) { lastTap = null; return; }
+    const now = performance.now();
+    if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) { lastTap = null; if (!e.target.closest('[data-t]')) fit(false); return; }
+    lastTap = { t: now, x: e.clientX, y: e.clientY };
+  });
   addEventListener('resize', () => { applyCam(); if (st.view && st.view.phase === 'lobby') fit(true); });
 
   // ======================================================================================
@@ -535,7 +546,6 @@
   const prevHand = {};
   // Sprachchat-Anzeigen (Mikrofon-Knopf, Spielerkarten, Lobbyliste, Dialog) – nur Klassen/kleine Teile, kein Flackern
   function renderVoiceUI() {
-    setHTML($('hudMic'), Voice.hudMic());
     const v = V(); if (!v) return;
     if (v.phase === 'lobby') Lobby.renderLobby(v); else renderPlayers(v);
     Menu.refresh(); Voice.paintSpeaking();
@@ -576,7 +586,7 @@
       const gone = p.gone ? '<span class="bdg gone" title="Dieser Spieler hat das Spiel verlassen. Seine Figuren bleiben stehen (oder verschwinden nach den Spieleinstellungen).">verlassen</span>'
         : p.auto ? '<span class="bdg auto" title="Auto-Modus: Der Server spielt für diesen Spieler (abwesend). Er würfelt, tauscht 1:1 und beendet den Zug selbst.">Auto</span>' : '';
       const badges = gone + (p.hasLongest ? `<span class="bdg" title="Längster Handelsweg (${p.longestRoute})">${Art.pieceIcon('road', p.color, 16)}Längste</span>` : '') + (p.hasLargest ? `<span class="bdg" title="Stärkste Schutzmacht (${p.knightsPlayed} Ritter)">${Art.dev('ritter', 16)}Schutzmacht</span>` : '');
-      return `<div class="pc${turn ? ' turn' : ''}${pid === v.you ? ' me' : ''}${p.connected && !p.gone ? '' : ' off'}${p.gone ? ' gone' : ''}" data-pid="${pid}" style="--pc:${Art.COLORS[p.color]}">` +
+      return `<div class="pc${turn ? ' turn' : ''}${compact() && st.openPc === pid ? ' open' : ''}${pid === v.you ? ' me' : ''}${p.connected && !p.gone ? '' : ' off'}${p.gone ? ' gone' : ''}" data-pid="${pid}" style="--pc:${Art.COLORS[p.color]}">` +
         `${avatar(pid, 38)}<div class="info"><div class="top"><b class="nm">${esc(p.name)}</b>${p.bot ? `<span class="botTag" title="Computerspieler: ${esc((Avatars.BOTS[p.bot] || {}).label || '')}">Bot</span>` : ''}${pid === v.host ? '<span class="crown" title="Spielleiter">♛</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}" title="${p.connected ? 'verbunden' : 'getrennt'}"></span>${Voice.badge(pid)}</div>` +
         `<div class="stats"><span title="Rohstoffkarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#e8dcc0" stroke="#7a6a48"/></svg>${p.resCount}</span>` +
         `<span title="Entwicklungskarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#6a7bb0" stroke="#2c3560"/><path d="M8,5 l1,2 2,.3 -1.5,1.4 .4,2 -1.9,-1 -1.9,1 .4,-2 -1.5,-1.4 2,-.3z" fill="#ffe27a"/></svg>${p.devCount}</span>` +
@@ -881,10 +891,15 @@
     }
   });
   // Tooltips auch fuer gesperrte Dev-Karten
-  $('btnFit').addEventListener('click', () => fit(false));
-  $('btnIn').addEventListener('click', () => zoomAt(1.3, board.clientWidth / 2, board.clientHeight / 2));
-  $('btnOut').addEventListener('click', () => zoomAt(1 / 1.3, board.clientWidth / 2, board.clientHeight / 2));
-  $('btnHelp').addEventListener('click', () => { st.modal = st.modal === 'help' ? null : 'help'; renderModal(V()); });
+  // Kompakt: Antippen eines Mitspieler-Logos zeigt/verbirgt seine Werte; Tippen daneben oder nach 6 s blendet sie wieder aus
+  let pcTimer = 0;
+  const setOpenPc = (pid) => { st.openPc = pid; clearTimeout(pcTimer); if (pid != null) pcTimer = setTimeout(() => setOpenPc(null), 6000); if (V() && V().phase !== 'lobby') renderPlayers(V()); };
+  document.addEventListener('click', (e) => {
+    const c = compact() && e.target.closest('#players .pc');
+    if (c) setOpenPc(st.openPc === +c.dataset.pid ? null : +c.dataset.pid);
+    else if (st.openPc != null) setOpenPc(null);
+  });
+  compactMQ.addEventListener('change', () => { st.openPc = null; if (V() && V().phase !== 'lobby') { renderPlayers(V()); fit(true); } });
   $('sideToggle').addEventListener('click', () => { st.logOpen = !st.logOpen; renderHUD(V()); setTimeout(() => { if (V()) fit(false); }, 260); });
   document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; renderLog(V()); const l = $(st.tab === 'log' ? 'logList' : st.tab === 'chat' ? 'chatList' : 'rulesList'); l.scrollTop = l.scrollHeight; }));
   $('chatForm').addEventListener('submit', async (e) => {
@@ -906,7 +921,7 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { get mockLogin() { return st.loginMock; }, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); },
+    const ctx = { get mockLogin() { return st.loginMock; }, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Fx.init({ Art, hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
@@ -932,7 +947,9 @@
       } else fetch(url).then((r) => r.json()).then(show).catch((e) => toast('Mock nicht ladbar: ' + e.message, 'err'));
       return;
     }
+    fetch('/api/config').then((r) => r.json()).then((c) => { if (c.version) $('ver').textContent = 'Version ' + c.version; }).catch(() => {});
     if (st.token) connect(); else showScreens();
   }
   boot();
+  if ('serviceWorker' in navigator && location.protocol === 'https:' || location.hostname === 'localhost') navigator.serviceWorker.register('/sw.js').catch(() => {}); // nur für „App installieren“ (Weiterreichen, kein Cache)
 })();
