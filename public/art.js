@@ -266,14 +266,10 @@
   const sh = (rx, ry, dy = 3) => `<ellipse cy="${dy}" rx="${rx}" ry="${ry}" fill="#000" opacity=".35"/>`;
   // Siedlung, Stadt, Raeuber, Piratenschiff: gemalte Steine (public/img/stein-*.webp, Flux, freigestellt).
   // Siedlung/Stadt sind neutral hell gemalt und werden per Filter pt-<farbe> in der Spielerfarbe eingefaerbt.
-  const stone = (name, x, y, w, h, c) => `<image href="${IMG_DIR}stein-${name}.webp" x="${x}" y="${y}" width="${w}" height="${h}"${c ? ` filter="url(#pt-${c})"` : ''}/>`;
-  const settlement = (c) => sh(15, 4.5, 1) + stone('siedlung', -14, -38, 28, 38, c);
-  const city = (c) => sh(22, 5.5, 0) + stone('stadt', -19, -62, 38, 62, c);
-  function road(c) {
-    return `<rect x="-31" y="-4" width="62" height="12" rx="4" fill="#000" opacity=".32"/>` +
-      `<rect x="-31" y="-7" width="62" height="12.5" rx="4.5" fill="url(#pr-${c})" stroke="#000" stroke-opacity=".55" stroke-width="1.2"/>` +
-      `<rect x="-27" y="-5.4" width="54" height="2.6" rx="1.3" fill="#fff" opacity=".4"/>`;
-  }
+  const stone = (name, x, y, w, h, c, cls) => `<image${cls ? ` class="${cls}"` : ''} href="${IMG_DIR}stein-${name}.webp" x="${x}" y="${y}" width="${w}" height="${h}"${c ? ` filter="url(#pt-${c})"` : ''}/>`;
+  const settlement = (c) => sh(24, 6.5, 1) + stone('siedlung', -23, -44, 46, 44.5, c);
+  const city = (c) => sh(33, 8, 0) + stone('stadt', -28.5, -93, 57, 93, c);
+  const road = (c) => `<ellipse cy="6" rx="44" ry="5" fill="#000" opacity=".3"/>` + stone('strasse', -42, -11, 84, 16.2, c);
   function ship(c) {
     return `<ellipse cy="9" rx="26" ry="5" fill="#000" opacity=".28"/><g class="bob">` +
       `<path class="wake" d="M-26,8 q6,-4 12,0 M-30,12 q8,-5 16,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
@@ -284,17 +280,17 @@
       `<path d="M-2,-30 Q-14,-18 -12,-5 H-2Z" fill="url(#pd-${c})" stroke="#000" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"/>` +
       `<path d="M0,-34 l9,3 l-9,3Z" fill="#fff"/></g>`;
   }
-  const robber = () => sh(12, 4, 1) + stone('raeuber', -10, -46, 20, 46);
+  const robber = () => sh(17, 5.5, 1) + stone('raeuber', -26.5, -69, 53, 69, null, 'sway');
   function pirate() {
-    return `<ellipse cy="9" rx="28" ry="5.5" fill="#000" opacity=".35"/><g class="bob">` +
+    return `<ellipse cy="11" rx="40" ry="7" fill="#000" opacity=".35"/><g class="bob">` +
       `<path class="wake" d="M-26,8 q6,-4 12,0 M-30,12 q8,-5 16,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
-      stone('pirat', -27, -52, 54, 60) + `</g>`;
+      stone('pirat', -40.5, -78, 81, 90) + `</g>`;
   }
 
   // Figur in kleinem Symbol (Bau-Buttons)
   function pieceIcon(kind, c, size = 36) {
     const body = { road: road(c), ship: ship(c), settlement: settlement(c), city: city(c) }[kind] || '';
-    const vb = kind === 'road' ? '-36 -14 72 28' : kind === 'ship' ? '-34 -42 68 58' : kind === 'city' ? '-22 -64 44 68' : '-18 -40 36 44';
+    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-34 -42 68 58' : kind === 'city' ? '-32 -96 64 102' : '-27 -46 54 52';
     return `<svg class="pi" viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
   }
 

@@ -4,6 +4,10 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Spielsteine:** Siedlung gedrungener und breiter, Straße als Holzbalken mit Flux neu gemalt (beide in Spielerfarbe eingefärbt). Siedlung, Stadt, Straße, Räuber und See-Räuber sind 50 % größer.
+- **Räuber:** neu als Gauner mit Hut, Beutesack und wehendem Mantel; der Mantel schwingt sanft (CSS-Animation `sway`).
+
 ## [1.1.0] - 2026-11-22
 
 ### Geändert
