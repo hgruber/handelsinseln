@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.2.0] - 2026-11-22
+
 ### Hinzugefügt
 - **Avatare:** 8 neue Menschen-Typen (Kapitän, Piratin, Matrose, Forscherin, Händler, Navigatorin, Fischer, Schiffsjunge), mit Flux gemalt – insgesamt 16 wählbare Avatare.
 - **Regeln-Reiter:** Unter den abweichenden Einstellungen stehen jetzt die ausführlichen, bebilderten Spielregeln (Ziel, Aufbau, Zug, Gelände, Kosten, Handel, Räuber/Pirat, Entwicklungskarten, Handelsinseln).
