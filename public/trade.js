@@ -161,7 +161,7 @@
     const t = { give: S.give, want: S.want, cg: S.cg, cw: S.cw }[side];
     const lim = side === 'give' || side === 'cg' ? (hand[r] || 0) : 19;
     const n = Math.max(0, Math.min(lim, (t[r] || 0) + d));
-    if (n === (t[r] || 0)) { if (d > 0 && lim === 0) C.toast(`Du hast kein ${rn(r)}.`, 'warn'); return; }
+    if (n === (t[r] || 0)) { return; }
     if (n) t[r] = n; else delete t[r];
     render();
   }
@@ -170,7 +170,7 @@
     let g = RES.find((r) => S.give[r] > 0), w = RES.find((r) => S.want[r] > 0);
     if (!g) g = RES.slice().sort((x, y) => (hand[y] || 0) - (hand[x] || 0))[0];
     if (!w) w = RES.filter((r) => r !== g).sort((x, y) => (hand[x] || 0) - (hand[y] || 0))[0];
-    if ((hand[g] || 0) < 1) { C.toast('Du hast keine Karten zum Abgeben.', 'warn'); return; }
+    if ((hand[g] || 0) < 1) return;
     S.give = { [g]: Math.min(a, hand[g]) }; S.want = { [w]: b };
     render();
   }
@@ -178,7 +178,7 @@
 
   async function onDo(el) {
     const v = C.view(); const d = el.dataset.do;
-    if (d !== 'collapse' && d !== 'close' && d !== 'clear' && d !== 'counter-open' && d !== 'counter-close' && el.getAttribute('aria-disabled') === 'true') { if (el.title) C.toast(el.title, 'warn'); return; }
+    if (d !== 'collapse' && d !== 'close' && d !== 'clear' && d !== 'counter-open' && d !== 'counter-close' && el.getAttribute('aria-disabled') === 'true') return;
     switch (d) {
       case 'collapse': S.collapsed = !S.collapsed; render(); break;
       case 'close': S.open = false; render(); break;
@@ -227,7 +227,7 @@
       const rt = e.target.closest('[data-rate]');
       if (rt) {
         const v = C.view(), r = rt.dataset.rate, n = (v.rates && v.rates[r]) || 4;
-        if ((v.me.hand[r] || 0) < n) { C.toast(`Für ${n}:1 brauchst du ${n}× ${rn(r)} – du hast ${v.me.hand[r] || 0}.`, 'warn'); return; }
+        if ((v.me.hand[r] || 0) < n) return;
         S.give = { [r]: n }; if (S.want[r]) delete S.want[r]; render(); return;
       }
       const d = e.target.closest('[data-do]'); if (d) onDo(d);

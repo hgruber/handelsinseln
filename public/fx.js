@@ -39,15 +39,15 @@
     return d;
   }
 
-  // slow (manueller Ablauf): Karte wächst im Flug auf doppelte Größe und kehrt zur ursprünglichen zurück
-  function flight(from, to, el, size, delay, dur, slow) {
+  // Karte wächst im Flug auf doppelte Größe und kehrt zur ursprünglichen zurück (manuell und auto gleich, auto nur schneller)
+  function flight(from, to, el, size, delay, dur) {
     const hw = size / 2, hh = size * 0.65;
     const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2 - Math.min(70, Math.hypot(to.x - from.x, to.y - from.y) / 4);
     const t = (p, s, r) => `translate(${p.x - hw}px, ${p.y - hh}px) scale(${s}) rotate(${r}deg)`;
     const a = el.animate([
-      { transform: t(from, slow ? 1 : 0.5, -10), opacity: 0 },
-      { transform: t({ x: from.x + (mx - from.x) * 0.25, y: from.y + (my - from.y) * 0.25 }, slow ? 1.5 : 0.85, -4), opacity: 1, offset: 0.15 },
-      { transform: t({ x: mx, y: my }, slow ? 2 : 1.05, 2), opacity: 1, offset: 0.5 },
+      { transform: t(from, 1, -10), opacity: 0 },
+      { transform: t({ x: from.x + (mx - from.x) * 0.25, y: from.y + (my - from.y) * 0.25 }, 1.5, -4), opacity: 1, offset: 0.15 },
+      { transform: t({ x: mx, y: my }, 2, 2), opacity: 1, offset: 0.5 },
       { transform: t(to, 1, 0), opacity: 1, offset: 0.88 },
       { transform: t(to, 0.7, 0), opacity: 0 },
     ], { duration: dur, delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'both' });
@@ -66,12 +66,13 @@
   function play(v) {
     const evs = (v && v.fx) || [];
     const maxId = evs.length ? evs[evs.length - 1].id : 0;
-    if (seen === null || maxId < seen) { seen = maxId; return; } // erste Sicht / neues Spiel: nicht nachspielen
+    const land = {}; // Rohstoff -> ms bis die letzte eigene Karte im Depot ankommt
+    if (seen === null || maxId < seen) { seen = maxId; return land; } // erste Sicht / neues Spiel: nicht nachspielen
     const fresh = evs.filter((e) => e.id > seen);
     seen = Math.max(seen, maxId);
-    if (!fresh.length || reduced() || document.hidden) return;
+    if (!fresh.length || reduced() || document.hidden) return land;
     if (!layer) { layer = document.createElement('div'); layer.id = 'fxLayer'; document.body.appendChild(layer); }
-    const slow = !!(C.slow && C.slow()), T = slow ? 2.6 : 1; // manueller Ablauf: deutlich langsamer
+    const T = (C.slow && C.slow()) ? 2.6 : 1.6; // manueller Ablauf: deutlich langsamer, Auto etwas schneller
     const step = Math.max(120, Math.min(380, 3600 / fresh.length)) * T; // Abstand zwischen den Bewegungen
     fresh.forEach((e, i) => {
       const me = 'p:' + v.you, mine = e.f === me || e.t === me, hidden = !e.c;
@@ -85,10 +86,13 @@
         const el = cardEl(r, hidden || r === null, mine, size);
         layer.appendChild(el);
         const from = where(e.f, v, r), to = where(e.t, v, r);
-        flight(from, to, el, size, base + j * 130 * T, (mine ? 1000 : 820) * T, slow);
+        const dur = (mine ? 1000 : 820) * T, dl = base + j * 130 * T;
+        flight(from, to, el, size, dl, dur);
+        if (r && e.t === me) land[r] = Math.max(land[r] || 0, dl + dur * 0.88);
       });
       pulse(e.t, v, base + 130 * T * (shown.length - 1) + (mine ? 850 : 700) * T);
     });
+    return land;
   }
 
   root.Fx = { init(ctx) { C = ctx; }, play, reset() { seen = null; } };

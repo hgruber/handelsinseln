@@ -26,7 +26,7 @@
 
   const st = {
     token: localStorage.getItem('handelsinseln.token') || null, view: null, mode: null, moveFrom: null, mock: null,
-    es: null, logOpen: innerWidth > 1150, tab: 'log', modal: null, modalKey: '', draft: {}, draftKey: '',
+    es: null, logOpen: false, tab: 'log', modal: null, modalKey: '', draft: {}, draftKey: '',
     openPc: null, firstBoard: true, known: new Set(), lastSeq: null, lastHand: null, chatSeen: 0, seenChat: -1, color: null,
   };
 
@@ -166,6 +166,7 @@
   }
 
   function renderGame(v, old) {
+    holdHand(Fx.play(v), v); // Kartenanimation (Quelle → Ziel); Depotzähler erst nach der Landung hochzählen
     renderHUD(v);
     renderBoard(v);
     // Wuerfel
@@ -174,7 +175,6 @@
     else if (seq !== st.lastSeq) { setDice(v.dice, true); if (v.dice && v.phase === 'main') pulseNumber(v.dice[0] + v.dice[1]); }
     st.lastSeq = seq;
     showOrder(v.orderShown);
-    Fx.play(v); // Kartenanimation (Quelle → Ziel)
     showDev(v.devShown);
     void old;
   }
@@ -220,6 +220,16 @@
   const posCache = { v: new Map(), e: new Map(), h: new Map() };
   const vpos = (k) => { let p = posCache.v.get(k); if (!p) { p = Geom.vertPos(k, S); posCache.v.set(k, p); } return p; };
   const hpos = (k) => { let p = posCache.h.get(k); if (!p) { p = Geom.hexCenter(k, S); posCache.h.set(k, p); } return p; };
+  // Schiff: etwas weg von der eigenen Siedlung/Stadt an einem Kantenende rücken (Optik)
+  const SHIP_GAP = 9;
+  function shipPos(k, pid, v) {
+    const p = epos(k), [a, b] = Geom.edgeVerts(k);
+    const own = (x) => { const d = v.verts && v.verts[x]; return !!d && d.p === pid; };
+    const dir = own(a) && !own(b) ? 1 : own(b) && !own(a) ? -1 : 0; // 1: weg von a (Richtung b)
+    if (!dir) return p;
+    const pa = vpos(a), pb = vpos(b), len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+    return { x: p.x + dir * SHIP_GAP * (pb.x - pa.x) / len, y: p.y + dir * SHIP_GAP * (pb.y - pa.y) / len, ang: p.ang };
+  }
   const epos = (k) => {
     let p = posCache.e.get(k);
     if (!p) {
@@ -291,15 +301,15 @@
         const gp = L.edge.map.get(g).sig.slice(1);
         const ci = came.findIndex((k) => String(wantShips.get(k).p) === gp);
         if (ci < 0) continue;
-        const nk = came.splice(ci, 1)[0], c = L.edge.map.get(g), p = epos(nk);
+        const nk = came.splice(ci, 1)[0], c = L.edge.map.get(g), p = shipPos(nk, +gp, v);
         c.el.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px) rotate(${p.ang.toFixed(1)}deg)`;
         c.el.classList.add('sailing'); setTimeout(() => c.el.classList.remove('sailing'), 1000);
         L.edge.map.delete(g); L.edge.map.set(nk, c);
       }
     }
     syncLayer(L.edge, edges.map(([e, d]) => {
-      const p = epos(e), col = v.players[d.p] ? v.players[d.p].color : 'rot';
       const ship = d.k === 's';
+      const p = ship ? shipPos(e, d.p, v) : epos(e), col = v.players[d.p] ? v.players[d.p].color : 'rot';
       return { key: e, sig: (ship ? 's' : 'r') + d.p, make: () => piece(ship ? 'ship' : 'road', p.x, p.y, p.ang, ship ? Art.ship(col) : Art.road(col)) };
     }), 'pop');
 
@@ -565,7 +575,15 @@
   // ======================================================================================
   // HUD
   // ======================================================================================
-  const prevHand = {};
+  const prevHand = {}, heldHand = {};
+  function holdHand(land, v) {
+    for (const r of Object.keys(land)) {
+      if (prevHand[r] == null || (v.me.hand[r] || 0) <= prevHand[r]) continue;
+      if (heldHand[r] == null) heldHand[r] = prevHand[r];
+      clearTimeout(heldHand[r + 't']);
+      heldHand[r + 't'] = setTimeout(() => { delete heldHand[r]; if (V()) renderHand(V()); }, land[r]);
+    }
+  }
   // Sprachchat-Anzeigen (Mikrofon-Knopf, Spielerkarten, Lobbyliste, Dialog) – nur Klassen/kleine Teile, kein Flackern
   function renderVoiceUI() {
     const v = V(); if (!v) return;
@@ -622,11 +640,13 @@
   function renderHand(v) {
     const hand = v.me.hand;
     const res = RES.map((r) => {
-      const n = hand[r] || 0, gain = prevHand[r] != null && n > prevHand[r];
+      const n = heldHand[r] != null ? Math.min(heldHand[r], hand[r] || 0) : (hand[r] || 0), gain = prevHand[r] != null && n > prevHand[r];
       prevHand[r] = n;
       return `<div class="rcard${n ? '' : ' zero'}${gain ? ' gain' : ''}" data-res="${r}" style="--rc:${Art.RES_COLORS[r]}" title="${RN[r]}: ${n}"><div class="sk s${Math.min(n, 4)}"></div><div class="face">${Art.res(r, 42)}<span class="rn">${RN[r]}</span></div><b class="cnt">${n}</b></div>`;
     }).join('');
-    setHTML($('resRow'), res);
+    const lim = setg().handLimit === null ? Infinity : setg().handLimit || 7, tot = sumO(hand);
+    const warn = tot > lim ? `<span class="handwarn" title="Du hast ${tot} Karten (Limit ${lim}). Bei einer 7 musst du die Hälfte abwerfen.">⚠ ${tot}/${lim}</span>` : '';
+    setHTML($('resRow'), res + warn);
     const cards = v.me.dev.map((d) => {
       const can = d.playable && isMe() && (v.step === 'main' || v.step === 'roll' || v.step === 'sbp');
       const why = d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
@@ -879,7 +899,7 @@
   $('hud').addEventListener('click', async (e) => {
     const v = V(); if (!v) return;
     const b = e.target.closest('[data-a]'); if (!b) return;
-    if (b.getAttribute('aria-disabled') === 'true') { const t = b.title; if (t) toast(t, 'warn'); if (b.dataset.a !== 'dev') return; return; }
+    if (b.getAttribute('aria-disabled') === 'true') return;
     const a = b.dataset.a;
     switch (a) {
       case 'roll': await act('roll'); break;
@@ -889,7 +909,7 @@
       case 'takeover': st.moveFrom = null; st.mode = st.mode === 'takeover' ? null : 'takeover'; renderHUD(v); renderTargets(v); break;
       case 'cancel': st.mode = null; st.moveFrom = null; renderHUD(v); renderTargets(v); break;
       case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); break;
-      case 'move': st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; else toast('Klicke auf das Schiff, das du versetzen möchtest.', 'info'); } renderHUD(v); renderTargets(v); break;
+      case 'move': st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
         if (missingOf(v.me.hand, COST[k]).length) { // fehlende Rohstoffe vorher per Bank tauschen
@@ -899,12 +919,11 @@
         }
         if (k === 'dev') { st.mode = null; await act('buy_dev'); break; }
         st.moveFrom = null; st.mode = st.mode === k ? null : k;
-        if (st.mode && !((v.legal && v.legal[k]) || []).length) toast(`Kein erlaubter Platz für ${BUILD_LABEL[k] === 'Siedlung' ? 'eine Siedlung' : BUILD_LABEL[k] === 'Stadt' ? 'eine Stadt' : 'ein(e) ' + BUILD_LABEL[k]}.`, 'warn');
         renderHUD(V()); renderTargets(V()); break; // V(): nach dem Tausch kann die View neuer sein
       }
       case 'dev': {
         const t = b.dataset.type;
-        if (t === 'siegpunkt') { toast('Siegpunktkarten bleiben verdeckt und zählen automatisch.', 'info'); break; }
+        if (t === 'siegpunkt') break;
         if (t === 'ritter') await act('play_knight');
         else if (t === 'strassenbau') await act('play_roadbuilding');
         else if (t === 'erfindung') { st.modal = 'yop'; st.draftKey = ''; renderModal(v); }

@@ -4,6 +4,16 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Depot:** Dezenter Warnhinweis „⚠ n/Limit“, wenn man mehr Karten auf der Hand hat als erlaubt (Standard 7).
+
+### Geändert
+- Für eigene Aktionen gibt es keine Hinweisfenster mehr.
+- Die Seitenleiste ist im Spiel standardmäßig geschlossen.
+- Die Rohstoffzähler im eigenen Depot zählen erst hoch, wenn die Kartenanimation gelandet ist.
+- Der Abstand eines Schiffs zur eigenen angrenzenden Siedlung ist etwas größer.
+- Die Kartenanimation im Auto-Ablauf ist dieselbe wie im manuellen (wachsende Karte), nur etwas schneller.
+
 ## [1.2.0] - 2026-11-22
 
 ### Hinzugefügt
