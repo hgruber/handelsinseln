@@ -113,7 +113,8 @@
       (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
-    pop.style.top = (r.bottom + 8) + 'px';
+    const below = r.bottom + 8, ph = pop.offsetHeight; // am Tisch sitzt der Knopf unten: dann nach oben öffnen
+    pop.style.top = Math.max(8, below + ph > innerHeight - 8 ? r.top - 8 - ph : below) + 'px';
     pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
     $('btnMenu').setAttribute('aria-expanded', 'true');
     const f = pop.querySelector('button'); if (f) f.focus();

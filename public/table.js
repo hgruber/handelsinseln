@@ -1,16 +1,16 @@
-// table.js – Digitaler Spieltisch: Anzeige in der Tischplatte (nur der Spielleiter-Browser, vom Spielleiter ein-/ausschaltbar).
+// table.js – Digitaler Spieltisch: Anzeige in der Tischplatte (nur der Spielleiter-Browser, Plätze legt der Spielleiter in der Lobby fest).
 // Der Server liefert der Tisch-Verbindung zusätzlich die Sicht aller Spieler (Ereignis „table“). Der Tisch zeigt die Sicht des
 // „Fokus-Spielers“ (am Zug bzw. mit offener Pflicht) und handelt in dessen Namen (act mit `as`).
-// Die Rohstoffleiste jedes Spielers sitzt am Bildschirmrand, zur Sitzposition gedreht; das Menü (#bottom, Handel) des
-// Fokus-Spielers sitzt in seiner Leiste, Handelsangebote bekommt jeder Mitspieler als eigenes Menü an seinem Platz.
+// Jeder Platz besteht aus einem geheimen Bereich (eine Zeile, feste Größe: Rohstoffe + bis zu 4 Entwicklungskarten, immer sichtbar)
+// und einer öffentlichen Zeile darüber (nur am Zug: Baukosten, Handeln, Würfeln/Zug beenden, Würfel; sonst Avatar, Name, Punkte).
+// Ist der Spieler am Zug, rutscht sein Namensfeld links neben den geheimen Bereich. Alle Plätze sind zur Sitzposition gedreht.
 (function (root) {
   'use strict';
   const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
-  // Plätze (b/t = unten/oben Mitte, l/r = links/rechts Mitte, bl/br/tl/tr = Ecken) legt der Spielleiter in der Lobby fest
   const EDGE = { b: 'b', bl: 'b', br: 'b', t: 't', tl: 't', tr: 't', l: 'l', r: 'r' };
   const $ = (id) => document.getElementById(id);
-  let C = null, on = false, seatsEl = null, centerEl = null, key = '';
-  const seats = new Map(); // pid -> {el, head, menu, panel, bar}
+  let C = null, on = false, seatsEl = null, msgEl = null, key = '', seenLog = null;
+  const seats = new Map(); // pid -> {el, menu, ctl, badgeTop, badgeSide, secret, hb, slot}
   const counter = new Map(); // pid -> {cg:{}, cw:{}} offenes Gegenangebot (Ich gebe / Ich bekomme)
   let last = null; // zuletzt gezeichnete {views, focus}
   const html = (el, h) => { if (el._h !== h) { el._h = h; el.innerHTML = h; } };
@@ -24,11 +24,10 @@
     return v.turn != null ? v.turn : v.host;
   }
 
-  function build(v) {
+  function build() {
     seatsEl = document.createElement('div'); seatsEl.id = 'seats';
-    centerEl = document.createElement('div'); centerEl.id = 'tableCenter';
-    const hud = $('hud'); hud.appendChild(seatsEl); hud.appendChild(centerEl);
-    centerEl.appendChild($('banner')); centerEl.appendChild($('dice'));
+    msgEl = document.createElement('div'); msgEl.id = 'tableMsgs';
+    const hud = $('hud'); hud.appendChild(seatsEl); hud.appendChild(msgEl);
     seatsEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-tr]'); if (!b || b.getAttribute('aria-disabled') === 'true') return;
       const pid = Number(b.dataset.pid), what = b.dataset.tr, c = counter.get(pid);
@@ -39,13 +38,13 @@
         const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, n]) => n > 0));
         counter.delete(pid); C.act('trade_respond', { counter: { give: clean(c.cw), want: clean(c.cg) } }, pid);
       } else if (what === 'adj' && c) {
-        const side = b.dataset.side, r = b.dataset.res, hand = last.views[pid].me.hand, d = Number(b.dataset.d);
-        const n = Math.max(0, Math.min(side === 'cg' ? hand[r] || 0 : 19, (c[side][r] || 0) + d));
+        const side = b.dataset.side, r = b.dataset.res, d = Number(b.dataset.d);
+        const n = Math.max(0, Math.min(19, (c[side][r] || 0) + d));
         if (n) c[side][r] = n; else delete c[side][r];
       }
       if (last) render(last.views, last.focus);
     });
-    void v;
+    msgEl.addEventListener('click', (e) => { const m = e.target.closest('.tmsg'); if (m) m.remove(); });
   }
 
   function layout(v) {
@@ -55,21 +54,42 @@
     for (const s of seats.values()) s.el.remove();
     seats.clear();
     v.order.forEach((pid) => {
-      const el = document.createElement('section');
       const slot = v.players[pid].seat || 'b';
+      const el = document.createElement('section');
       el.className = 'seat s-' + slot; el.dataset.pid = pid;
-      el.innerHTML = '<div class="seathead"></div><div class="seatmenu"></div><div class="seatpanel"></div><div class="seatbar"></div>';
+      el.innerHTML = '<div class="seatmenu"></div><div class="pubrow"><div class="badge top"></div><div class="seatctl"></div></div>' +
+        '<div class="secretrow"><div class="badge side"></div><div class="secret"></div><div class="seathb"></div></div>';
       seatsEl.appendChild(el);
-      seats.set(pid, { el, head: el.children[0], menu: el.children[1], panel: el.children[2], bar: el.children[3], slot });
+      const q = (c) => el.querySelector(c);
+      seats.set(pid, { el, menu: q('.seatmenu'), ctl: q('.seatctl'), badgeTop: q('.badge.top'), badgeSide: q('.badge.side'), secret: q('.secret'), hb: q('.seathb'), slot });
     });
-    // Ränder, an denen Plätze sitzen (für den Kamerabereich)
-    const used = new Set([...seats.values()].map((s) => EDGE[s.slot]));
-    document.body.dataset.tedges = [...used].join('');
   }
 
-  function barHTML(hand, dev) {
-    const dv = (dev || []).map((d) => `<div class="dc${d.fresh ? ' fresh' : ''}" title="${C.Art.DEV_NAMES[d.type]}${d.fresh ? ' (neu)' : ''}">${C.Art.dev(d.type, 26)}</div>`).join('');
-    return RES.map((r) => `<div class="rc${hand[r] ? '' : ' zero'}" data-res="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${C.Art.RES_NAMES[r]}: ${hand[r] || 0}">${C.Art.res(r, 30)}<b>${hand[r] || 0}</b></div>`).join('') + (dv ? `<span class="dcs">${dv}</span>` : '');
+  // Namensfeld: Avatar, Name, öffentliche Punkte und weitere öffentliche Daten
+  function badgeHTML(v, p, pid) {
+    const A = C.Art;
+    return `${C.avatar(pid, 36)}<span class="bn2"><b class="nm">${C.esc(p.name)}</b><span class="bst">` +
+      `<span title="Öffentliche Siegpunkte"><b>${p.vp}</b>★</span>` +
+      `<span title="Rohstoffkarten auf der Hand">▯ ${p.resCount}</span>` +
+      `<span title="Entwicklungskarten">${A.dev('ritter', 13)}${p.devCount || 0}</span>` +
+      `<span title="Gespielte Ritter">⚔ ${p.knightsPlayed}</span>` +
+      `<span title="Längster Handelsweg">${A.pieceIcon('road', p.color, 13)}${p.longestRoute}</span>` +
+      (p.hasLongest ? '<span class="bdg2" title="Längster Handelsweg">Längster</span>' : '') + (p.hasLargest ? '<span class="bdg2" title="Stärkste Schutzmacht">Ritter</span>' : '') +
+      (p.discarding ? `<span class="duty">⚠ wirft ${p.discarding} ab</span>` : '') + (p.pickingGold ? `<span class="duty gold">✦ Gold ×${p.pickingGold}</span>` : '') +
+      `</span></span>`;
+  }
+
+  // Geheimer Bereich: Rohstoffstapel und Entwicklungskarten (immer sichtbar, bis zu 4 Karten, feste Größe)
+  function secretHTML(v, pv, pid, active) {
+    const A = C.Art, hand = pv.me.hand, t = v.trade;
+    const short = t && t.from === pid ? t.give : null; // angebotener Rohstoff, den der Spieler nicht hat: Stapel blinkt rot
+    const res = RES.map((r) => `<div class="rc${hand[r] ? '' : ' zero'}${short && (short[r] || 0) > (hand[r] || 0) ? ' short' : ''}" data-res="${r}" style="--rc:${A.RES_COLORS[r]}" title="${A.RES_NAMES[r]}">${A.res(r, 30)}<b>${hand[r] || 0}</b></div>`).join('');
+    const devs = pv.me.dev || [];
+    const dv = devs.slice(0, 4).map((d) => {
+      const can = active && d.playable;
+      return `<${can ? 'button type="button"' : 'div'} class="dc${can ? ' play' : ''}${d.fresh ? ' fresh' : ''}" ${can ? `data-a="dev" data-type="${d.type}" data-id="${C.esc(d.id)}"` : ''} title="${A.DEV_NAMES[d.type]}${d.fresh ? ' (neu)' : ''}">${A.dev(d.type, 26)}</${can ? 'button' : 'div'}>`;
+    }).join('') + (devs.length > 4 ? `<span class="dmore">+${devs.length - 4}</span>` : '');
+    return `<span class="rcs">${res}</span><span class="dcs">${dv}</span>`;
   }
 
   function menuHTML(views, pid, v) {
@@ -77,61 +97,84 @@
     if (!t || t.from === pid) return '';
     const me = views[pid], hand = me.me.hand, r = t.responses && t.responses[pid];
     const chips = (o) => `<span class="tchips">${RES.filter((x) => o[x] > 0).map((x) => `<span class="tchip" style="--rc:${C.Art.RES_COLORS[x]}">${C.Art.res(x, 24)}<b>${o[x]}</b></span>`).join('')}</span>`;
-    const miss = RES.filter((x) => (t.want[x] || 0) > (hand[x] || 0));
     const from = v.players[t.from];
     if (counter.has(pid) && !r) {
       const c = counter.get(pid), tot = (o) => RES.reduce((a, x) => a + (o[x] || 0), 0);
       const row = (side, label) => `<div class="crow"><span class="muted">${label}</span>${RES.map((x) => `<span class="cc" style="--rc:${C.Art.RES_COLORS[x]}"><button type="button" data-tr="adj" data-pid="${pid}" data-side="${side}" data-res="${x}" data-d="-1">−</button>${C.Art.res(x, 22)}<b>${c[side][x] || 0}</b><button type="button" data-tr="adj" data-pid="${pid}" data-side="${side}" data-res="${x}" data-d="1">+</button></span>`).join('')}</div>`;
-      const ok = tot(c.cg) > 0 && tot(c.cw) > 0 && !RES.some((x) => (c.cg[x] || 0) > (hand[x] || 0) || (c.cg[x] && c.cw[x]));
+      const ok = tot(c.cg) > 0 && tot(c.cw) > 0 && !RES.some((x) => c.cg[x] && c.cw[x]);
       return `<div class="tpanel glass tmenu" style="--pc:${C.Art.COLORS[from.color]}"><div class="who">${C.avatar(t.from, 30)}<b>Gegenangebot an ${C.esc(from.name)}</b></div>${row('cg', 'Ich gebe')}${row('cw', 'Ich bekomme')}` +
         `<div class="tact"><button type="button" class="btn ghostb" data-tr="back" data-pid="${pid}">Zurück</button><button type="button" class="btn gold${ok ? '' : ' dis'}" data-tr="send" data-pid="${pid}" ${ok ? '' : 'aria-disabled="true"'}>Senden</button></div></div>`;
     }
     const state = r ? `<span class="st ${r.s === 'accept' ? 'ok' : r.s === 'decline' ? 'no' : 'cnt2'}">${r.s === 'accept' ? '✓ angenommen' : r.s === 'decline' ? '✗ abgelehnt' : '⇄ Gegenangebot'}</span>` : '';
+    void hand;
     return `<div class="tpanel glass tmenu" style="--pc:${C.Art.COLORS[from.color]}"><div class="who">${C.avatar(t.from, 30)}<b>${C.esc(from.name)} bietet</b></div>` +
       `<div class="offer-line"><div class="ol"><span class="muted">Du erhältst</span>${chips(t.give)}</div><span class="tarrow sm">⇄</span><div class="ol"><span class="muted">Du gibst</span>${chips(t.want)}</div></div>` +
-      (state || `<div class="tact"><button type="button" class="btn green${miss.length ? ' dis' : ''}" data-tr="accept" data-pid="${pid}" ${miss.length ? 'aria-disabled="true"' : ''}>Annehmen</button><button type="button" class="btn red" data-tr="decline" data-pid="${pid}">Ablehnen</button><button type="button" class="btn ghostb" data-tr="open" data-pid="${pid}">Gegenangebot</button></div>`) + '</div>';
+      (state || `<div class="tact"><button type="button" class="btn green" data-tr="accept" data-pid="${pid}">Annehmen</button><button type="button" class="btn red" data-tr="decline" data-pid="${pid}">Ablehnen</button><button type="button" class="btn ghostb" data-tr="open" data-pid="${pid}">Gegenangebot</button></div>`) + '</div>';
+  }
+
+  // Nachrichten an alle: neue Protokolleinträge erscheinen kurz in der Tischmitte (verschwinden selbst oder per Klick)
+  function messages(v) {
+    const lg = v.log || [], max = lg.length ? lg[lg.length - 1].id : 0;
+    if (seenLog === null || max < seenLog) { seenLog = max; return; }
+    const fresh = lg.filter((l) => l.id > seenLog);
+    seenLog = max;
+    fresh.slice(-3).forEach((l) => {
+      const d = document.createElement('div');
+      d.className = 'tmsg k-' + l.kind; d.textContent = l.text; d.title = 'Zum Schließen klicken';
+      msgEl.appendChild(d);
+      while (msgEl.children.length > 4) msgEl.firstChild.remove();
+      setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, 6000);
+    });
   }
 
   function render(views, focus) {
     last = { views, focus };
     const v = views[focus];
-    if (!v.trade) counter.clear();
     layout(v);
+    messages(v);
     document.body.dataset.tseat = (seats.get(focus) || {}).slot || 'b';
+    if (!v.trade) counter.clear();
+    const ctlSeat = v.turn === focus && v.phase !== 'ended' ? focus : null;
     for (const [pid, s] of seats) {
-      const pv = views[pid], p = v.players[pid], active = pid === focus;
+      const pv = views[pid], p = v.players[pid], active = pid === focus, turn = v.turn === pid;
       s.el.classList.toggle('active', active);
-      s.el.classList.toggle('turn', v.turn === pid);
+      s.el.classList.toggle('turn', turn);
+      s.el.classList.toggle('ctl', pid === ctlSeat);
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
-      html(s.head, `${C.avatar(pid, 34)}<b class="nm">${C.esc(p.name)}</b><span class="vp">${p.vp + (pv.me.hiddenVp || 0)}<i>★</i></span>` +
-        `<span class="dv" title="Entwicklungskarten">${C.Art.dev('ritter', 16)}${p.devCount || 0}</span>` +
-        (p.discarding ? `<span class="duty">⚠ wirft ${p.discarding} ab</span>` : '') + (p.pickingGold ? `<span class="duty gold">✦ Gold ×${p.pickingGold}</span>` : ''));
-      html(s.bar, active ? '' : barHTML(pv.me.hand, pv.me.dev));
-      $('dice').style.display = $('dicebox').hidden ? 'none' : '';
+      const bh = badgeHTML(v, p, pid);
+      html(s.badgeTop, bh); html(s.badgeSide, bh);
+      html(s.secret, secretHTML(v, pv, pid, active));
       html(s.menu, active ? '' : menuHTML(views, pid, v));
-      if (active) {
-        if ($('bottom').parentNode !== s.panel) s.panel.appendChild($('bottom'));
-        if ($('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
+      if (active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
+      if (pid === ctlSeat) {
+        if ($('build').parentNode !== s.ctl) s.ctl.appendChild($('build'));
+        if ($('dicebox').parentNode !== s.ctl) s.ctl.appendChild($('dicebox'));
       }
+      if (pid === v.host && $('camBtns').parentNode !== s.hb) s.hb.appendChild($('camBtns')); // Hamburger-Menü rechts vom geheimen Bereich des Spielleiters
     }
+    if (ctlSeat === null) { // niemand am Zug: Bedienelemente wegräumen
+      const b = $('bottom');
+      if ($('build').parentNode !== b) b.appendChild($('build'));
+      if ($('dicebox').parentNode !== b) b.appendChild($('dicebox'));
+    }
+    $('dice').style.display = $('dicebox').hidden ? 'none' : '';
   }
 
-  function activate(views) {
+  function activate() {
     if (on) return;
-    on = true; key = '';
+    on = true; key = ''; seenLog = null;
     document.body.classList.add('table');
-    build(views[0]);
+    build();
   }
   function deactivate() {
     if (!on) return;
-    on = false; key = '';
-    const hud = $('hud');
-    $('hud').insertBefore($('banner'), $('players'));
-    $('dicebox').insertBefore($('dice'), $('primary'));
+    on = false; key = ''; seenLog = null;
+    const hud = $('hud'), b = $('bottom');
+    hud.insertBefore($('camBtns'), $('sideToggle'));
+    b.insertBefore($('build'), $('score')); b.insertBefore($('dicebox'), $('score'));
     $('side').insertBefore($('tradeDock'), $('side').firstChild);
-    hud.appendChild($('bottom'));
-    if (seatsEl) seatsEl.remove(); if (centerEl) centerEl.remove();
-    seats.clear(); seatsEl = centerEl = null;
+    if (seatsEl) seatsEl.remove(); if (msgEl) msgEl.remove();
+    seats.clear(); seatsEl = msgEl = null;
     document.body.classList.remove('table'); delete document.body.dataset.tseat; delete document.body.dataset.tedges;
   }
 
@@ -140,4 +183,5 @@
     focusOf, render, activate, deactivate,
     isOn: () => on,
   };
+  void EDGE;
 })(typeof self !== 'undefined' ? self : this);

@@ -610,7 +610,7 @@ class Game {
   }
   afterAction() {
     const S = this.S;
-    if (S.trade && !this.canPay(S.trade.from, S.trade.give)) { // Anbieter hat die Karten inzwischen ausgegeben
+    if (S.trade && !S.settings.table && !this.canPay(S.trade.from, S.trade.give)) { // Anbieter hat die Karten inzwischen ausgegeben
       S.trade = null; this.log('Das Angebot wurde automatisch zurückgezogen (Karten nicht mehr vorhanden).', 'trade');
     }
     if (S.phase === 'main') this.checkWin();
@@ -1003,7 +1003,7 @@ class Game {
     const give = cleanCards(a.give), want = cleanCards(a.want);
     if (!sum(give) || !sum(want)) fail('Ein Angebot braucht Karten auf beiden Seiten.');
     if (RES.some((r) => give[r] && want[r])) fail('Gib nicht dieselbe Ressource, die du verlangst.');
-    if (!this.canPay(pid, give)) fail('Du besitzt diese Karten nicht.');
+    if (!S.settings.table && !this.canPay(pid, give)) fail('Du besitzt diese Karten nicht.');
     S.trade = { id: ++S.tradeSeq, from: pid, give, want, responses: {} };
     this.log(`${this.name(pid)} bietet ${fmt(give)} gegen ${fmt(want)}.`, 'trade', pid);
     // Auto-Spieler nehmen jedes 1:1-Angebot an, wenn sie die verlangte Karte besitzen

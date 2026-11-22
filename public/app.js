@@ -723,7 +723,7 @@
   function renderBuild(v) {
     const lg = v.legal || {};
     const html = ['road', 'ship', 'settlement', 'city', 'dev'].map((k) => {
-      const why = buildWhy(k, v);
+      const why = st.tableOn ? '' : buildWhy(k, v); // am Tisch ist nichts gesperrt: Die Spieler sehen ihre Karten selbst
       const lf = k !== 'dev' && v.players[v.you].left ? v.players[v.you].left[k] : null;
       const plan = !why && missingOf(v.me.hand, COST[k]).length ? bankPlan(v, k) : null;
       const tip = (plan ? `Tauscht vorher automatisch mit der Bank: ${planText(plan)}. ` : '') + (why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : ''));
@@ -733,7 +733,7 @@
       ((lg.shipFrom && lg.shipFrom.length && isMe()) ? `<button class="bb${st.moveFrom ? ' on' : ''}" data-a="move" title="Ein Schiff versetzen: klicke ein markiertes Schiff, dann das Ziel."><span class="ic">${Art.pieceIcon('ship', v.players[v.you].color, 38)}</span><span class="lb">${compact() ? 'Fahren' : 'Versetzen'}</span><span class="cost"><span class="cc">⇄</span></span></button>` : '') +
       ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${st.mode === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
       (() => {
-        const canT = isMe() && (v.step === 'main' || v.step === 'sbp');
+        const canT = st.tableOn || (isMe() && (v.step === 'main' || v.step === 'sbp'));
         const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: nur Handel mit der Bank.' : 'Handeln: mit der Bank oder den Mitspielern') : (v.phase !== 'main' ? 'Erst nach dem Aufbau.' : v.turn !== v.you ? 'Nur im eigenen Zug.' : 'Jetzt nicht möglich.');
         return `<button class="bb trade${Trade.isOpen() && canT ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">${setg().playerTrade === false ? 'nur Bank' : 'Bank · Spieler'}</span></button>`;
       })();
@@ -941,7 +941,7 @@
       case 'move': st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
-        if (missingOf(v.me.hand, COST[k]).length) { // fehlende Rohstoffe vorher per Bank tauschen
+        if (!st.tableOn && missingOf(v.me.hand, COST[k]).length) { // fehlende Rohstoffe vorher per Bank tauschen
           const plan = bankPlan(v, k); if (!plan) break;
           let ok = true; for (const t of plan) { const j = await act('bank_trade', { give: t.give, get: t.get }); if (j.error) { ok = false; break; } }
           if (!ok) break;
@@ -998,7 +998,7 @@
     Regeln.init({ Art, costChips, settings: setg });
     Table.init({ act, Art, avatar, esc });
     Fx.init({ Art, table: () => !!st.tableOn, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
-    Trade.init({ root: $('tradeDock'), view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
+    Trade.init({ root: $('tradeDock'), table: () => !!st.tableOn, view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
     const mock = q.get('mock');
     if (mock) {

@@ -58,12 +58,14 @@ try:
         slots = pg.eval_on_selector_all('.seat', 'els => els.map(e => e.className.split(" ").find(c => c.startsWith("s-")))')
         check(sorted(slots) == ['s-b', 's-l', 's-r', 's-t'], f'Plätze wie in der Lobby festgelegt ({slots})')
         check(pg.locator('.seat.active').count() == 1, 'genau ein aktiver Platz (Fokus)')
-        check(pg.locator('.seat.active #bottom').count() == 1, 'Menü des Spielers am Zug sitzt in seinem Platz')
+        check(pg.locator('.seat.ctl .pubrow #build').count() == 1 and pg.locator('.seat.ctl .pubrow #dicebox').count() == 1, 'Bedienelemente des Spielers am Zug sitzen in seiner öffentlichen Zeile')
+        check(pg.locator('.seat .secret .rc').count() == 20, 'jeder Platz zeigt immer seinen geheimen Bereich (5 Rohstoffstapel)')
+        check(pg.locator('.seat .seathb #btnMenu').count() == 1, 'Hamburger-Menü sitzt rechts vom geheimen Bereich des Spielleiters')
+        check(pg.locator('#banner').is_hidden(), 'keine Anweisungsmeldung am Tisch')
         rot = pg.eval_on_selector_all('.seat', 'els => els.map(e => [e.className.split(" ").find(c => c.startsWith("s-")), getComputedStyle(e).transform])')
         check(all(t != 'none' for s, t in rot if s != 's-b'), 'Plätze außer unten sind gedreht')
         r = pg.evaluate("[...document.querySelectorAll('.seat')].map(e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom, innerWidth, innerHeight]; })")
         check(all(x[0] >= -2 and x[1] >= -2 and x[2] <= x[4] + 2 and x[3] <= x[5] + 2 for x in r), 'alle Plätze liegen im Bild')
-        check(pg.locator('#tableCenter #dice').count() == 1 and pg.locator('#tableCenter #banner').count() == 1, 'Würfel und Meldung bleiben in der Bildschirmmitte')
         pg.screenshot(path=f'{SHOTS}/tisch-4.png')
         if os.environ.get('TABLE_SHOT_ONLY'): raise SystemExit(0)
 
@@ -99,7 +101,7 @@ try:
         # Zoom springt zurück
         k0 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
         pg.mouse.move(800, 450)
-        for _ in range(6): pg.mouse.wheel(0, -400)
+        for _ in range(6): pg.mouse.wheel(0, 400)
         pg.wait_for_timeout(500)
         k1 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
         check(k1 != k0, 'Zoomen ist möglich')
@@ -114,12 +116,12 @@ try:
         # Handelsangebot: jeder Mitspieler bekommt sein eigenes Menü
         v = None
         for _ in range(40):
-            if pg.locator('.seat.active [data-a="trade"]:not([aria-disabled="true"])').count(): break
+            if pg.locator('.seat.active [data-a="end"]').count(): break
             if pg.locator('.seat.active [data-a="end"]').count() == 0 and pg.locator('.seat.active [data-a="roll"]').count(): pg.locator('.seat.active [data-a="roll"]').click()
             pg.wait_for_timeout(400)
         if pg.locator('.seat.active [data-a="trade"]:not([aria-disabled="true"])').count():
             pg.locator('.seat.active [data-a="trade"]').click(); pg.wait_for_timeout(400)
-            hand = pg.evaluate("(() => { const o = {}; document.querySelectorAll('.seat.active #hand .rcard').forEach(c => { o[c.dataset.res] = Number((c.getAttribute('title') || '').split(': ')[1]) || 0; }); return o; })()")
+            hand = pg.evaluate("(() => { const o = {}; document.querySelectorAll('.seat.active .secret .rc').forEach(c => { o[c.dataset.res] = Number(c.querySelector('b').textContent) || 0; }); return o; })()")
             give = max(hand, key=lambda k: hand[k])
             want = [r for r in hand if r != give][0]
             pg.locator(f'#tradeDock .tc[data-side="give"][data-res="{give}"]').first.click()
@@ -137,7 +139,7 @@ try:
                 if op.count():
                     op.click(); pg.wait_for_timeout(300)
                     base = '.seat:not(.active) .tmenu [data-tr="adj"]'
-                    for r in ('holz', 'lehm', 'wolle', 'getreide', 'erz'):  # „Ich gebe“: alles, was der Spieler besitzt (je 1)
+                    for r in ('holz',):  # „Ich gebe“: alles, was der Spieler besitzt (je 1)
                         pg.locator(f'{base}[data-side="cg"][data-res="{r}"][data-d="1"]').first.click(); pg.wait_for_timeout(60)
                     given = pg.evaluate("[...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0] && [...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0].querySelectorAll('.cc b').length ? [...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0].innerText : ''")
                     free = pg.evaluate("(() => { const row = document.querySelectorAll('.seat:not(.active) .tmenu .crow')[0]; const res = ['holz', 'lehm', 'wolle', 'getreide', 'erz']; const cc = [...row.querySelectorAll('.cc b')]; const i = cc.findIndex((b) => b.textContent === '0'); return i < 0 ? null : res[i]; })()")
@@ -149,6 +151,18 @@ try:
             else:
                 print('  (Handel übersprungen: Angebot nicht möglich)')
 
+        # Angebot ohne die Karten: der Stapel blinkt rot, die Anbieter-Seite kann nur zurückziehen
+        if pg.locator('#tradeDock [data-do="cancel"]').count():
+            pg.locator('#tradeDock [data-do="cancel"]').click(); pg.wait_for_timeout(500)
+            zero = pg.evaluate("(() => { const z = document.querySelector('.seat.active .secret .rc.zero'); return z ? z.dataset.res : null; })()")
+            apid = int(pg.evaluate("document.querySelector('.seat.active').dataset.pid"))
+            if zero:
+                want = [r for r in ('holz', 'lehm', 'wolle', 'getreide', 'erz') if r != zero][0]
+                r = post('/api/act', {'token': tok, 'type': 'trade_offer', 'give': {zero: 1}, 'want': {want: 1}, 'as': apid})
+                pg.wait_for_timeout(700)
+                check(r.get('ok'), 'Angebot ohne die Karten wird am Tisch angenommen')
+                check(pg.locator('.seat.active .secret .rc.short').count() == 1, 'der fehlende Rohstoffstapel blinkt rot')
+                check(pg.locator('#tradeDock [data-do="confirm"]').count() == 0, 'der Anbieter kann nur zurückziehen (kein Handeln-Knopf)')
         # Spielende: Statistik wie gewohnt, der Tisch räumt auf
         pg.click('#btnMenu'); pg.locator('[data-mi="end"]').click(); pg.click('#dlgRoot [data-d="yes"]')
         pg.wait_for_selector('#stats:not([hidden])', timeout=8000)

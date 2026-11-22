@@ -4,6 +4,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Spieltisch, neues Platz-Layout:** Würfel und Anweisungsmeldung verdecken das Spielfeld nicht mehr (keine „Du bist dran …“-Anweisung am Tisch). Jeder Platz besteht aus einem **geheimen Bereich** (eine Zeile fester Größe, immer sichtbar: Rohstoffstapel und bis zu 4 Entwicklungskarten) und einer **öffentlichen Zeile** darüber (gleiche Breite): nur am Zug mit Baukosten, Handeln, Würfeln/Zug beenden und den Würfeln, sonst Avatar, Name, Punkte und weitere öffentliche Daten. Am Zug rutscht das Namensfeld links neben den geheimen Bereich. Das Hamburger-Menü sitzt immer rechts vom geheimen Bereich des Spielleiters.
+- **Spieltisch, Handeln:** Das Menü sperrt nichts und zeigt keine Kartenanzahlen. Wer einen Rohstoff anbietet, den er nicht hat, löst das Angebot trotzdem aus; sein Stapel im geheimen Bereich blinkt rot, die Mitspieler können annehmen, der Anbieter kann nur zurückziehen.
+- **Spieltisch, Nachrichten:** Neue Spielmeldungen erscheinen für alle in der Tischmitte und verschwinden von selbst oder per Klick.
+- **Online-Ansicht:** Die Hand (Rohstoffe + Entwicklungskarten) hat eine feste Breite für drei Entwicklungskarten; sonst unverändert.
+
 ## [1.5.0] - 2026-11-22
 
 ### Geändert

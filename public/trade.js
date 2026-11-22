@@ -9,6 +9,7 @@
   const sum = (o) => RES.reduce((a, r) => a + (o && o[r] > 0 ? o[r] : 0), 0);
   const clean = (o) => { const x = {}; for (const r of RES) if (o && o[r] > 0) x[r] = o[r]; return x; };
   const rn = (r) => C.Art.RES_NAMES[r];
+  const tbl = () => !!(C.table && C.table()); // Spieltisch: nichts gesperrt, keine Kartenanzahlen
 
   function chips(o, big) {
     const s = RES.filter((r) => o && o[r] > 0).map((r) =>
@@ -27,7 +28,7 @@
       (hand != null ? `<span class="have" title="Im Besitz">${hand}</span>` : '') +
       `<button type="button" class="minus" data-side="${side}" data-res="${r}" aria-label="${rn(r)} −1">−</button></div>`;
   }
-  const grid = (side, vals, hand, limited) => `<div class="tgrid">${RES.map((r) => card(side, r, vals[r] || 0, limited ? (hand[r] || 0) : 9, limited ? hand[r] || 0 : null)).join('')}</div>`;
+  const grid = (side, vals, hand, limited) => { const lim = limited && !tbl(); return `<div class="tgrid">${RES.map((r) => card(side, r, vals[r] || 0, lim ? (hand[r] || 0) : 9, lim ? hand[r] || 0 : null)).join('')}</div>`; };
 
   // ---- Panels ---------------------------------------------------------------------------
   function head(title, extra) {
@@ -51,10 +52,10 @@
     if (bank && v.bank && v.bank.stock && v.bank.stock[bank.w] != null && v.bank.stock[bank.w] < bank.times) {
       hint = `Die Bank hat nicht genug ${rn(bank.w)} (noch ${v.bank.stock[bank.w]}).`; bank = null;
     }
-    const canOffer = !sbp && !noP && sum(S.give) > 0 && sum(S.want) > 0 && !missing(hand, S.give).length;
-    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : 'Angebot an alle Mitspieler senden';
+    const canOffer = !sbp && !noP && sum(S.give) > 0 && sum(S.want) > 0 && (tbl() || !missing(hand, S.give).length);
+    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : !tbl() && missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : 'Angebot an alle Mitspieler senden';
     const rateChips = RES.map((r) => {
-      const rt = rates[r] || 4, ok = (hand[r] || 0) >= rt;
+      const rt = rates[r] || 4, ok = tbl() || (hand[r] || 0) >= rt;
       return `<button type="button" class="rate r${rt}${ok ? '' : ' off'}" data-rate="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${rt}× ${rn(r)} → 1 beliebiger Rohstoff${rt < 4 ? (rt === 2 ? ' (2:1-Hafen)' : ' (3:1-Hafen)') : ' (Bank 4:1)'}${ok ? ' – Klick füllt „Ich gebe“' : ' – zu wenig Karten'}">${C.Art.res(r, 20)}<b>${rt}:1</b></button>`;
     }).join('');
     const body = `<div class="tbody">` +
@@ -91,10 +92,10 @@
       if (r && r.s === 'counter') {
         detail = `<div class="cdet">Du gibst ${chips(r.give)} · du erhältst ${chips(r.want)}</div>`;
         const miss = missing(hand, r.give || {});
-        btn = `<button type="button" class="btn green small${miss.length ? ' dis' : ''}" data-do="confirm" data-with="${pid}" ${miss.length ? 'aria-disabled="true"' : ''} title="${miss.length ? 'Dir fehlen: ' + C.esc(miss.join(', ')) : ''}">Handeln mit ${C.esc(p.name)}</button>`;
+        btn = tbl() && miss.length ? '' : `<button type="button" class="btn green small${miss.length ? ' dis' : ''}" data-do="confirm" data-with="${pid}" ${miss.length ? 'aria-disabled="true"' : ''} title="${miss.length ? 'Dir fehlen: ' + C.esc(miss.join(', ')) : ''}">Handeln mit ${C.esc(p.name)}</button>`;
       } else if (r && r.s === 'accept') {
         const miss = missing(hand, t.give);
-        btn = `<button type="button" class="btn green small${miss.length ? ' dis' : ''}" data-do="confirm" data-with="${pid}" ${miss.length ? 'aria-disabled="true"' : ''} title="${miss.length ? 'Dir fehlen: ' + C.esc(miss.join(', ')) : ''}">Handeln mit ${C.esc(p.name)}</button>`;
+        btn = tbl() && miss.length ? '' : `<button type="button" class="btn green small${miss.length ? ' dis' : ''}" data-do="confirm" data-with="${pid}" ${miss.length ? 'aria-disabled="true"' : ''} title="${miss.length ? 'Dir fehlen: ' + C.esc(miss.join(', ')) : ''}">Handeln mit ${C.esc(p.name)}</button>`;
       }
       return `<li class="resp s-${r ? r.s : 'wait'}">${C.avatar(pid, 26)}<span class="nm">${C.esc(p.name)}</span>${status(v, pid, r)}${detail}${btn}</li>`;
     }).join('');
@@ -159,7 +160,7 @@
   function adj(side, r, d) {
     const v = C.view(), hand = v.me.hand;
     const t = { give: S.give, want: S.want, cg: S.cg, cw: S.cw }[side];
-    const lim = side === 'give' || side === 'cg' ? (hand[r] || 0) : 19;
+    const lim = (side === 'give' || side === 'cg') && !tbl() ? (hand[r] || 0) : 19;
     const n = Math.max(0, Math.min(lim, (t[r] || 0) + d));
     if (n === (t[r] || 0)) { return; }
     if (n) t[r] = n; else delete t[r];
@@ -170,7 +171,7 @@
     let g = RES.find((r) => S.give[r] > 0), w = RES.find((r) => S.want[r] > 0);
     if (!g) g = RES.slice().sort((x, y) => (hand[y] || 0) - (hand[x] || 0))[0];
     if (!w) w = RES.filter((r) => r !== g).sort((x, y) => (hand[x] || 0) - (hand[y] || 0))[0];
-    if ((hand[g] || 0) < 1) return;
+    if ((hand[g] || 0) < 1 && !tbl()) return;
     S.give = { [g]: Math.min(a, hand[g]) }; S.want = { [w]: b };
     render();
   }
@@ -227,7 +228,7 @@
       const rt = e.target.closest('[data-rate]');
       if (rt) {
         const v = C.view(), r = rt.dataset.rate, n = (v.rates && v.rates[r]) || 4;
-        if ((v.me.hand[r] || 0) < n) return;
+        if ((v.me.hand[r] || 0) < n && !tbl()) return;
         S.give = { [r]: n }; if (S.want[r]) delete S.want[r]; render(); return;
       }
       const d = e.target.closest('[data-do]'); if (d) onDo(d);
