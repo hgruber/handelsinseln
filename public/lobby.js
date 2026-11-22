@@ -38,11 +38,11 @@
     if (!L.avatar) { const free = AVS.HUMAN_IDS.filter((a) => !t.includes(a)); L.avatar = free[Math.floor(Math.random() * free.length)] || AVS.HUMAN_IDS[0]; }
   }
   function renderAvatars() {
-    const t = takenAvatars();
-    C.setHTML($('avatars'), AVS.HUMAN.map((a) => {
-      const tk = t.includes(a.id);
-      return `<button type="button" class="avb${L.avatar === a.id ? ' on' : ''}${tk ? ' taken' : ''}" data-a="${a.id}" role="radio" aria-checked="${L.avatar === a.id}" ${tk ? 'disabled' : ''} title="${C.esc(a.name)}${tk ? ' (in diesem Spiel vergeben)' : ''}"><img src="img/av/${a.id}.webp" alt="${C.esc(a.name)}" draggable="false"></button>`;
-    }).join(''));
+    const t = takenAvatars(), cur = AVS.HUMAN.find((a) => a.id === L.avatar) || AVS.HUMAN[0];
+    const opt = (a) => { const tk = t.includes(a.id); return `<button type="button" class="avo${L.avatar === a.id ? ' on' : ''}${tk ? ' taken' : ''}" data-a="${a.id}" role="option" aria-selected="${L.avatar === a.id}" ${tk ? 'disabled' : ''} title="${tk ? 'In diesem Spiel vergeben' : C.esc(a.name)}"><img src="img/av/${a.id}.webp" alt="" draggable="false"><span>${C.esc(a.name)}</span></button>`; };
+    const grp = (g) => `<div class="avg">${g}</div><div class="avgrid">${AVS.HUMAN.filter((a) => a.g === g).map(opt).join('')}</div>`;
+    C.setHTML($('avatars'), `<button type="button" class="avsel" aria-haspopup="listbox" aria-expanded="${!!L.avOpen}"><img src="img/av/${cur.id}.webp" alt="" draggable="false"><span class="avn">${C.esc(cur.name)}</span><i class="chev" aria-hidden="true"></i></button>` +
+      (L.avOpen ? `<div class="avpanel glass" role="listbox" aria-label="Avatar wählen">${grp('Menschen')}${grp('Tiere')}</div>` : ''));
   }
   function pickColor() {
     const t = takenColors();
@@ -118,7 +118,20 @@
   }
   function initLogin() {
     $('swatches').addEventListener('click', (e) => { const b = e.target.closest('.sw'); if (!b || b.disabled) return; L.color = b.dataset.c; localStorage.setItem('handelsinseln.color', L.color); renderSwatches(); });
-    $('avatars').addEventListener('click', (e) => { const b = e.target.closest('.avb'); if (!b || b.disabled) return; L.avatar = b.dataset.a; localStorage.setItem('handelsinseln.avatar', L.avatar); renderAvatars(); });
+    $('avatars').addEventListener('click', (e) => {
+      const o = e.target.closest('.avo');
+      if (o) { if (o.disabled) return; L.avatar = o.dataset.a; localStorage.setItem('handelsinseln.avatar', L.avatar); L.avOpen = false; renderAvatars(); $('avatars').querySelector('.avsel').focus(); return; }
+      if (e.target.closest('.avsel')) { L.avOpen = !L.avOpen; renderAvatars(); const on = $('avatars').querySelector('.avo.on'); if (L.avOpen && on) on.scrollIntoView({ block: 'nearest' }); }
+    });
+    document.addEventListener('click', (e) => { if (L.avOpen && !e.composedPath().includes($('avatars'))) { L.avOpen = false; renderAvatars(); } });
+    $('avatars').addEventListener('keydown', (e) => {
+      if (!L.avOpen) return;
+      if (e.key === 'Escape') { e.stopPropagation(); L.avOpen = false; renderAvatars(); $('avatars').querySelector('.avsel').focus(); return; }
+      const k = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!k) return;
+      e.preventDefault();
+      const all = [...$('avatars').querySelectorAll('.avo:not(:disabled)')], i = all.indexOf(document.activeElement);
+      (all[(i + k + all.length) % all.length] || all[0]).focus();
+    });
     $('gameList').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (!b) return; L.sel = L.sel === b.dataset.g ? null : b.dataset.g; L.color = L.color; renderGames(); });
     $('loginForm').addEventListener('submit', (e) => { e.preventDefault(); if ($('joinBtn').getAttribute('aria-disabled') === 'true') { C.toast($('joinBtn').title, 'warn'); return; } doJoin(false); });
     $('createBtn').addEventListener('click', () => doJoin(true));

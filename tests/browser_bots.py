@@ -38,17 +38,20 @@ try:
         A, B = newpage('Host'), newpage('Gast')
 
         # --- Anmeldung: Avatar-Auswahl
-        A.wait_for_selector('#avatars .avb')
-        check(A.locator('#avatars .avb').count() == 16, 'Anmeldung zeigt 16 wählbare Avatare')
-        check(A.locator('#avatars .avb.on').count() == 1, 'ein Avatar ist zufällig vorgewählt')
+        A.wait_for_selector('#avatars .avsel'); A.click('#avatars .avsel')
+        check(A.locator('#avatars .avo').count() == 16, 'Anmeldung zeigt 16 wählbare Avatare')
+        A.wait_for_selector('#avatars .avo')
+        check(A.locator('#avatars .avo.on').count() == 1, 'ein Avatar ist zufällig vorgewählt')
         imgs_ok = A.eval_on_selector_all('#avatars img', 'els => els.every(i => i.complete && i.naturalWidth > 0)')
         check(imgs_ok, 'alle Avatar-Bilder laden')
-        ids = A.eval_on_selector_all('#avatars .avb', 'els => els.map(e => e.dataset.a)')
+        ids = A.eval_on_selector_all('#avatars .avo', 'els => els.map(e => e.dataset.a)')
         check(not (set(ids) & BOT_AV), 'Bot-Avatare sind nicht wählbar')
+        check(ids[:8] == ['kapitaen','piratin','matrose','forscherin','haendler','navigatorin','fischer','junge'], 'Menschen stehen vor den Tieren')
         A.screenshot(path=f'{SHOTS}/login.png')
         want = ids[3]
-        A.locator(f'#avatars .avb[data-a="{want}"]').click()
-        check(A.locator('#avatars .avb.on').get_attribute('data-a') == want, 'Klick wählt den Avatar')
+        A.locator(f'#avatars .avo[data-a="{want}"]').click()
+        A.click('#avatars .avsel'); check(A.locator('#avatars .avo.on').get_attribute('data-a') == want, 'Klick wählt den Avatar')
+        A.keyboard.press('Escape')
         A.fill('#nameIn', 'Hanna'); A.locator('#swatches .sw').first.click(); A.click('#createBtn')
         A.wait_for_selector('#lobby:not([hidden])', timeout=6000)
         g = games()[0]
@@ -57,13 +60,14 @@ try:
         # --- Gast: der vergebene Avatar ist gesperrt, Beitritt mit dem Wunsch „gleicher Avatar“ bekommt einen anderen
         B.wait_for_selector('#gameList .gcard')
         B.locator('#gameList .gcard').first.click()
-        B.wait_for_selector(f'#avatars .avb[data-a="{want}"].taken')
-        check(B.locator(f'#avatars .avb[data-a="{want}"]').is_disabled(), 'vergebener Avatar ist im Spiel gesperrt')
-        check(B.locator('#avatars .avb.on').get_attribute('data-a') != want, 'Vorschlag des Gastes ist nicht der vergebene Avatar')
+        B.wait_for_selector('#avatars .avsel'); B.click('#avatars .avsel')
+        B.wait_for_selector(f'#avatars .avo[data-a="{want}"].taken')
+        check(B.locator(f'#avatars .avo[data-a="{want}"]').is_disabled(), 'vergebener Avatar ist im Spiel gesperrt')
+        check(B.locator('#avatars .avo.on').get_attribute('data-a') != want, 'Vorschlag des Gastes ist nicht der vergebene Avatar')
         r = json.load(urllib.request.urlopen(urllib.request.Request(BASE + '/api/join', json.dumps({'name': 'Schummler', 'color': 'gruen', 'avatar': want, 'game': g['id']}).encode(), {'Content-Type': 'application/json'})))
         av = {x['name']: x['avatar'] for x in games()[0]['players']}
         check(av['Schummler'] != want and av['Schummler'] in ids, 'Server vergibt keinen Avatar doppelt (zufällig anderer, nur Menschen-Avatare)')
-        B.locator('#avatars .avb:not(.taken):not(.on)').first.click()
+        B.locator('#avatars .avo:not(.taken):not(.on)').first.click()
         B.fill('#nameIn', 'Bernd'); B.locator('#swatches .sw:not(.taken)').first.click(); B.click('#joinBtn')
         B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
         # Neuladen darf nicht ausloggen: Sitzung und Lobby bleiben erhalten

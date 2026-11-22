@@ -9,6 +9,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Depot:** Dezenter Warnhinweis „⚠ n/Limit“, wenn man mehr Karten auf der Hand hat als erlaubt (Standard 7).
 
 ### Geändert
+- **Avatar-Auswahl** auf der Startseite ist jetzt ein Dropdown mit Vorschau, gruppiert nach „Menschen“ vor „Tiere“ (Tastatur: Pfeile, Esc).
 - Für eigene Aktionen gibt es keine Hinweisfenster mehr.
 - Die Seitenleiste ist im Spiel standardmäßig geschlossen.
 - Die Rohstoffzähler im eigenen Depot zählen erst hoch, wenn die Kartenanimation gelandet ist.

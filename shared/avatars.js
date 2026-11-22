@@ -2,12 +2,12 @@
 (function (root) {
   // Frei wählbare Avatare der Menschen
   const HUMAN = [
-    { id: 'fuchs', name: 'Kapitän Fuchs' }, { id: 'eule', name: 'Eule mit Fernrohr' }, { id: 'otter', name: 'Matrosen-Otter' },
-    { id: 'pinguin', name: 'Rettungsring-Pinguin' }, { id: 'krake', name: 'Kraken-Käpt\'n' }, { id: 'robbe', name: 'Mützen-Robbe' },
-    { id: 'moewe', name: 'Brötchen-Möwe' }, { id: 'krabbe', name: 'Krabbe Klaus' },
-    { id: 'kapitaen', name: 'Alter Kapitän' }, { id: 'piratin', name: 'Piratin mit Augenklappe' }, { id: 'matrose', name: 'Matrose' },
-    { id: 'forscherin', name: 'Forscherin mit Fernrohr' }, { id: 'haendler', name: 'Pfeffersack-Händler' }, { id: 'navigatorin', name: 'Navigatorin mit Kompass' },
-    { id: 'fischer', name: 'Fischer mit Pfeife' }, { id: 'junge', name: 'Schiffsjunge' },
+    { id: 'kapitaen', name: 'Alter Kapitän', g: 'Menschen' }, { id: 'piratin', name: 'Piratin mit Augenklappe', g: 'Menschen' }, { id: 'matrose', name: 'Matrose', g: 'Menschen' },
+    { id: 'forscherin', name: 'Forscherin mit Fernrohr', g: 'Menschen' }, { id: 'haendler', name: 'Pfeffersack-Händler', g: 'Menschen' }, { id: 'navigatorin', name: 'Navigatorin mit Kompass', g: 'Menschen' },
+    { id: 'fischer', name: 'Fischer mit Pfeife', g: 'Menschen' }, { id: 'junge', name: 'Schiffsjunge', g: 'Menschen' },
+    { id: 'fuchs', name: 'Kapitän Fuchs', g: 'Tiere' }, { id: 'eule', name: 'Eule mit Fernrohr', g: 'Tiere' }, { id: 'otter', name: 'Matrosen-Otter', g: 'Tiere' },
+    { id: 'pinguin', name: 'Rettungsring-Pinguin', g: 'Tiere' }, { id: 'krake', name: 'Kraken-Käpt\'n', g: 'Tiere' }, { id: 'robbe', name: 'Mützen-Robbe', g: 'Tiere' },
+    { id: 'moewe', name: 'Brötchen-Möwe', g: 'Tiere' }, { id: 'krabbe', name: 'Krabbe Klaus', g: 'Tiere' },
   ];
   // Bots: feste Avatare, Namen und Spielstil; Menschen können sie nicht wählen
   const BOTS = {
