@@ -271,14 +271,9 @@
   const city = (c) => sh(33, 8, 0) + stone('stadt', -28.5, -93, 57, 93, c);
   const road = (c) => `<ellipse cy="6" rx="44" ry="5" fill="#000" opacity=".3"/>` + stone('strasse', -42, -11, 84, 16.2, c);
   function ship(c) {
-    return `<ellipse cy="9" rx="26" ry="5" fill="#000" opacity=".28"/><g class="bob">` +
-      `<path class="wake" d="M-26,8 q6,-4 12,0 M-30,12 q8,-5 16,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
-      `<path d="M-23,-1 H24 Q20,10 8,10 H-13 Q-20,9 -23,-1Z" fill="#6b4423" stroke="#000" stroke-opacity=".55" stroke-width="1.2" stroke-linejoin="round"/>` +
-      `<path d="M-22,1.5 H22.5" stroke="url(#pg-${c})" stroke-width="3.4"/><path d="M-20,-1 H22" stroke="#fff" stroke-opacity=".3" stroke-width="1.2"/>` +
-      `<path d="M0,0 V-34" stroke="#3a2412" stroke-width="2.6" stroke-linecap="round"/>` +
-      `<path d="M2,-32 Q22,-18 20,-3 H2Z" fill="url(#pg-${c})" stroke="#000" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"/>` +
-      `<path d="M-2,-30 Q-14,-18 -12,-5 H-2Z" fill="url(#pd-${c})" stroke="#000" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"/>` +
-      `<path d="M0,-34 l9,3 l-9,3Z" fill="#fff"/></g>`;
+    return `<ellipse cy="11" rx="38" ry="6.5" fill="#000" opacity=".3"/><g class="bob">` +
+      `<path class="wake" d="M-34,10 q8,-5 16,0 M-38,15 q10,-6 20,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
+      stone('schiff', -31, -58, 62, 66, c) + `</g>`;
   }
   const robber = () => sh(17, 5.5, 1) + stone('raeuber', -26.5, -69, 53, 69, null, 'sway');
   function pirate() {
@@ -290,7 +285,7 @@
   // Figur in kleinem Symbol (Bau-Buttons)
   function pieceIcon(kind, c, size = 36) {
     const body = { road: road(c), ship: ship(c), settlement: settlement(c), city: city(c) }[kind] || '';
-    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-34 -42 68 58' : kind === 'city' ? '-32 -96 64 102' : '-27 -46 54 52';
+    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-42 -62 84 80' : kind === 'city' ? '-32 -96 64 102' : '-27 -46 54 52';
     return `<svg class="pi" viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
   }
 
