@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.1.0] - 2026-11-22
+
 ### Geändert
 - **Spielsteine mit Flux:** Siedlungen, Städte, Räuber und See-Räuber (Piratenschiff) sind jetzt gemalte, freigestellte Flux-Bilder (`public/img/stein-*.webp`). Siedlung und Stadt sind neutral gemalt und werden per SVG-Filter in der Spielerfarbe eingefärbt.
 - **Handelshäfen** sind Holzstege (`public/img/steg.webp`), parallel zur Küstenkante ausgerichtet und über zwei kurze Stege mit dem Ufer verbunden. Mittig tragen sie, etwas abgesetzt, den Kreis mit Symbol und Tauschverhältnis.
