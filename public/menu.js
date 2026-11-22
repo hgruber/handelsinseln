@@ -124,7 +124,9 @@
       const b = e.target.closest('[data-st]'); if (!b) return;
       if (b.dataset.st === 'lobby') await C.act('new_game');
       else if (b.dataset.st === 'leave') leaveGame();
+      else if (b.dataset.st === 'resume') { const n = +$('stats').querySelector('[data-st-wp]').value; await C.act('resume_game', { winPoints: n }); }
       else if (b.dataset.st === 'board') { $('stats').classList.add('peek'); }
+      else if (b.dataset.st === 'stats') { $('stats').classList.remove('peek'); }
     });
   }
 
@@ -223,10 +225,10 @@
       `<section class="glass stcard"><h3>Würfelverteilung</h3>${diceChart(st.rolls || {})}</section>` +
       `<section class="glass stcard wide2"><h3>Siegpunkte pro Runde</h3>${vpChart(st, v)}</section>` +
       `<section class="glass stcard wide2"><h3>Spieler im Vergleich</h3>${table(st)}</section></div>` +
-      `<footer class="stfoot glass">${host ? '<button class="btn gold big" data-st="lobby" title="Alle kehren in die Lobby zurück, die Einstellungen bleiben.">Zurück zur Lobby</button>' : '<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter …</p>'}<button class="btn ghostb" data-st="leave">Spiel verlassen</button></footer></div>`;
+      `<footer class="stfoot glass">${host ? '<button class="btn gold big" data-st="lobby" title="Alle kehren in die Lobby zurück, die Einstellungen bleiben.">Zurück zur Lobby</button>' : '<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter …</p>'}<button class="btn ghostb" data-st="board" title="Das Spielfeld in Ruhe betrachten – die Statistik bleibt über einen Knopf erreichbar.">Spiel nur ansehen</button><button class="btn ghostb" data-st="leave">Spiel verlassen</button>${host ? `<div class="stresume"><span>Zurück zum Spiel mit neuem Siegpunktziel:</span><input type="number" data-st-wp min="3" max="30" value="${Math.min(30, Math.max(v.winPoints, ...P.map((p) => p.vp || 0)) + 2)}" aria-label="Neues Siegpunktziel"><button class="btn gold" data-st="resume">Weiterspielen</button></div>` : ''}</footer></div><button class="btn gold stback" data-st="stats">Statistik anzeigen</button>`;
     if (el._h !== html) { const sc = el.scrollTop; C.setHTML(el, html); el.scrollTop = sc; }
   }
-  function hideStats() { const el = $('stats'); if (!el.hidden) { el.hidden = true; el._h = null; el.replaceChildren(); } }
+  function hideStats() { const el = $('stats'); el.classList.remove('peek'); if (!el.hidden) { el.hidden = true; el._h = null; el.replaceChildren(); } }
 
   root.Menu = { init, confirm, refresh: () => refreshDlg(false), renderStats, hideStats, closeMenu, showSettings, isDialogOpen: () => !!dlg };
 })(typeof self !== 'undefined' ? self : this);

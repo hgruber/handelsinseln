@@ -346,8 +346,23 @@ class Game {
   }
   finish(winner, by) {
     const S = this.S;
-    S.phase = 'ended'; S.winner = winner; S.endedBy = by; S.aborted = by === 'host'; S.trade = null;
+    S.endedFrom = S.phase; S.phase = 'ended'; S.winner = winner; S.endedBy = by; S.aborted = by === 'host'; S.trade = null;
     if (S.stats) S.stats.endedAt = Date.now();
+  }
+
+  // Zurück ins laufende Spiel: mit neuem Siegpunktziel (winPoints) weiterspielen
+  resumeGame(pid, winPoints) {
+    const S = this.S;
+    if (pid !== S.host) fail('Nur der Spielleiter kann das Spiel fortsetzen.');
+    if (S.phase !== 'ended') fail('Das Spiel ist noch nicht beendet.');
+    let wp; try { wp = ST.merge(S.settings, { winPoints }).winPoints; } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
+    const top = Math.max(...S.players.filter((p) => !p.left).map((p) => this.vp(p.id) + this.hiddenVp(p.id)));
+    if (wp <= top) fail(`Das neue Siegpunktziel muss über dem höchsten Stand (${top}) liegen.`);
+    S.settings.winPoints = wp;
+    S.phase = S.endedFrom || 'main'; S.winner = null; S.endedBy = null; S.aborted = false;
+    if (S.stats) S.stats.endedAt = null;
+    this.log(`Das Spiel geht weiter – neues Siegpunktziel: ${wp}.`, 'sys');
+    S.v++; this.settle();
   }
 
   newGame(pid) {
@@ -490,6 +505,7 @@ class Game {
     if (t === 'chat') return this.chat(pid, a.text);
     if (t === 'start') return this.start(pid);
     if (t === 'new_game') return this.newGame(pid);
+    if (t === 'resume_game') return this.resumeGame(pid, a.winPoints);
     if (t === 'set_settings') return this.setSettings(pid, a.settings);
     if (t === 'regen_board') { this.hostOnly(pid, 'das Spielfeld neu würfeln'); this.regen(); this.S.v++; return; }
     if (t === 'close_seats') { this.hostOnly(pid, 'die Plätze schließen'); this.S.closed = !!a.closed; this.log(this.S.closed ? 'Die Plätze sind besetzt – niemand kann mehr beitreten.' : 'Die Plätze sind wieder offen.', 'sys'); this.S.v++; return; }

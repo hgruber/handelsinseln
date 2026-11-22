@@ -361,6 +361,18 @@ test('Spieler-Verlassen: Spiel läuft mit Auto-Spieler bis zum Ende, wenn die Le
   assert(g.pl(2).left);
 });
 
+test('Spielende: Spielleiter setzt mit neuem Siegpunktziel fort', () => {
+  const g = new Game({ rnd: rng(5) });
+  for (let i = 0; i < 3; i++) g.join('P' + i, COL[i]);
+  g.act(0, { type: 'start' });
+  throws(() => g.act(0, { type: 'resume_game', winPoints: 20 }), /noch nicht beendet/);
+  g.act(0, { type: 'end_game' });
+  throws(() => g.act(1, { type: 'resume_game', winPoints: 20 }), /Spielleiter/);
+  throws(() => g.act(0, { type: 'resume_game', winPoints: 99 }), /Siegpunkte/);
+  g.act(0, { type: 'resume_game', winPoints: 20 });
+  assert.equal(g.view(0).phase, 'setup'); assert.equal(g.view(0).winPoints, 20); assert.equal(g.view(0).stats, null);
+});
+
 test('Statistik: Sieg und Abbruch liefern vollständige Statistik', () => {
   const rnd = rng(5);
   const g = new Game({ rnd });

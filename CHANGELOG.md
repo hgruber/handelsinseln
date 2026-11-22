@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Spielende:** Der Spielleiter kann über „Weiterspielen“ mit einem neuen (höheren) Siegpunktziel zurück ins Spiel; alle können über „Spiel nur ansehen“ das Spielfeld betrachten (Statistik per Knopf wieder abrufbar).
 - **Depot:** Dezenter Warnhinweis „⚠ n/Limit“, wenn man mehr Karten auf der Hand hat als erlaubt (Standard 7).
 
 ### Geändert
