@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.0.0] - 2026-11-22
+
 ### Behoben
 - Handy: Protokoll, Chat und Regeln ließen sich nach dem Ausklappen nicht mehr einklappen, weil der Pfeil außerhalb des Bildschirms lag. Der Pfeil sitzt jetzt immer am Rand der Schublade.
 - Lobby: Das Spielfeld ließ sich dort nicht zoomen oder verschieben (Mausrad, Ziehen, Pinch), weil Brett und Vollbild-Lobby alle Zeigerereignisse abfingen.

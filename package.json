@@ -1,6 +1,6 @@
 {
   "name": "handelsinseln",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Die Handelsinseln – Brettspiel im Browser",
   "private": true,
   "license": "UNLICENSED",
@@ -9,5 +9,7 @@
     "test": "bash tests/run_all.sh",
     "release": "bash scripts/release.sh"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
