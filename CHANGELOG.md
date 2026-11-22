@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- Handy: In der unteren Leiste passen jetzt alle Bauknöpfe und alle fünf Rohstoffkarten ohne Scrollen; die Bauknöpfe teilen sich die Breite. Würfel und Hauptknopf („Würfeln“ / „Zug beenden“) sitzen untereinander rechts neben den Handkarten (Querformat: in einer Zeile). Nur Entwicklungskarten bleiben wischbar. Kurze Beschriftungen („Karte“, „Fahren“).
+
 ## [1.0.0] - 2026-11-22
 
 ### Behoben
