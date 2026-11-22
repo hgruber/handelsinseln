@@ -139,11 +139,10 @@ try:
                 if op.count():
                     op.click(); pg.wait_for_timeout(300)
                     base = '.seat:not(.active) .tmenu [data-tr="adj"]'
-                    for r in ('holz',):  # „Ich gebe“: alles, was der Spieler besitzt (je 1)
-                        pg.locator(f'{base}[data-side="cg"][data-res="{r}"][data-d="1"]').first.click(); pg.wait_for_timeout(60)
-                    given = pg.evaluate("[...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0] && [...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0].querySelectorAll('.cc b').length ? [...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0].innerText : ''")
-                    free = pg.evaluate("(() => { const row = document.querySelectorAll('.seat:not(.active) .tmenu .crow')[0]; const res = ['holz', 'lehm', 'wolle', 'getreide', 'erz']; const cc = [...row.querySelectorAll('.cc b')]; const i = cc.findIndex((b) => b.textContent === '0'); return i < 0 ? null : res[i]; })()")
-                    if free:  # „Ich bekomme“: ein Rohstoff, den der Spieler nicht selbst gibt
+                    own = pg.evaluate("(() => { const s = document.querySelector('.seat:has(.tmenu [data-tr=\"adj\"])'); const rc = s && [...s.querySelectorAll('.secret .rc:not(.zero)')][0]; return rc ? rc.dataset.res : null; })()")
+                    free = next((r for r in ('holz', 'lehm', 'wolle', 'getreide', 'erz') if r != own), None)
+                    if own:  # „Ich gebe“ einen Rohstoff, den der Spieler besitzt; „Ich bekomme“ einen anderen
+                        pg.locator(f'{base}[data-side="cg"][data-res="{own}"][data-d="1"]').first.click(); pg.wait_for_timeout(100)
                         pg.locator(f'{base}[data-side="cw"][data-res="{free}"][data-d="1"]').first.click(); pg.wait_for_timeout(200)
                     pg.screenshot(path=f'{SHOTS}/tisch-gegenangebot.png')
                     pg.locator('.seat:not(.active) .tmenu [data-tr="send"]').first.click(); pg.wait_for_timeout(800)

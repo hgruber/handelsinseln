@@ -26,12 +26,13 @@ body.table #players, body.table #side, body.table #sideToggle, body.table #banne
 .pubrow .seatctl { display: none; width: 100%; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 16px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(10px); }
 .seat.ctl .pubrow .seatctl { display: flex; }
 .seat.ctl .pubrow .badge.top { display: none; }
-body.table .seat #build { flex: 1 1 auto; gap: 4px; justify-content: space-between; }
-body.table .seat #build .bb { width: 52px; height: 74px; padding: 4px 2px; border-radius: 10px; }
+body.table .seat #build { flex: 1 1 0; min-width: 0; gap: 4px; justify-content: space-between; }
+body.table .seat #build .bb { flex: 1 1 0; min-width: 0; width: auto; max-width: 54px; height: 74px; padding: 4px 1px; border-radius: 10px; }
 body.table .seat #build .bb .lb { display: none; } body.table .seat #build .bb .ic svg { width: 26px; height: 26px; } body.table .seat #build .bb .ic { height: 28px; }
 body.table .seat #build .bb:hover { transform: none; }
 body.table .seat #dicebox { flex: none; gap: 6px; } body.table .seat #dice { zoom: .62; padding: 0; gap: 14px; }
-body.table .seat #primary .btn { padding: 8px 12px; font-size: 14px; font-family: var(--sans); animation: none; } body.table .seat #primary .waitbox { font-size: 13px; }
+body.table .seat #primary .btn { padding: 8px 10px; font-size: 13px; font-family: var(--sans); animation: none; white-space: nowrap; }
+.pubrow .seatctl { overflow: hidden; box-sizing: border-box; } body.table .seat #primary .waitbox { font-size: 13px; }
 
 /* Geheimer Bereich (feste Größe, eine Zeile, immer sichtbar): Rohstoffstapel + bis zu 4 Entwicklungskarten */
 .secretrow { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; }

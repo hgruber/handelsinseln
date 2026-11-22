@@ -116,7 +116,8 @@
   function messages(v) {
     const lg = v.log || [], max = lg.length ? lg[lg.length - 1].id : 0;
     if (seenLog === null || max < seenLog) { seenLog = max; return; }
-    const fresh = lg.filter((l) => l.id > seenLog);
+    const skip = /ist an der Reihe| würfelt |erhält|^Startrohstoffe|^Handel:/; // Reihenfolge, Würfel und Karten sind am Tisch zu sehen
+    const fresh = lg.filter((l) => l.id > seenLog && !skip.test(l.text));
     seenLog = max;
     fresh.slice(-3).forEach((l) => {
       const d = document.createElement('div');

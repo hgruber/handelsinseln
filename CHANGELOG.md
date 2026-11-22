@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Spieltisch:** Die Knöpfe „Würfeln“/„Zug beenden“, Baukosten und Würfel passen jetzt in die öffentliche Zeile. In der Tischmitte erscheinen keine Meldungen mehr dazu, wer an der Reihe ist, was gewürfelt wurde und wer was erhält (alles ist am Tisch zu sehen).
+
 ## [1.5.1] - 2026-11-22
 
 ### Geändert
