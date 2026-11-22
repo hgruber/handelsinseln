@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.1.2] - 2026-11-22
+
 ### Geändert
 - **Schiff:** Das eigene Schiff ist jetzt ein mit Flux gemalter Stein (Segler, in Spielerfarbe eingefärbt, 50 % größer, `public/img/stein-schiff.webp`) statt der Vektorzeichnung.
 
