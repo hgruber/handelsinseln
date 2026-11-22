@@ -54,6 +54,23 @@
       '<h2>Spiel ändern</h2><p class="lead small muted">Änderungen gelten sofort für alle. Das Spielfeld bleibt, wie es ist.</p><div id="chgBox" class="chgbox"></div><div class="mact"><button class="btn gold" data-d="no" data-focus>Fertig</button></div>', resolve)).then(() => root.Lobby.unmountPanel());
     root.Lobby.mountPanel($('chgBox'));
   }
+  // Tischspieler anlegen (Lobby): Name, Farbe, Avatar und Platz am Tisch
+  const SEAT_CELLS = [['tl', 'oben links'], ['t', 'oben Mitte'], ['tr', 'oben rechts'], ['l', 'links'], null, ['r', 'rechts'], ['bl', 'unten links'], ['b', 'unten Mitte'], ['br', 'unten rechts']];
+  function showTablePlayer() {
+    const v = C.view(), A = root.Avatars, taken = {};
+    v.players.forEach((p) => { if (p.seat) taken[p.seat] = p.name; });
+    const usedC = v.players.map((p) => p.color), usedA = v.players.map((p) => p.avatar);
+    const colors = Object.keys(C.Art.COLORS), freeC = colors.find((c) => !usedC.includes(c));
+    const seat0 = ['b', 't', 'l', 'r', 'bl', 'br', 'tl', 'tr'].find((s) => !taken[s]);
+    const av = A.HUMAN.filter((a) => !usedA.includes(a.id)), av0 = av[Math.floor(Math.random() * av.length)] || A.HUMAN[0];
+    const html = '<h2>Tischspieler anlegen</h2><p class="lead small muted">Der Spieler sitzt am digitalen Spieltisch. Der Platz bestimmt die Reihenfolge (im Uhrzeigersinn).</p>' +
+      `<div class="tpform"><label class="tpl">Name<input id="tpName" maxlength="16" autocomplete="off" value="Spieler ${v.players.length + 1}" data-focus></label>` +
+      `<div class="tpl">Farbe<div class="tpcols">${colors.map((c) => `<button type="button" class="sw tpcol${c === freeC ? ' on' : ''}${usedC.includes(c) ? ' taken' : ''}" data-c="${c}" ${usedC.includes(c) ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}" style="--c:${C.Art.COLORS[c]}"></button>`).join('')}</div></div>` +
+      `<label class="tpl">Avatar<select id="tpAv">${A.HUMAN.map((a) => `<option value="${a.id}"${a.id === av0.id ? ' selected' : ''}${usedA.includes(a.id) ? ' disabled' : ''}>${C.esc(a.name)}</option>`).join('')}</select></label>` +
+      `<div class="tpl">Platz am Tisch<div class="seatpick">${SEAT_CELLS.map((c) => c ? `<button type="button" class="tpseat${c[0] === seat0 ? ' on' : ''}" data-seat="${c[0]}" ${taken[c[0]] ? 'disabled' : ''} title="${taken[c[0]] ? C.esc(taken[c[0]]) : c[1]}">${taken[c[0]] ? C.esc(taken[c[0]]) : c[1]}</button>` : '<div class="tptable">Tisch</div>').join('')}</div></div></div>` +
+      '<div class="mact"><button class="btn ghostb" data-d="no">Abbrechen</button><button class="btn gold" id="tpOk">Anlegen</button></div>';
+    openDlg('m-tp', () => html);
+  }
   function showVoice() {
     openDlg('m-voice', () => {
       const v = C.view(); if (!v) return '';
@@ -93,7 +110,7 @@
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
-      (host && running ? item('table', I.gear, v.settings && v.settings.table ? 'Digitalen Spieltisch ausschalten' : 'Digitalen Spieltisch einschalten') + item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
+      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
@@ -111,7 +128,6 @@
     else if (id === 'sound') root.Sound.toggle();
     else if (id === 'fit') C.fit();
     else if (id === 'flow') { const v = C.view(); await C.act('set_settings', { settings: { dice: v.settings.dice === 'auto' ? 'manuell' : 'auto' } }); }
-    else if (id === 'table') { const v = C.view(); await C.act('set_settings', { settings: { table: !(v.settings && v.settings.table) } }); }
     else if (id === 'change') showChange();
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
     else if (id === 'leave') leaveGame();
@@ -128,6 +144,16 @@
       if (!pop) return;
       const b = e.target.closest('[data-mi]'); if (b && pop.contains(b)) { onMenuItem(b.dataset.mi); return; }
       if (!pop.contains(e.target)) closeMenu();
+    });
+    $('dlgRoot').addEventListener('click', async (e) => {
+      const sw = e.target.closest('.tpcol'), se = e.target.closest('.tpseat'), ok = e.target.closest('#tpOk');
+      if (sw && !sw.disabled) { $('dlgRoot').querySelectorAll('.tpcol').forEach((x) => x.classList.toggle('on', x === sw)); return; }
+      if (se && !se.disabled) { $('dlgRoot').querySelectorAll('.tpseat').forEach((x) => x.classList.toggle('on', x === se)); return; }
+      if (ok) {
+        const col = $('dlgRoot').querySelector('.tpcol.on'), seat = $('dlgRoot').querySelector('.tpseat.on');
+        const j = await C.act('add_table_player', { name: $('tpName').value, color: col && col.dataset.c, avatar: $('tpAv').value, seat: seat && seat.dataset.seat });
+        if (j && !j.error) closeDlg(true);
+      }
     });
     $('stats').addEventListener('click', async (e) => {
       const b = e.target.closest('[data-st]'); if (!b) return;
@@ -240,5 +266,5 @@
   }
   function hideStats() { const el = $('stats'); el.classList.remove('peek'); if (!el.hidden) { el.hidden = true; el._h = null; el.replaceChildren(); } }
 
-  root.Menu = { init, confirm, refresh: () => { refreshDlg(false); const v = C && C.view(); if (v && dlg && $('chgBox')) root.Lobby.syncPanel(v.settings); }, renderStats, hideStats, closeMenu, showSettings, isDialogOpen: () => !!dlg };
+  root.Menu = { init, confirm, refresh: () => { refreshDlg(false); const v = C && C.view(); if (v && dlg && $('chgBox')) root.Lobby.syncPanel(v.settings); }, renderStats, hideStats, closeMenu, showSettings, showTablePlayer, isDialogOpen: () => !!dlg };
 })(typeof self !== 'undefined' ? self : this);

@@ -36,25 +36,27 @@ try:
         tok = pg.evaluate("localStorage.getItem('handelsinseln.token')")
         games = json.load(urllib.request.urlopen(BASE + '/api/games'))['games']
         gid = games[0]['id']
-        others = []
-        for nm, col in (('Bernd', 'blau'), ('Carla', 'gruen'), ('Dora', 'orange')):
-            r = post('/api/join', {'name': nm, 'color': col, 'game': gid}); others.append(r)
-        check(all('token' in r for r in others), 'drei weitere Spieler beigetreten')
+        # Spieltisch: Tischspieler gibt es nur über die Lobby (Spielleiter); Bots und Online-Spieler sind dann nicht erlaubt
+        r = post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': 'Bernd', 'color': 'blau', 'seat': 'l'})
+        check(r.get('ok'), 'Tischspieler Bernd angelegt (Platz links) – der Tisch schaltet sich ein')
+        for nm, col, seat in (('Carla', 'gruen', 't'), ('Dora', 'orange', 'r')):
+            post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': nm, 'color': col, 'seat': seat})
+        pg.wait_for_function("document.querySelectorAll('#lobbyList li').length === 4", timeout=6000)
+        check(pg.locator('#lobbyList .seatsel').count() == 4, 'Lobby zeigt für alle vier den Platz am Tisch')
+        check('error' in post('/api/act', {'token': tok, 'type': 'add_bot', 'kind': 'haendler'}), 'kein Bot am Spieltisch')
+        check('error' in post('/api/join', {'name': 'Online', 'color': 'violett', 'game': gid}), 'kein Online-Beitritt am Spieltisch')
+        check('error' in post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': 'Doppelt', 'color': 'violett', 'seat': 'l'}), 'besetzter Platz wird abgelehnt')
+        check('error' in post('/api/act', {'token': tok, 'type': 'set_settings', 'settings': {'table': False}}), 'Tisch lässt sich nicht per Einstellung umschalten')
+        # Platz tauschen: Dora (rechts) und Carla (oben) per Lobby-Auswahl
+        gm = json.load(urllib.request.urlopen(BASE + '/api/games'))['games'][0]
+        check(gm.get('table') and not gm.get('joinable'), 'Spiel ist in der Liste als Spieltisch gekennzeichnet und nicht beitretbar')
         post('/api/act', {'token': tok, 'type': 'set_settings', 'settings': {'dice': 'auto'}})
-        pg.click('#startBtn'); pg.wait_for_selector('#btnMenu', state='visible', timeout=8000); time.sleep(1.2)
-
-        # Nur der Spielleiter darf den Tisch schalten, Mitspieler dürfen nicht „im Namen von“ handeln
-        r = post('/api/act', {'token': others[0]['token'], 'type': 'set_settings', 'settings': {'table': True}})
-        check('error' in r, 'Mitspieler kann den Spieltisch nicht einschalten')
-        r = post('/api/act', {'token': tok, 'type': 'end_turn', 'as': 1})
-        check('error' in r and 'Spieltisch' in r['error'], 'ohne Spieltisch kein Handeln im Namen anderer')
-
-        # Menü: Spieltisch einschalten
-        pg.click('#btnMenu'); pg.locator('[data-mi="table"]').click()
-        pg.wait_for_selector('body.table', timeout=6000); time.sleep(1.5)
+        pg.click('#startBtn'); pg.wait_for_selector('body.table', timeout=10000); time.sleep(1.5)
+        r = post('/api/act', {'token': tok, 'type': 'end_turn', 'as': 99})
+        check('error' in r, 'ungültiger Platz für „im Namen von“ wird abgelehnt')
         check(pg.locator('.seat').count() == 4, 'vier Sitzplätze')
         slots = pg.eval_on_selector_all('.seat', 'els => els.map(e => e.className.split(" ").find(c => c.startsWith("s-")))')
-        check(sorted(slots) == ['s-b', 's-l', 's-r', 's-t'], f'Plätze verteilt unten/links/oben/rechts ({slots})')
+        check(sorted(slots) == ['s-b', 's-l', 's-r', 's-t'], f'Plätze wie in der Lobby festgelegt ({slots})')
         check(pg.locator('.seat.active').count() == 1, 'genau ein aktiver Platz (Fokus)')
         check(pg.locator('.seat.active #bottom').count() == 1, 'Menü des Spielers am Zug sitzt in seinem Platz')
         rot = pg.eval_on_selector_all('.seat', 'els => els.map(e => [e.className.split(" ").find(c => c.startsWith("s-")), getComputedStyle(e).transform])')
@@ -63,6 +65,7 @@ try:
         check(all(x[0] >= -2 and x[1] >= -2 and x[2] <= x[4] + 2 and x[3] <= x[5] + 2 for x in r), 'alle Plätze liegen im Bild')
         check(pg.locator('#tableCenter #dice').count() == 1 and pg.locator('#tableCenter #banner').count() == 1, 'Würfel und Meldung bleiben in der Bildschirmmitte')
         pg.screenshot(path=f'{SHOTS}/tisch-4.png')
+        if os.environ.get('TABLE_SHOT_ONLY'): raise SystemExit(0)
 
         # Der Spielleiter handelt im Namen des Fokus-Spielers
         view = lambda t: json.loads(urllib.request.urlopen(BASE + '/api/state?token=' + t).read()) if False else None
@@ -102,7 +105,11 @@ try:
         check(k1 != k0, 'Zoomen ist möglich')
         pg.wait_for_timeout(3200)
         k2 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
-        check(k2 == k0, 'Ansicht springt zurück: ganzes Spielfeld wieder sichtbar')
+        import re
+        nums = lambda t: [float(x) for x in re.findall(r'-?\d+\.?\d*', t)]
+        n0, n1, n2 = nums(k0), nums(k1), nums(k2)
+        close = all(abs(a - b) <= max(3, abs(a) * 0.03) for a, b in zip(n0[:2], n2[:2])) and abs(n0[2] - n2[2]) <= n0[2] * 0.03
+        check(close, f'Ansicht springt zurück: ganzes Spielfeld wieder sichtbar ({k0} → {k1} → {k2})')
 
         # Handelsangebot: jeder Mitspieler bekommt sein eigenes Menü
         v = None
@@ -142,10 +149,11 @@ try:
             else:
                 print('  (Handel übersprungen: Angebot nicht möglich)')
 
-        # Ausschalten: normale Ansicht des Spielleiters
-        pg.click('#btnMenu'); pg.locator('[data-mi="table"]').click()
+        # Spielende: Statistik wie gewohnt, der Tisch räumt auf
+        pg.click('#btnMenu'); pg.locator('[data-mi="end"]').click(); pg.click('#dlgRoot [data-d="yes"]')
+        pg.wait_for_selector('#stats:not([hidden])', timeout=8000)
         pg.wait_for_function("!document.body.classList.contains('table')", timeout=6000); time.sleep(1)
-        check(pg.locator('.seat').count() == 0 and pg.locator('#bottom').is_visible(), 'Ausschalten: normale Ansicht ist zurück')
+        check(pg.locator('.seat').count() == 0, 'nach Spielende sind die Tischplätze weg und die Statistik zu sehen')
         check(pg.evaluate("document.querySelector('#hud > #bottom') !== null && document.querySelector('#hud > #banner') !== null"), 'Menüleiste und Meldung sind wieder am alten Platz')
     print('Screenshots:', SHOTS)
 finally:

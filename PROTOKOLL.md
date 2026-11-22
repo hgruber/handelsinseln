@@ -139,6 +139,7 @@ legal.takeover: {edges:[Kante…], verts:[Ecke…]}    // übernehmbare Infrastr
 `step` in der Lobby = `'lobby'`; `prompt` wie bisher.
 
 ## Neue Aktionen (`POST /api/act`)
+Nur Spielleiter, nur Lobby: `add_table_player {name,color,avatar,seat}` (Platz `b|bl|br|t|tl|tr|l|r`; der erste Tischspieler schaltet `settings.table` ein, der Spielleiter bekommt ebenfalls einen Platz), `set_seat {pid,seat}` (tauscht besetzte Plätze); Tischspieler werden mit `kick` entfernt, mit dem letzten ist der Tisch wieder aus. `settings.table` ist nicht per `set_settings` änderbar; Bots/Beitritt sind in Tisch-Partien gesperrt. `players[].seat` / `tableGuest` stehen in der View.
 Nur Spielleiter: `set_settings {settings:{…}}` (im Spiel und nach Spielende ohne Spielfeld-Einstellungen `variant`, `plannedPlayers`, `dense`; Siegpunkte nur über dem höchsten Stand) (Teilobjekt, wird tief gemischt und serverseitig geprüft → bei Fehler `{error}`),
 `regen_board` (neue Vorschau mit denselben Einstellungen), `kick {pid}`, `close_seats {closed:true|false}`.
 Nur Spielleiter, im laufenden Spiel: `end_game` (beendet das Spiel sofort, alle bekommen `stats`).

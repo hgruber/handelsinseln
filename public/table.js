@@ -6,11 +6,7 @@
 (function (root) {
   'use strict';
   const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
-  // Sitzplätze im Uhrzeigersinn (unten beginnend) je Spielerzahl: b/l/t/r = unten/links/oben/rechts, Doppelplätze: bl, br, tl, tr
-  const SLOTS = {
-    2: ['b', 't'], 3: ['b', 'l', 'r'], 4: ['b', 'l', 't', 'r'],
-    5: ['br', 'bl', 'l', 't', 'r'], 6: ['br', 'bl', 'l', 'tl', 'tr', 'r'],
-  };
+  // Plätze (b/t = unten/oben Mitte, l/r = links/rechts Mitte, bl/br/tl/tr = Ecken) legt der Spielleiter in der Lobby fest
   const EDGE = { b: 'b', bl: 'b', br: 'b', t: 't', tl: 't', tr: 't', l: 'l', r: 'r' };
   const $ = (id) => document.getElementById(id);
   let C = null, on = false, seatsEl = null, centerEl = null, key = '';
@@ -53,26 +49,27 @@
   }
 
   function layout(v) {
-    const slots = SLOTS[v.order.length] || SLOTS[6];
-    const k = v.order.join(',');
+    const k = v.order.map((pid) => pid + ':' + v.players[pid].seat).join(',');
     if (k === key) return;
     key = k;
     for (const s of seats.values()) s.el.remove();
     seats.clear();
-    v.order.forEach((pid, i) => {
+    v.order.forEach((pid) => {
       const el = document.createElement('section');
-      el.className = 'seat s-' + slots[i % slots.length]; el.dataset.pid = pid;
+      const slot = v.players[pid].seat || 'b';
+      el.className = 'seat s-' + slot; el.dataset.pid = pid;
       el.innerHTML = '<div class="seathead"></div><div class="seatmenu"></div><div class="seatpanel"></div><div class="seatbar"></div>';
       seatsEl.appendChild(el);
-      seats.set(pid, { el, head: el.children[0], menu: el.children[1], panel: el.children[2], bar: el.children[3], slot: slots[i % slots.length] });
+      seats.set(pid, { el, head: el.children[0], menu: el.children[1], panel: el.children[2], bar: el.children[3], slot });
     });
     // Ränder, an denen Plätze sitzen (für den Kamerabereich)
     const used = new Set([...seats.values()].map((s) => EDGE[s.slot]));
     document.body.dataset.tedges = [...used].join('');
   }
 
-  function barHTML(hand) {
-    return RES.map((r) => `<div class="rc${hand[r] ? '' : ' zero'}" data-res="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${C.Art.RES_NAMES[r]}: ${hand[r] || 0}">${C.Art.res(r, 30)}<b>${hand[r] || 0}</b></div>`).join('');
+  function barHTML(hand, dev) {
+    const dv = (dev || []).map((d) => `<div class="dc${d.fresh ? ' fresh' : ''}" title="${C.Art.DEV_NAMES[d.type]}${d.fresh ? ' (neu)' : ''}">${C.Art.dev(d.type, 26)}</div>`).join('');
+    return RES.map((r) => `<div class="rc${hand[r] ? '' : ' zero'}" data-res="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${C.Art.RES_NAMES[r]}: ${hand[r] || 0}">${C.Art.res(r, 30)}<b>${hand[r] || 0}</b></div>`).join('') + (dv ? `<span class="dcs">${dv}</span>` : '');
   }
 
   function menuHTML(views, pid, v) {
@@ -109,7 +106,7 @@
       html(s.head, `${C.avatar(pid, 34)}<b class="nm">${C.esc(p.name)}</b><span class="vp">${p.vp + (pv.me.hiddenVp || 0)}<i>★</i></span>` +
         `<span class="dv" title="Entwicklungskarten">${C.Art.dev('ritter', 16)}${p.devCount || 0}</span>` +
         (p.discarding ? `<span class="duty">⚠ wirft ${p.discarding} ab</span>` : '') + (p.pickingGold ? `<span class="duty gold">✦ Gold ×${p.pickingGold}</span>` : ''));
-      html(s.bar, active ? '' : barHTML(pv.me.hand));
+      html(s.bar, active ? '' : barHTML(pv.me.hand, pv.me.dev));
       $('dice').style.display = $('dicebox').hidden ? 'none' : '';
       html(s.menu, active ? '' : menuHTML(views, pid, v));
       if (active) {
@@ -142,10 +139,5 @@
     init(ctx) { C = ctx; },
     focusOf, render, activate, deactivate,
     isOn: () => on,
-    // Randabstand (px) je Rand für den Kamerabereich des Spielfelds
-    margins() {
-      const e = document.body.dataset.tedges || '', m = (c) => (e.includes(c) ? Math.round(Math.min(220, innerHeight * 0.22)) : 14);
-      return { top: m('t'), bottom: m('b'), left: m('l'), right: m('r') };
-    },
   };
 })(typeof self !== 'undefined' ? self : this);

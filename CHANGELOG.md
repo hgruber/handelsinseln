@@ -4,6 +4,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Digitaler Spieltisch neu gedacht:** Tischspieler gibt es nur am Tisch und werden in der Lobby über „Tischspieler anlegen …“ (Name, Farbe, Avatar, Platz am Tisch) vom Spielleiter angelegt; der Platz lässt sich dort jederzeit tauschen. Der erste Tischspieler schaltet den Tisch ein, der letzte aus – das Umschalten im Spielmenü entfällt. Bots und Online-Spieler sind in einer Tisch-Partie nicht erlaubt (Beitritt, Bots und die Liste „Spiele“ sind gesperrt/gekennzeichnet).
+- Die Reihenfolge bestimmt der Tisch (Plätze im Uhrzeigersinn); gewürfelt wird nur noch, wer beginnt (bei Gleichstand würfeln die Höchsten neu).
+- Die Leisten am Spielfeldrand sind dauerhaft und zeigen auch geheime Informationen (Rohstoffe, Entwicklungskarten, verdeckte Punkte); die Spieler decken sie selbst ab.
+- Am Tisch wird das Spielfeld so groß gezogen, dass alle Nicht-Nebel-Felder gerade noch sichtbar sind.
+
 ## [1.4.0] - 2026-11-22
 
 ### Hinzugefügt

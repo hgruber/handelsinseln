@@ -41,7 +41,8 @@ class Hub {
       host: S.players[S.host] ? S.players[S.host].name : '', phase: S.phase, closed: S.closed, variant: S.settings.variant,
       plannedPlayers: S.settings.plannedPlayers, maxPlayers: 6,
       players: S.players.filter((p) => !p.left).map((p) => ({ name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null })),
-      joinable: S.phase === 'lobby' && !S.closed && S.players.length < 6,
+      table: !!S.settings.table,
+      joinable: S.phase === 'lobby' && !S.closed && S.players.length < 6 && !S.settings.table,
     };
   }
   list() { return [...this.rooms.values()].map((r) => this.summary(r)); }
@@ -103,7 +104,7 @@ class Hub {
           if (!p.left && !p.connected && !p.auto && since !== undefined && t - since >= this.absentMs) { if (g.setAbsentAuto(p.id, true)) changed.add(room); }
         }
       }
-      const connectedHumans = S.players.filter((p) => !p.left && !p.bot && p.connected).length;
+      const connectedHumans = S.players.filter((p) => !p.left && !p.bot && !p.tableGuest && p.connected).length;
       const humans = g.humans().length;
       if (!humans) { this.deleteRoom(room.id); removed.push(room); continue; }
       if (connectedHumans) room.emptySince = null;
@@ -139,8 +140,8 @@ class Hub {
     for (const r of data.rooms || []) {
       if (!r.S || !r.S.settings) continue; // alter Spielstand ohne Einstellungen
       const game = Game.fromJSON(r.S, { rnd: this.rnd, meta: r.meta });
-      game.S.players.forEach((p) => { p.connected = !!p.bot; });
-      this.rooms.set(r.id, { id: r.id, game, absent: new Map(game.S.players.filter((p) => !p.bot).map((p) => [p.token, this.now()])), emptySince: this.now(), createdAt: this.now(), graceMs: loadGraceMs });
+      game.S.players.forEach((p) => { p.connected = !!p.bot || !!p.tableGuest; });
+      this.rooms.set(r.id, { id: r.id, game, absent: new Map(game.S.players.filter((p) => !p.bot && !p.tableGuest).map((p) => [p.token, this.now()])), emptySince: this.now(), createdAt: this.now(), graceMs: loadGraceMs });
     }
   }
 }

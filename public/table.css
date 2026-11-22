@@ -42,3 +42,12 @@ body.table[data-tseat="r"] #modalRoot .modal { transform: rotate(-90deg); }
 body.table[data-tseat^="b"] #modalRoot .mback { align-items: end; padding-bottom: 250px; }
 body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top: 250px; }
 body.table #camBtns { z-index: 20; }
+.seatbar .dcs { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--line); }
+.seatbar .dc { width: 34px; height: 44px; border-radius: 7px; display: grid; place-items: center; background: linear-gradient(180deg, #6a7bb0, #2c3560); border: 1px solid #8ea0d8; } .seatbar .dc.fresh { outline: 2px dashed var(--gold2); }
+
+/* Menü des Spielers am Zug: zweizeilig, damit es in jede Leiste passt (auch an den Seiten) */
+body.table .seat #bottom { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "hand dice" "build build"; gap: 6px 14px; padding: 8px 12px; min-height: 0; }
+body.table .seat #hand { grid-area: hand; } body.table .seat #dicebox { grid-area: dice; } body.table .seat #build { grid-area: build; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+body.table .seat #build .bb { width: 62px; height: 84px; }
+body.table .seat #score { position: absolute; top: -26px; left: 14px; }
+.seat.s-l, .seat.s-r { --sw: min(80vh, 760px); }

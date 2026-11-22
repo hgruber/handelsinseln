@@ -17,6 +17,9 @@ const COST = {
   city: { getreide: 2, erz: 3 }, dev: { erz: 1, wolle: 1, getreide: 1 },
 };
 const MIN_P = 2, MAX_P = 6;
+// Digitaler Spieltisch: Plätze am Rand (b/t = unten/oben Mitte, l/r = links/rechts Mitte, Ecken: bl, br, tl, tr) und ihre Reihenfolge im Uhrzeigersinn
+const SEATS = ['b', 'bl', 'br', 't', 'tl', 'tr', 'l', 'r'];
+const SEAT_CLOCK = ['br', 'b', 'bl', 'l', 'tl', 't', 'tr', 'r'];
 const DEV_MIX = { ritter: 14, siegpunkt: 5, strassenbau: 2, erfindung: 2, monopol: 2 }; // Mischungsverhältnis
 const UNLIMITED = 999; // so zeigt die Sicht unbegrenzte Vorräte an
 
@@ -151,6 +154,7 @@ class Game {
       const p = S.players.find((x) => x.token === token);
       if (p) return { token, pid: p.id };
     }
+    if (S.settings.table) fail('Dies ist eine Partie am digitalen Spieltisch – Spieler lassen sich nur am Tisch hinzufügen.');
     name = String(name || '').trim().replace(/\s+/g, ' ');
     if (name.length < 1 || name.length > 16) fail('Bitte einen Namen mit 1–16 Zeichen angeben.');
     if (!COLORS.includes(color)) fail('Bitte eine Farbe wählen.');
@@ -171,6 +175,7 @@ class Game {
   addBot(pid, kind) {
     this.hostOnly(pid, 'Bots hinzufügen');
     const S = this.S, B0 = AV.BOTS[kind];
+    if (S.settings.table) fail('Am digitalen Spieltisch sind keine Bots erlaubt.');
     if (!B0) fail('Diesen Bot gibt es nicht.');
     if (S.closed) fail('Die Plätze sind als besetzt erklärt.');
     if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
@@ -183,12 +188,54 @@ class Game {
     if (S.players.length > S.settings.plannedPlayers) { S.settings.plannedPlayers = S.players.length; this.regen(); this.log(`Das Spielfeld wurde für ${S.players.length} Spieler neu erzeugt.`, 'sys'); }
     S.v++;
   }
+  // Digitaler Spieltisch: Tischspieler werden nur vom Spielleiter angelegt (nur Lobby). Der erste schaltet den Tisch ein, der letzte aus.
+  addTablePlayer(pid, a) {
+    this.hostOnly(pid, 'Tischspieler anlegen');
+    const S = this.S;
+    const name = String((a && a.name) || '').trim().replace(/\s+/g, ' ');
+    const color = a && a.color, seat = a && a.seat;
+    if (name.length < 1 || name.length > 16) fail('Bitte einen Namen mit 1–16 Zeichen angeben.');
+    if (!COLORS.includes(color)) fail('Bitte eine Farbe wählen.');
+    if (!SEATS.includes(seat)) fail('Bitte einen Platz am Tisch wählen.');
+    if (S.closed) fail('Die Plätze sind als besetzt erklärt.');
+    if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
+    if (S.players.some((p) => p.id !== S.host && !p.tableGuest)) fail('Am digitalen Spieltisch gibt es nur Tischspieler: Bots und Online-Spieler müssen zuerst gehen.');
+    if (S.players.some((p) => p.color === color)) fail('Diese Farbe ist schon vergeben.');
+    if (S.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name ist schon vergeben.');
+    if (Object.values(AV.BOTS).some((b) => b.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name gehört einem Bot.');
+    if (S.players.some((p) => p.seat === seat)) fail('Dieser Platz am Tisch ist schon besetzt.');
+    const host = S.players[S.host];
+    if (host.seat == null) host.seat = ['b', 't', 'l', 'r', 'bl', 'br', 'tl', 'tr'].find((x) => x !== seat && !S.players.some((p) => p.seat === x));
+    const p = Object.assign(this.newPlayer(name, color, this.pickAvatar(a.avatar)), { token: null, connected: true, tableGuest: true, seat });
+    S.players.push(p);
+    this.log(`${name} sitzt am Spieltisch.`, 'sys', p.id);
+    this.syncTable();
+    if (S.players.length > S.settings.plannedPlayers) { S.settings.plannedPlayers = S.players.length; this.regen(); this.log(`Das Spielfeld wurde für ${S.players.length} Spieler neu erzeugt.`, 'sys'); }
+    S.v++;
+  }
+  // Platz am Tisch ändern (besetzte Plätze werden getauscht)
+  setSeat(pid, a) {
+    this.hostOnly(pid, 'Plätze am Tisch ändern');
+    const S = this.S, t = S.players[a && a.pid];
+    if (!t || t.seat == null) fail('Dieser Spieler sitzt nicht am Spieltisch.');
+    if (!SEATS.includes(a.seat)) fail('Bitte einen Platz am Tisch wählen.');
+    const other = S.players.find((p) => p.seat === a.seat && p !== t);
+    if (other) other.seat = t.seat;
+    t.seat = a.seat;
+    S.v++;
+  }
+  // Tisch ein, sobald ein Tischspieler existiert; aus, wenn keiner mehr da ist (der Spielleiter sitzt dann wieder nicht am Tisch)
+  syncTable() {
+    const S = this.S, on = S.players.some((p) => p.tableGuest);
+    S.settings.table = on;
+    if (!on) S.players.forEach((p) => { p.seat = null; });
+  }
   removeFromLobby(p) {
     const S = this.S, hostTok = S.players[S.host] && S.players[S.host].token;
     S.players.splice(p.id, 1);
     S.players.forEach((q, i) => { q.id = i; });
     const ni = hostTok ? S.players.findIndex((q) => q.token === hostTok) : -1;
-    S.host = ni >= 0 ? ni : Math.max(0, S.players.findIndex((q) => q.connected && !q.bot));
+    S.host = ni >= 0 ? ni : Math.max(0, S.players.findIndex((q) => q.connected && !q.bot && !q.tableGuest));
     if (S.host < 0 || S.host >= S.players.length) S.host = 0;
   }
   // Menüpunkt „Spiel verlassen“. Gibt true zurück, wenn der Spieler endgültig weg ist.
@@ -208,7 +255,7 @@ class Game {
     S.v++;
     return true;
   }
-  humans() { return this.S.players.filter((p) => !p.left && !p.bot); }
+  humans() { return this.S.players.filter((p) => !p.left && !p.bot && !p.tableGuest); }
   setConnected(pid, c) {
     const p = this.pl(pid);
     if (p && p.connected !== c) { p.connected = c; if (c && !p.left && p.auto) { p.auto = false; this.log(`${p.name} ist zurück und spielt wieder selbst.`, 'sys', pid); } this.S.v++; }
@@ -278,6 +325,7 @@ class Game {
     if (target === pid) fail('Du kannst dich nicht selbst entfernen (nutze „Spiel verlassen“).');
     const tok = t.token;
     this.removeFromLobby(t);
+    this.syncTable();
     this.log(`${t.name} wurde vom Spielleiter entfernt.`, 'sys');
     this.S.v++;
     return tok;
@@ -320,17 +368,18 @@ class Game {
     S.supply = { terrain: { ...set.limits.fogTerrain }, chips: { ...set.limits.fogChips } };
     S.fogGold = set.variant === 'nebel' ? 2.2 : set.variant === 'archipel' ? 1.6 : 1;
     this.buildDeck(n);
-    S.order = B.shuffle([...Array(n).keys()], this.rnd);
+    // Am Spieltisch bestimmt die Sitzordnung (im Uhrzeigersinn) die Reihenfolge; Würfeln legt nur fest, wer beginnt
+    S.order = set.table ? S.players.map((p) => p.id).sort((x, y) => SEAT_CLOCK.indexOf(S.players[x].seat) - SEAT_CLOCK.indexOf(S.players[y].seat)) : B.shuffle([...Array(n).keys()], this.rnd);
     S.phase = 'setup'; S.dice = null;
     S.stats = { startedAt: Date.now(), endedAt: null, rolls: {}, history: [], players: S.players.map(() => ({ built: { road: 0, ship: 0, settlement: 0, city: 0, dev: 0 }, produced: { holz: 0, lehm: 0, wolle: 0, getreide: 0, erz: 0 }, tradesPlayer: 0, tradesBank: 0, stolenFrom: 0, stolenBy: 0, discarded: 0, robberMoves: 0, sevens: 0, discovered: 0, maxRoute: 0 })) };
     this.log(`Das Spiel beginnt! Erster mit ${set.winPoints} Punkten gewinnt.`, 'sys');
     this.log('Aufbau: Jeder setzt zwei Siedlungen samt Straße oder Schiff (die zweite in umgekehrter Reihenfolge) und erhält dafür Startrohstoffe.', 'sys');
-    if (set.dice === 'auto') this.orderDone();
+    if (set.dice === 'auto') { if (set.table) this.startWith(S.order[Math.floor(this.rnd() * n)]); this.orderDone(); }
     else {
       // manueller Ablauf: die Reihenfolge wird ausgewürfelt (Gleichstände würfeln unter sich neu)
-      S.setup = { seq: null, i: 0, stage: 'order', last: null, ord: { groups: [S.order.slice()], cur: S.order.slice(), rolled: {}, idx: 0 } };
+      S.setup = { seq: null, i: 0, stage: 'order', last: null, ord: { table: !!set.table, groups: [S.order.slice()], cur: S.order.slice(), rolled: {}, idx: 0 } };
       S.turn = S.order[0];
-      this.log('Die Reihenfolge wird ausgewürfelt: Wer die höchste Augenzahl wirft, beginnt.', 'sys');
+      this.log(set.table ? 'Es wird gewürfelt, wer beginnt: Die höchste Augenzahl fängt an, danach geht es im Uhrzeigersinn weiter.' : 'Die Reihenfolge wird ausgewürfelt: Wer die höchste Augenzahl wirft, beginnt.', 'sys');
     }
     S.v++;
     this.settle();
@@ -344,6 +393,11 @@ class Game {
     S.orderSeq = (S.orderSeq || 0) + 1; S.orderShown = { id: S.orderSeq, order: S.order.slice() };
     this.log(`Reihenfolge: ${S.order.map((i) => this.name(i)).join(' → ')}.`, 'sys');
   }
+  // Spieltisch: die Sitzordnung so drehen, dass `first` beginnt
+  startWith(first) {
+    const S = this.S, i = S.order.indexOf(first);
+    S.order = S.order.slice(i).concat(S.order.slice(0, i));
+  }
   orderRoll(pid) {
     const S = this.S, o = S.setup.ord;
     const a = 1 + Math.floor(this.rnd() * 6), b = 1 + Math.floor(this.rnd() * 6);
@@ -351,6 +405,11 @@ class Game {
     o.rolled[pid] = a + b; o.idx++;
     this.log(`${this.name(pid)} würfelt ${a + b} (${a}+${b}) um die Reihenfolge.`, 'roll', pid);
     if (o.idx < o.cur.length) { S.turn = o.cur[o.idx]; return; }
+    if (o.table) { // Spieltisch: nur der Beginner wird ermittelt, Gleichstand der Höchsten würfelt neu
+      const top = Math.max(...o.cur.map((p) => o.rolled[p])), best = o.cur.filter((p) => o.rolled[p] === top);
+      if (best.length > 1) { o.cur = best; o.rolled = {}; o.idx = 0; S.turn = o.cur[0]; this.log(`Gleichstand zwischen ${best.map((p) => this.name(p)).join(', ')} – sie würfeln noch einmal.`, 'sys'); return; }
+      this.startWith(best[0]); this.orderDone(); return;
+    }
     // Runde vollständig: Gruppe nach Augenzahl aufteilen
     const byVal = {}; o.cur.forEach((p) => { (byVal[o.rolled[p]] = byVal[o.rolled[p]] || []).push(p); });
     const parts = Object.keys(byVal).map(Number).sort((x, y) => y - x).map((k) => byVal[k]);
@@ -535,6 +594,8 @@ class Game {
     if (t === 'regen_board') { this.hostOnly(pid, 'das Spielfeld neu würfeln'); this.regen(); this.S.v++; return; }
     if (t === 'close_seats') { this.hostOnly(pid, 'die Plätze schließen'); this.S.closed = !!a.closed; this.log(this.S.closed ? 'Die Plätze sind besetzt – niemand kann mehr beitreten.' : 'Die Plätze sind wieder offen.', 'sys'); this.S.v++; return; }
     if (t === 'add_bot') return this.addBot(pid, a.kind);
+    if (t === 'add_table_player') return this.addTablePlayer(pid, a);
+    if (t === 'set_seat') return this.setSeat(pid, a);
     if (t === 'kick') { this.lastKicked = this.kick(pid, a.pid); return; }
     if (t === 'end_game') return this.endGame(pid);
     if (S.phase === 'lobby') fail('Das Spiel hat noch nicht begonnen.');
@@ -1330,7 +1391,7 @@ class Game {
       v: S.v, phase: S.phase, you: pid, host: S.host, minPlayers: MIN_P, maxPlayers: MAX_P, winPoints: S.settings.winPoints,
       gameId: this.meta.id, gameName: this.meta.name, settings: S.settings, closed: S.closed, endedBy: S.endedBy, stats: this.statsView(),
       players: S.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, connected: p.connected, auto: !!p.auto, gone: !!p.left,
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, seat: p.seat == null ? null : p.seat, tableGuest: !!p.tableGuest, connected: p.connected, auto: !!p.auto, gone: !!p.left,
         vp: S.phase === 'lobby' ? 0 : this.vp(p.id) + (S.phase === 'ended' ? this.hiddenVp(p.id) : 0), svp: p.svp,
         resCount: this.handSize(p.id), devCount: p.dev.length, knightsPlayed: p.knights, longestRoute: lens[p.id] || 0,
         hasLongest: S.longest === p.id, hasLargest: S.largest === p.id,
@@ -1369,5 +1430,5 @@ class Game {
   }
 }
 
-Game.COST = COST; Game.COLORS = COLORS; Game.GameError = GameError;
+Game.SEATS = SEATS; Game.COST = COST; Game.COLORS = COLORS; Game.GameError = GameError;
 module.exports = Game;

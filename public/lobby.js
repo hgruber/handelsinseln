@@ -20,6 +20,7 @@
   // ======================================================================================
   const L = { botsOpen: false, games: [], sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
   const AVS = root.Avatars;
+  const SEAT_NAMES = { b: 'unten Mitte', bl: 'unten links', br: 'unten rechts', t: 'oben Mitte', tl: 'oben links', tr: 'oben rechts', l: 'links', r: 'rechts' };
   const joinable = () => L.games.filter((g) => g.joinable !== false);
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
   const takenColors = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.color) : []; };
@@ -62,7 +63,7 @@
       Array.from({ length: Math.max(0, plan - n) }, () => '<i class="gd empty" title="freier Platz"></i>').join('');
     const names = (g.players || []).map((p) => C.esc(p.name)).join(', ');
     // Nicht beitretbar (läuft, beendet, Plätze geschlossen oder voll): ausgegraut, nicht anwählbar
-    const off = g.joinable === false, why = g.phase === 'ended' ? 'Beendet' : g.phase !== 'lobby' ? 'Läuft bereits' : g.closed ? 'Plätze besetzt' : 'Voll';
+    const off = g.joinable === false, why = g.table ? 'Spieltisch' : g.phase === 'ended' ? 'Beendet' : g.phase !== 'lobby' ? 'Läuft bereits' : g.closed ? 'Plätze besetzt' : 'Voll';
     const tag = off ? `<div class="gcard off" role="option" aria-disabled="true" aria-selected="false" title="${why} – Beitritt nicht mehr möglich.">` : `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}">`;
     return tag +
       `<span class="gtop"><b class="gname">${C.esc(g.name || 'Spiel')}</b><span class="gvar">${C.esc(VNAME[g.variant] || g.variant || '')}</span></span>` +
@@ -420,7 +421,8 @@
         return `<li class="${i === me ? 'me' : ''}${off ? ' off' : ''}" data-pid="${i}" style="--pc:${C.colorOf(i)}">${C.avatar(i, 42)}<span class="nm">${C.esc(p.name)}</span>${p.bot ? `<span class="botTag" title="${C.esc((AVS.BOTS[p.bot] || {}).desc || '')}">Bot · ${C.esc((AVS.BOTS[p.bot] || {}).label || '')}</span>` : ''}` +
           `${i === v.host ? '<span class="crown" title="Spielleiter">♛ Spielleiter</span>' : ''}${i === me ? '<span class="you">du</span>' : ''}` +
           `${off ? '<span class="away" title="Die Verbindung ist unterbrochen.">getrennt</span>' : ''}${p.auto ? '<span class="away auto" title="Der Auto-Modus spielt für diesen Spieler.">Auto</span>' : ''}` +
-          `${root.Voice && !p.bot ? root.Voice.badge(i) + (i !== me && root.Voice.inVoice(i) ? root.Voice.rowCtl(i) : '') : ''}` +
+          `${p.seat ? (host ? `<select class="seatsel" data-seatsel="${i}" title="Platz am Tisch">${Object.entries(SEAT_NAMES).map(([k, n]) => `<option value="${k}"${k === p.seat ? ' selected' : ''}>${n}</option>`).join('')}</select>` : `<span class="away" title="Platz am Tisch">${SEAT_NAMES[p.seat]}</span>`) : ''}` +
+          `${p.tableGuest ? '<span class="botTag" title="Sitzt am digitalen Spieltisch">Tisch</span>' : ''}${root.Voice && !p.bot && !p.tableGuest ? root.Voice.badge(i) + (i !== me && root.Voice.inVoice(i) ? root.Voice.rowCtl(i) : '') : ''}` +
           `<span class="grow"></span>${host && i !== me ? `<button type="button" class="btn small red" data-kick="${i}" title="${C.esc(p.name)} aus der Lobby entfernen">Entfernen</button>` : ''}</li>`;
       }).join('') || '<li class="muted">Noch niemand hier.</li>');
       if (root.Voice) root.Voice.paintSpeaking();
@@ -429,11 +431,14 @@
     // Bots hinzufügen (nur Spielleiter): bereits dabeigesetzte verschwinden aus der Liste, sind alle dabei, entfällt sie ganz
     const full = v.players.length >= (v.maxPlayers || 6), here = new Set(v.players.map((p) => p.bot).filter(Boolean));
     const avail = Object.entries(AVS.BOTS).filter(([k]) => !here.has(k));
-    C.setHTML($('lobbyBots'), host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
+    const tbl = !!s.table, others = v.players.some((p) => p.id !== v.host && !p.tableGuest);
+    const tblBtn = host ? `<button type="button" class="btn small gold" data-addtable="1" ${full || v.closed || others ? 'disabled' : ''} title="${others ? 'Am Spieltisch gibt es nur Tischspieler – entferne erst Bots und Online-Spieler' : full ? 'Das Spiel ist voll' : 'Einen Spieler am digitalen Spieltisch anlegen'}">Tischspieler anlegen …</button>` : '';
+    if (tbl) { C.setHTML($('lobbyBots'), `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Alle Spieler sitzen am Tisch (Bots und Online-Spieler sind hier nicht erlaubt). Der Platz bestimmt die Reihenfolge im Uhrzeigersinn; gewürfelt wird nur, wer beginnt. Wird der letzte Tischspieler entfernt, ist der Tisch wieder aus.</small>${tblBtn}</div>`); }
+    else C.setHTML($('lobbyBots'), (host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
       const dis = full || !!v.closed;
       return `<div class="botcard"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
         `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">Hinzufügen</button></div>`;
-    }).join('') + '</div></details>' : '');
+    }).join('') + '</div></details>' : '') + (host ? `<div class="tblnote">${tblBtn}</div>` : ''));
 
     // Variante, Spielerzahl, Plaetze
     const cur = eff('variant') || 'klassisch';
@@ -476,12 +481,14 @@
       if (start) { if (start.getAttribute('aria-disabled') === 'true') { C.toast(start.title || 'Zu wenige Spieler.', 'warn'); return; } await C.act('start'); return; }
       const vc = e.target.closest('[data-var]'); if (vc && !vc.disabled && isHost()) { ovr.set('variant', { val: vc.dataset.var, until: Infinity }); queue('variant', vc.dataset.var); renderLobby(v); return; }
       const pl = e.target.closest('[data-plan]'); if (pl && !pl.disabled && isHost()) { const n = Math.max(2, Math.min(v.maxPlayers || 6, (eff('plannedPlayers') || 2) + Number(pl.dataset.plan))); queue('plannedPlayers', n); renderLobby(v); return; }
+      const at = e.target.closest('[data-addtable]'); if (at && !at.disabled && isHost()) { Menu.showTablePlayer(); return; }
       const ab = e.target.closest('[data-addbot]'); if (ab && !ab.disabled && isHost()) { ab.disabled = true; await C.act('add_bot', { kind: ab.dataset.addbot }); return; }
       const cs = e.target.closest('[data-closeseats]'); if (cs && !cs.disabled) { await C.act('close_seats', { closed: cs.dataset.closeseats === '1' }); return; }
       const rg = e.target.closest('[data-regen]'); if (rg && !rg.disabled) { rg.disabled = true; await C.act('regen_board'); setTimeout(() => { rg.disabled = false; }, 500); return; }
       const k = e.target.closest('[data-kick]');
       if (k) { const pid = Number(k.dataset.kick), name = v.players[pid] ? v.players[pid].name : ''; if (await Menu.confirm('Spieler entfernen?', `${name} wird aus der Lobby entfernt.`, 'Entfernen', true)) await C.act('kick', { pid }); }
     });
+    $('lobbyList').addEventListener('change', async (e) => { const sel = e.target.closest('[data-seatsel]'); if (sel && isHost()) await C.act('set_seat', { pid: Number(sel.dataset.seatsel), seat: sel.value }); });
     $('lobbyChatForm').addEventListener('submit', async (e) => { e.preventDefault(); const t = $('lobbyChatIn').value.trim(); if (!t) return; $('lobbyChatIn').value = ''; await C.act('chat', { text: t }); });
     $('lobbyBots').addEventListener('toggle', (e) => { if (e.target.classList.contains('botdrop')) L.botsOpen = e.target.open; }, true); // Auf-/Zuklappen merken, auch wenn die Liste neu gezeichnet wird
     $('leaveBtn').addEventListener('click', () => C.leave());

@@ -502,7 +502,7 @@
   function area() {
     const W = board.clientWidth, H = board.clientHeight, g = (id) => $(id).getBoundingClientRect();
     if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, W, H }; }
-    if (st.tableOn) { const m = Table.margins(); return { left: m.left, top: m.top, right: W - m.right, bottom: H - m.bottom, W, H }; }
+    if (st.tableOn) return { left: 4, top: 4, right: W - 4, bottom: H - 4, W, H }; // Tisch: ganzer Bildschirm, die Spielerleisten liegen darüber
     const pl = g('players'), bt = g('bottom'), bn = g('banner'), sd = g('side');
     const cp = compact();
     const left = cp ? 54 : pl.right + 14;
@@ -519,12 +519,13 @@
   function fit(snap) {
     const v = V(); if (!v) return;
     // Aufgedeckte Felder (Land + Meer) UND der umlaufende Nebelring (view.fog) sollen immer im Bild sein.
-    const keys = v.hexes.map((h) => h.k).concat(v.fog || []);
+    const tbl = !!st.tableOn; // Spieltisch: nur die sichtbaren Felder (ohne Nebelring), so groß wie möglich
+    const keys = tbl ? v.hexes.map((h) => h.k) : v.hexes.map((h) => h.k).concat(v.fog || []);
     if (!keys.length) return;
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-    for (const k of keys) { const p = hpos(k); x0 = Math.min(x0, p.x - 140); x1 = Math.max(x1, p.x + 140); y0 = Math.min(y0, p.y - 155); y1 = Math.max(y1, p.y + 155); }
+    for (const k of keys) { const p = hpos(k); const px = tbl ? 88 : 140, py = tbl ? 101 : 155; x0 = Math.min(x0, p.x - px); x1 = Math.max(x1, p.x + px); y0 = Math.min(y0, p.y - py); y1 = Math.max(y1, p.y + py); }
     const a = area(); const aw = Math.max(200, a.right - a.left), ah = Math.max(160, a.bottom - a.top);
-    const k = Math.max(KMIN, Math.min(1.25, Math.min(aw / (x1 - x0), ah / (y1 - y0))));
+    const k = Math.max(KMIN, Math.min(tbl ? KMAX : 1.25, Math.min(aw / (x1 - x0), ah / (y1 - y0))));
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, scx = (a.left + a.right) / 2, scy = (a.top + a.bottom) / 2;
     tgt.k = k; tgt.x = cx - (scx - a.W / 2) / k; tgt.y = cy - (scy - a.H / 2) / k;
     kick(snap);

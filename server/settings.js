@@ -41,7 +41,6 @@ function merge(cur, patch) {
     switch (k) {
       case 'variant': s.variant = oneOf(v, VARIANTS, 'Variante'); break;
       case 'dense': if (typeof v !== 'boolean') bad('Inseln dichter: ja/nein erwartet.'); s.dense = v; break;
-      case 'table': if (typeof v !== 'boolean') bad('Spieltisch: ja/nein erwartet.'); s.table = v; break;
       case 'plannedPlayers': s.plannedPlayers = int(v, 2, 6, 'Geplante Spielerzahl'); break;
       case 'dice': s.dice = oneOf(v, ['manuell', 'auto'], 'Würfeln'); break;
       case 'robber': s.robber = oneOf(v, ['manuell', 'auto'], 'Räuber'); break;

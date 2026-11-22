@@ -305,3 +305,15 @@ body[data-screen="ended"]:has(#stats.peek) #board { pointer-events: auto; filter
 #stats.peek { background: transparent; pointer-events: none; }
 #stats.peek .stwrap { display: none; }
 #stats.peek .stback { display: block; pointer-events: auto; }
+
+/* Tischspieler (Lobby) */
+.seatsel { max-width: 130px; padding: 3px 6px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0, 0, 0, .25); color: inherit; font: inherit; font-size: 13px; }
+.tblnote { display: grid; gap: 6px; margin-top: 8px; } .tblnote small { color: var(--muted); font-size: 12px; line-height: 1.35; } .tblnote .btn { justify-self: start; }
+.modal.m-tp { width: min(520px, 94vw); text-align: left; } .modal.m-tp h2, .modal.m-tp .lead { text-align: center; }
+.tpform { display: grid; gap: 12px; margin-top: 8px; } .tpl { display: grid; gap: 4px; font-weight: 600; font-size: 14px; }
+.tpl input, .tpl select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0, 0, 0, .25); color: inherit; font: inherit; }
+.tpcols { display: flex; gap: 10px; flex-wrap: wrap; } .tpcols .sw { width: 40px; flex: none; background: var(--c); }
+.seatpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tpseat, .tptable { padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .07); color: inherit; font: 600 13px var(--sans); text-align: center; }
+.tpseat.on { background: linear-gradient(180deg, #fbdb85, #d99b27); color: #2a1a05; border-color: #fff0b8; } .tpseat:disabled { opacity: .45; }
+.tptable { background: rgba(60, 120, 90, .35); display: grid; place-items: center; }
