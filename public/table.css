@@ -1,6 +1,6 @@
 /* Digitaler Spieltisch (body.table): Spielfeld zentriert, Rohstoffleisten der Spieler am Rand, zur Sitzposition gedreht */
 body.table #players, body.table #side, body.table #sideToggle { display: none !important; }
-#seats { position: fixed; inset: 0; pointer-events: none; z-index: 12; }
+#seats { position: fixed; inset: 0; pointer-events: none; z-index: 14; }
 .seat { --sw: min(80vw, 920px); position: absolute; width: var(--sw); pointer-events: auto; display: flex; flex-direction: column; gap: 6px; transform-origin: 0 0; }
 .seat.s-bl, .seat.s-br, .seat.s-tl, .seat.s-tr { --sw: min(46vw, 640px); }
 .seat.s-l, .seat.s-r { --sw: min(62vh, 640px); }
@@ -34,3 +34,11 @@ body.table #toasts { top: 38%; }
 body.table[data-tseat^="t"] #modalRoot .modal { transform: rotate(180deg); }
 body.table[data-tseat="l"] #modalRoot .modal { transform: rotate(90deg); }
 body.table[data-tseat="r"] #modalRoot .modal { transform: rotate(-90deg); }
+.seat .tmenu .crow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 4px 0; }
+.seat .tmenu .crow > .muted { width: 100%; text-align: center; font-size: 12px; }
+.seat .tmenu .cc { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px; border-radius: 10px; border: 1px solid var(--rc); background: rgba(0, 0, 0, .2); }
+.seat .tmenu .cc button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); background: rgba(255, 255, 255, .1); color: inherit; font-weight: 700; line-height: 1; padding: 0; }
+/* Entscheidungsfenster am Platz des Spielers (unten/oben: direkt über bzw. unter seinen Leisten) */
+body.table[data-tseat^="b"] #modalRoot .mback { align-items: end; padding-bottom: 250px; }
+body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top: 250px; }
+body.table #camBtns { z-index: 20; }

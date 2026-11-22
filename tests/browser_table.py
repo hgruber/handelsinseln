@@ -72,8 +72,12 @@ try:
             ph = pg.evaluate("document.body.dataset.screen")
             if ph == 'main': break
             seen.add(pg.evaluate("document.querySelector('.seat.active') && document.querySelector('.seat.active').dataset.pid"))
+            if pg.locator('#modalRoot [data-m="gold"]').count():  # Goldfluss im Aufbau: Fokus-Spieler nimmt einen Rohstoff
+                pg.locator('#modalRoot .tc[data-ms="g"]').first.click(); pg.wait_for_timeout(200)
+                pg.locator('#modalRoot [data-m="gold"]').click(); pg.wait_for_timeout(400)
+                continue
             # klickt die erste markierte Stelle des Fokus-Spielers (Siedlung/Straße), der Tisch sendet mit as
-            idx = pg.evaluate("(() => { const W = innerWidth, H = innerHeight; const els = [...document.querySelectorAll('#board [data-t]')]; for (let i = 0; i < els.length; i++) { const b = els[i].getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2; if (x > W * .3 && x < W * .7 && y > H * .3 && y < H * .6) return i; } return -1; })()")
+            idx = pg.evaluate("(() => { const W = innerWidth, H = innerHeight; const els = [...document.querySelectorAll('#board [data-t]')].map((e, i) => { const b = e.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2; return { e, i, x, y, d: Math.hypot(x - W / 2, y - H / 2) }; }).sort((a, b) => a.d - b.d); for (const c of els) { const top = document.elementFromPoint(c.x, c.y); if (top && top.closest('[data-t]') === c.e) return c.i; } return -1; })()")
             tg = pg.locator('#board [data-t]').nth(max(idx, 0))
             if tg.count() and tg.is_visible():
                 try: tg.click(timeout=1500, force=True)
@@ -121,6 +125,20 @@ try:
                 other = pg.locator('.seat:not(.active) .tmenu [data-tr="decline"]').first
                 other.click(); pg.wait_for_timeout(600)
                 check(pg.locator('.seat:not(.active) .tmenu .st.no').count() >= 1, 'Ablehnen im Menü des Mitspielers wirkt')
+                # Gegenangebot am Platz eines anderen Mitspielers
+                op = pg.locator('.seat:not(.active) .tmenu [data-tr="open"]').first
+                if op.count():
+                    op.click(); pg.wait_for_timeout(300)
+                    base = '.seat:not(.active) .tmenu [data-tr="adj"]'
+                    for r in ('holz', 'lehm', 'wolle', 'getreide', 'erz'):  # „Ich gebe“: alles, was der Spieler besitzt (je 1)
+                        pg.locator(f'{base}[data-side="cg"][data-res="{r}"][data-d="1"]').first.click(); pg.wait_for_timeout(60)
+                    given = pg.evaluate("[...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0] && [...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0].querySelectorAll('.cc b').length ? [...document.querySelectorAll('.seat:not(.active) .tmenu .crow')][0].innerText : ''")
+                    free = pg.evaluate("(() => { const row = document.querySelectorAll('.seat:not(.active) .tmenu .crow')[0]; const res = ['holz', 'lehm', 'wolle', 'getreide', 'erz']; const cc = [...row.querySelectorAll('.cc b')]; const i = cc.findIndex((b) => b.textContent === '0'); return i < 0 ? null : res[i]; })()")
+                    if free:  # „Ich bekomme“: ein Rohstoff, den der Spieler nicht selbst gibt
+                        pg.locator(f'{base}[data-side="cw"][data-res="{free}"][data-d="1"]').first.click(); pg.wait_for_timeout(200)
+                    pg.screenshot(path=f'{SHOTS}/tisch-gegenangebot.png')
+                    pg.locator('.seat:not(.active) .tmenu [data-tr="send"]').first.click(); pg.wait_for_timeout(800)
+                    check(pg.locator('.seat.active .st.cnt2').count() >= 1, 'Gegenangebot vom Platz eines Mitspielers kommt beim Anbieter an')
             else:
                 print('  (Handel übersprungen: Angebot nicht möglich)')
 

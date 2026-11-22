@@ -15,6 +15,8 @@
   const $ = (id) => document.getElementById(id);
   let C = null, on = false, seatsEl = null, centerEl = null, key = '';
   const seats = new Map(); // pid -> {el, head, menu, panel, bar}
+  const counter = new Map(); // pid -> {cg:{}, cw:{}} offenes Gegenangebot (Ich gebe / Ich bekomme)
+  let last = null; // zuletzt gezeichnete {views, focus}
   const html = (el, h) => { if (el._h !== h) { el._h = h; el.innerHTML = h; } };
 
   // Wer wird gerade bedient: Spieler mit offener Pflicht (Abwerfen, Gold), sonst der Spieler am Zug
@@ -33,8 +35,19 @@
     centerEl.appendChild($('banner')); centerEl.appendChild($('dice'));
     seatsEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-tr]'); if (!b || b.getAttribute('aria-disabled') === 'true') return;
-      const pid = Number(b.dataset.pid), accept = b.dataset.tr === 'accept';
-      C.act('trade_respond', { accept }, pid);
+      const pid = Number(b.dataset.pid), what = b.dataset.tr, c = counter.get(pid);
+      if (what === 'accept' || what === 'decline') { counter.delete(pid); C.act('trade_respond', { accept: what === 'accept' }, pid); return; }
+      if (what === 'open') { counter.set(pid, { cg: {}, cw: {} }); }
+      else if (what === 'back') counter.delete(pid);
+      else if (what === 'send' && c) {
+        const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, n]) => n > 0));
+        counter.delete(pid); C.act('trade_respond', { counter: { give: clean(c.cw), want: clean(c.cg) } }, pid);
+      } else if (what === 'adj' && c) {
+        const side = b.dataset.side, r = b.dataset.res, hand = last.views[pid].me.hand, d = Number(b.dataset.d);
+        const n = Math.max(0, Math.min(side === 'cg' ? hand[r] || 0 : 19, (c[side][r] || 0) + d));
+        if (n) c[side][r] = n; else delete c[side][r];
+      }
+      if (last) render(last.views, last.focus);
     });
     void v;
   }
@@ -69,14 +82,23 @@
     const chips = (o) => `<span class="tchips">${RES.filter((x) => o[x] > 0).map((x) => `<span class="tchip" style="--rc:${C.Art.RES_COLORS[x]}">${C.Art.res(x, 24)}<b>${o[x]}</b></span>`).join('')}</span>`;
     const miss = RES.filter((x) => (t.want[x] || 0) > (hand[x] || 0));
     const from = v.players[t.from];
+    if (counter.has(pid) && !r) {
+      const c = counter.get(pid), tot = (o) => RES.reduce((a, x) => a + (o[x] || 0), 0);
+      const row = (side, label) => `<div class="crow"><span class="muted">${label}</span>${RES.map((x) => `<span class="cc" style="--rc:${C.Art.RES_COLORS[x]}"><button type="button" data-tr="adj" data-pid="${pid}" data-side="${side}" data-res="${x}" data-d="-1">−</button>${C.Art.res(x, 22)}<b>${c[side][x] || 0}</b><button type="button" data-tr="adj" data-pid="${pid}" data-side="${side}" data-res="${x}" data-d="1">+</button></span>`).join('')}</div>`;
+      const ok = tot(c.cg) > 0 && tot(c.cw) > 0 && !RES.some((x) => (c.cg[x] || 0) > (hand[x] || 0) || (c.cg[x] && c.cw[x]));
+      return `<div class="tpanel glass tmenu" style="--pc:${C.Art.COLORS[from.color]}"><div class="who">${C.avatar(t.from, 30)}<b>Gegenangebot an ${C.esc(from.name)}</b></div>${row('cg', 'Ich gebe')}${row('cw', 'Ich bekomme')}` +
+        `<div class="tact"><button type="button" class="btn ghostb" data-tr="back" data-pid="${pid}">Zurück</button><button type="button" class="btn gold${ok ? '' : ' dis'}" data-tr="send" data-pid="${pid}" ${ok ? '' : 'aria-disabled="true"'}>Senden</button></div></div>`;
+    }
     const state = r ? `<span class="st ${r.s === 'accept' ? 'ok' : r.s === 'decline' ? 'no' : 'cnt2'}">${r.s === 'accept' ? '✓ angenommen' : r.s === 'decline' ? '✗ abgelehnt' : '⇄ Gegenangebot'}</span>` : '';
     return `<div class="tpanel glass tmenu" style="--pc:${C.Art.COLORS[from.color]}"><div class="who">${C.avatar(t.from, 30)}<b>${C.esc(from.name)} bietet</b></div>` +
       `<div class="offer-line"><div class="ol"><span class="muted">Du erhältst</span>${chips(t.give)}</div><span class="tarrow sm">⇄</span><div class="ol"><span class="muted">Du gibst</span>${chips(t.want)}</div></div>` +
-      (state || `<div class="tact"><button type="button" class="btn green${miss.length ? ' dis' : ''}" data-tr="accept" data-pid="${pid}" ${miss.length ? 'aria-disabled="true"' : ''}>Annehmen</button><button type="button" class="btn red" data-tr="decline" data-pid="${pid}">Ablehnen</button></div>`) + '</div>';
+      (state || `<div class="tact"><button type="button" class="btn green${miss.length ? ' dis' : ''}" data-tr="accept" data-pid="${pid}" ${miss.length ? 'aria-disabled="true"' : ''}>Annehmen</button><button type="button" class="btn red" data-tr="decline" data-pid="${pid}">Ablehnen</button><button type="button" class="btn ghostb" data-tr="open" data-pid="${pid}">Gegenangebot</button></div>`) + '</div>';
   }
 
   function render(views, focus) {
+    last = { views, focus };
     const v = views[focus];
+    if (!v.trade) counter.clear();
     layout(v);
     document.body.dataset.tseat = (seats.get(focus) || {}).slot || 'b';
     for (const [pid, s] of seats) {
