@@ -230,21 +230,46 @@ class Game {
   }
   setSettings(pid, patch) {
     const S = this.S;
-    // Während des Spiels darf der Spielleiter nur den Auto-Ablauf (dice) umschalten
-    if (S.phase !== 'lobby') {
-      if (pid !== S.host) fail('Nur der Spielleiter kann den Ablauf ändern.');
-      if (S.phase === 'ended' || !patch || typeof patch !== 'object' || Object.keys(patch).some((k) => k !== 'dice')) fail('Im Spiel lässt sich nur der Auto-Ablauf ändern.');
-      S.settings = ST.merge(S.settings, patch); S.v++; this.settle();
-      return;
-    }
+    if (S.phase !== 'lobby') return this.changeSettings(pid, patch);
     this.hostOnly(pid, 'die Einstellungen ändern');
     let ns;
     try { ns = ST.merge(S.settings, patch); } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
     if (ns.plannedPlayers < S.players.length) ns.plannedPlayers = S.players.length;
-    const boardChanged = ns.variant !== S.settings.variant || ns.plannedPlayers !== S.settings.plannedPlayers;
+    const boardChanged = ns.variant !== S.settings.variant || ns.plannedPlayers !== S.settings.plannedPlayers || ns.dense !== S.settings.dense;
     S.settings = ns;
     if (boardChanged) this.regen();
     S.v++;
+  }
+  // Im laufenden Spiel (und nach Spielende) darf der Spielleiter alles außer dem Spielfeld ändern
+  changeSettings(pid, patch) {
+    const S = this.S, old = S.settings;
+    if (pid !== S.host) fail('Nur der Spielleiter kann die Einstellungen ändern.');
+    if (!patch || typeof patch !== 'object') fail('Ungültige Einstellungen.');
+    if (['variant', 'plannedPlayers', 'dense'].some((k) => k in patch)) fail('Das Spielfeld lässt sich im Spiel nicht mehr ändern.');
+    let ns;
+    try { ns = ST.merge(old, patch); } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
+    if (S.phase !== 'ended' && ns.winPoints !== old.winPoints) {
+      const top = Math.max(...S.players.filter((p) => !p.left).map((p) => this.vp(p.id) + this.hiddenVp(p.id)));
+      if (ns.winPoints <= top) fail(`Das Siegpunktziel muss über dem höchsten Stand (${top}) liegen.`);
+    }
+    S.settings = ns;
+    // Vorräte der laufenden Partie an die neuen Grenzen anpassen
+    for (const [lk, sk] of [['fogTerrain', 'terrain'], ['fogChips', 'chips']]) {
+      for (const x of Object.keys(ns.limits[lk])) {
+        const a = old.limits[lk][x], b = ns.limits[lk][x];
+        if (a === b || !S.supply) continue;
+        S.supply[sk][x] = b === null ? null : a === null ? b : Math.max(0, (S.supply[sk][x] || 0) + b - a);
+      }
+    }
+    if (old.limits.dev !== ns.limits.dev && S.stats) {
+      const drawn = S.stats.players.reduce((a, p) => a + (p.built.dev || 0), 0);
+      this.buildDeck(S.players.length);
+      if (!S.deckUnlimited) S.deck = S.deck.slice(0, Math.max(0, S.deck.length - drawn));
+    }
+    const msg = 'Der Spielleiter hat die Spieleinstellungen geändert.';
+    const last = S.log[S.log.length - 1];
+    if (!last || last.text !== msg) this.log(msg, 'sys');
+    S.v++; if (S.phase !== 'ended') this.settle();
   }
   kick(pid, target) {
     this.hostOnly(pid, 'Spieler entfernen');

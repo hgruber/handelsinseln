@@ -48,6 +48,12 @@
       return `<h2>Spieleinstellungen</h2><p class="lead small muted">${C.esc(v && v.gameName || '')} · nur Ansicht</p><div class="sumbox">${root.Lobby.summaryHTML(v && v.settings)}</div><div class="mact"><button class="btn gold" data-d="no" data-focus>Schließen</button></div>`;
     });
   }
+  // „Spiel ändern“: alle Einstellungen außer dem Spielfeld (nur Spielleiter), wirken sofort
+  function showChange() {
+    new Promise((resolve) => openDlg('m-change', () =>
+      '<h2>Spiel ändern</h2><p class="lead small muted">Änderungen gelten sofort für alle. Das Spielfeld bleibt, wie es ist.</p><div id="chgBox" class="chgbox"></div><div class="mact"><button class="btn gold" data-d="no" data-focus>Fertig</button></div>', resolve)).then(() => root.Lobby.unmountPanel());
+    root.Lobby.mountPanel($('chgBox'));
+  }
   function showVoice() {
     openDlg('m-voice', () => {
       const v = C.view(); if (!v) return '';
@@ -76,6 +82,7 @@
       mic: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5,11 a6.5,6.5 0 0 0 13,0 M12,17.5 V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       exit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M10,4 H5 V20 H10 M14,8 L19,12 L14,16 M19,12 H9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       flow: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7,5 L19,12 L7,19z" fill="currentColor"/></svg>',
+      gear: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
     };
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
@@ -86,7 +93,7 @@
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
-      (host && running ? item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
+      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
@@ -104,6 +111,7 @@
     else if (id === 'sound') root.Sound.toggle();
     else if (id === 'fit') C.fit();
     else if (id === 'flow') { const v = C.view(); await C.act('set_settings', { settings: { dice: v.settings.dice === 'auto' ? 'manuell' : 'auto' } }); }
+    else if (id === 'change') showChange();
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
     else if (id === 'leave') leaveGame();
   }
@@ -125,6 +133,7 @@
       if (b.dataset.st === 'lobby') await C.act('new_game');
       else if (b.dataset.st === 'leave') leaveGame();
       else if (b.dataset.st === 'resume') { const n = +$('stats').querySelector('[data-st-wp]').value; await C.act('resume_game', { winPoints: n }); }
+      else if (b.dataset.st === 'change') showChange();
       else if (b.dataset.st === 'board') { $('stats').classList.add('peek'); }
       else if (b.dataset.st === 'stats') { $('stats').classList.remove('peek'); }
     });
@@ -225,10 +234,10 @@
       `<section class="glass stcard"><h3>Würfelverteilung</h3>${diceChart(st.rolls || {})}</section>` +
       `<section class="glass stcard wide2"><h3>Siegpunkte pro Runde</h3>${vpChart(st, v)}</section>` +
       `<section class="glass stcard wide2"><h3>Spieler im Vergleich</h3>${table(st)}</section></div>` +
-      `<footer class="stfoot glass">${host ? '<button class="btn gold big" data-st="lobby" title="Alle kehren in die Lobby zurück, die Einstellungen bleiben.">Zurück zur Lobby</button>' : '<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter …</p>'}<button class="btn ghostb" data-st="board" title="Das Spielfeld in Ruhe betrachten – die Statistik bleibt über einen Knopf erreichbar.">Spiel nur ansehen</button><button class="btn ghostb" data-st="leave">Spiel verlassen</button>${host ? `<div class="stresume"><span>Zurück zum Spiel mit neuem Siegpunktziel:</span><input type="number" data-st-wp min="3" max="30" value="${Math.min(30, Math.max(v.winPoints, ...P.map((p) => p.vp || 0)) + 2)}" aria-label="Neues Siegpunktziel"><button class="btn gold" data-st="resume">Weiterspielen</button></div>` : ''}</footer></div><button class="btn gold stback" data-st="stats">Statistik anzeigen</button>`;
+      `<footer class="stfoot glass">${host ? '<button class="btn gold big" data-st="lobby" title="Alle kehren in die Lobby zurück, die Einstellungen bleiben.">Zurück zur Lobby</button>' : '<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter …</p>'}${host ? '<button class="btn ghostb" data-st="change" title="Einstellungen ändern, bevor es weitergeht.">Spiel ändern</button>' : ''}<button class="btn ghostb" data-st="board" title="Das Spielfeld in Ruhe betrachten – die Statistik bleibt über einen Knopf erreichbar.">Spiel nur ansehen</button><button class="btn ghostb" data-st="leave">Spiel verlassen</button>${host ? `<div class="stresume"><span>Zurück zum Spiel mit neuem Siegpunktziel:</span><input type="number" data-st-wp min="3" max="30" value="${Math.min(30, Math.max(v.winPoints, ...P.map((p) => p.vp || 0)) + 2)}" aria-label="Neues Siegpunktziel"><button class="btn gold" data-st="resume">Weiterspielen</button></div>` : ''}</footer></div><button class="btn gold stback" data-st="stats">Statistik anzeigen</button>`;
     if (el._h !== html) { const sc = el.scrollTop; C.setHTML(el, html); el.scrollTop = sc; }
   }
   function hideStats() { const el = $('stats'); el.classList.remove('peek'); if (!el.hidden) { el.hidden = true; el._h = null; el.replaceChildren(); } }
 
-  root.Menu = { init, confirm, refresh: () => refreshDlg(false), renderStats, hideStats, closeMenu, showSettings, isDialogOpen: () => !!dlg };
+  root.Menu = { init, confirm, refresh: () => { refreshDlg(false); const v = C && C.view(); if (v && dlg && $('chgBox')) root.Lobby.syncPanel(v.settings); }, renderStats, hideStats, closeMenu, showSettings, isDialogOpen: () => !!dlg };
 })(typeof self !== 'undefined' ? self : this);

@@ -104,8 +104,9 @@ Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau
 ```
 gameId, gameName,
 closed: bool,                 // Spielleiter hat die Plätze als „fertig besetzt“ erklärt (nur Lobby)
-settings: {                   // gilt in Lobby (änderbar durch Spielleiter) und im Spiel (nur Anzeige)
+settings: {                   // gilt in Lobby und im Spiel; änderbar durch den Spielleiter (im Spiel alles außer variant/plannedPlayers/dense)
   variant: 'klassisch'|'nebel'|'inseln',   // klassisch: Hauptinsel + Inseln + Nebel; nebel: kleine Startinsel in dichtem Nebel; inseln: jeder Spieler eigene Heimatinsel
+  dense: false,                // true: Inseln dichter (nur inseln/archipel), ändert das Brett → nur in der Lobby
   plannedPlayers: 2..6,        // Spielerzahl, für die das Brett erzeugt wird (wächst automatisch, wenn mehr beitreten)
   dice: 'manuell'|'auto',      // auto: Server würfelt am Zugbeginn selbst
   robber: 'manuell'|'auto',    // auto: Räuber/Pirat und Opfer werden zufällig/sinnvoll vom Server gewählt
@@ -138,7 +139,7 @@ legal.takeover: {edges:[Kante…], verts:[Ecke…]}    // übernehmbare Infrastr
 `step` in der Lobby = `'lobby'`; `prompt` wie bisher.
 
 ## Neue Aktionen (`POST /api/act`)
-Nur Spielleiter, nur Lobby: `set_settings {settings:{…}}` (Teilobjekt, wird tief gemischt und serverseitig geprüft → bei Fehler `{error}`),
+Nur Spielleiter: `set_settings {settings:{…}}` (im Spiel und nach Spielende ohne Spielfeld-Einstellungen `variant`, `plannedPlayers`, `dense`; Siegpunkte nur über dem höchsten Stand) (Teilobjekt, wird tief gemischt und serverseitig geprüft → bei Fehler `{error}`),
 `regen_board` (neue Vorschau mit denselben Einstellungen), `kick {pid}`, `close_seats {closed:true|false}`.
 Nur Spielleiter, im laufenden Spiel: `end_game` (beendet das Spiel sofort, alle bekommen `stats`).
 Im Spiel: `take_over {kind:'edge'|'vert', key}` (Infrastruktur eines Verlassenen übernehmen, braucht Nachbarschaft zur eigenen Infrastruktur, belegt den „Schiff versetzen“-Zug).

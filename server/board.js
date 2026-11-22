@@ -64,14 +64,14 @@ function drawTerrain(S, rnd) {
 }
 
 // Startkarte je Variante
-function placeIslands(S, n, rnd, variant) {
+function placeIslands(S, n, rnd, variant, dense) {
   const origin = '0,0';
   const land = new Set(), islands = [];
   const near = (k) => { for (const l of land) if (dist(k, l) < 2) return true; return false; };
   const add = (blob) => { blob.forEach((k) => land.add(k)); islands.push(blob); return blob; };
   if (variant === 'inseln') {
     const size = n <= 3 ? 7 : n === 4 ? 6 : 5;
-    const R = Math.ceil(5 / (2 * Math.sin(Math.PI / n))) + 1;
+    const R = dense ? Math.max(3, Math.ceil(4 / (2 * Math.sin(Math.PI / n)))) : Math.ceil(5 / (2 * Math.sin(Math.PI / n))) + 1;
     const ring = [];
     for (let q = -R; q <= R; q++) for (let r = -R; r <= R; r++) if (dist(G.hk(q, r), origin) === R) ring.push(G.hk(q, r));
     const rot = rnd() * Math.PI * 2;
@@ -94,7 +94,7 @@ function placeIslands(S, n, rnd, variant) {
   if (variant === 'archipel') {
     // Viele kleine Inseln, gleichmäßig in einer Scheibe verstreut; jeder darf auf jeder Insel starten
     const K = 5 + 2 * n;
-    const R = Math.ceil(2 * Math.sqrt(K)) + 2;
+    const R = Math.ceil((dense ? 1.5 : 2) * Math.sqrt(K)) + 2;
     for (let i = 0; i < K; i++) {
       const w = rnd();
       const size = w < 0.3 ? 2 : w < 0.65 ? 3 : w < 0.9 ? 4 : 5;
@@ -132,7 +132,7 @@ function placeIslands(S, n, rnd, variant) {
 function generateOnce(S, nPlayers, rnd, settings) {
   const variant = (settings && settings.variant) || 'klassisch';
   S.hexes = {}; S.harbors = {}; S.numBag = []; S.landBag = []; S.robber = null;
-  const L = placeIslands(S, nPlayers, rnd, variant);
+  const L = placeIslands(S, nPlayers, rnd, variant, !!(settings && settings.dense));
   const { land, islands, home } = L;
   // Meer: alles bis zum Aufdeckungsradius um Land ist bekannt
   const sea = new Set();

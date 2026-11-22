@@ -145,7 +145,7 @@
   // Einstellungs-Schema (Vorgaben + Beschriftungen) – auch fuer die Info-Anzeige im Spiel
   // ======================================================================================
   const DEF = {
-    dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
+    dense: false, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
     islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5,
     limits: {
       road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
@@ -154,6 +154,7 @@
       fogChips: Object.fromEntries(CHIPS.map((c) => [c, null])),
     },
   };
+  const depOk = (o, dep) => { const [k, v] = dep.split('='); return v.split('|').includes(String(getp(o, k))); };
   const getp = (o, path) => path.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
   const setp = (o, path, val) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k) => { a = a[k] = a[k] || {}; }); a[ks[ks.length - 1]] = val; return o; };
   const fmtNum = (v) => (v === null ? '∞' : v === 'standard' ? 'Standard' : String(v));
@@ -161,6 +162,9 @@
   function schema() {
     const Art = C.Art;
     return [
+      { id: 'feld', title: 'Spielfeld', board: true, rows: [
+        { path: 'dense', type: 'seg', label: 'Inseln dichter', tip: 'Verringert die Abstände zwischen den Inseln (nur Heimatinsel und Archipel).', dep: 'variant=inseln|archipel', opts: [[false, 'Normal'], [true, 'Dichter']] },
+      ] },
       { id: 'ablauf', title: 'Ablauf', rows: [
         { path: 'dice', type: 'seg', label: 'Auto Ablauf', tip: 'Auto: Der Server würfelt sofort nach Zugende, Hinweise blenden sich selbst aus, Karten fliegen schnell. Manuell: der Spieler klickt „Würfeln“, Hinweise werden weggeklickt, Karten fliegen langsam. Lässt sich im Spiel über das Menü umschalten.', opts: [['manuell', 'Manuell'], ['auto', 'Auto']] },
         { path: 'robber', type: 'seg', label: 'Räuber versetzen', tip: 'Automatisch: Räuber/Pirat und Opfer werden vom Server gewählt.', opts: [['manuell', 'Manuell'], ['auto', 'Automatisch']] },
@@ -216,16 +220,18 @@
     if (r.mini) return `<div class="srow mini" data-row="${r.path}"><span class="sl">${r.icon || ''}${C.esc(r.label)}</span>${ctlHTML(r)}</div>`;
     return `<div class="srow" data-row="${r.path}"${r.dep ? ` data-dep="${r.dep}"` : ''}><span class="sl" ${r.tip ? `title="${C.esc(r.tip)}"` : ''}>${C.esc(r.label)}<small>Standard: ${C.esc(defHint(r))}</small></span>${ctlHTML(r)}</div>`;
   }
-  function panelHTML() {
+  function panelHTML(game) {
     return `<details class="setpanel" open><summary><span>Spieleinstellungen</span><small id="setHint"></small></summary><div class="setbody">` +
-      schema().map((g) => `<section class="sgroup" data-g="${g.id}"><h4>${g.title}</h4>${g.rows.map(rowHTML).join('')}` +
+      schema().filter((g) => !(game && g.board)).map((g) => `<section class="sgroup" data-g="${g.id}"><h4>${g.title}</h4>${g.rows.map(rowHTML).join('')}` +
         (g.subs || []).map((s) => `<details class="subset"><summary>${s.title}</summary><p class="snote">${s.note}</p><div class="sgrid">${s.rows.map(rowHTML).join('')}</div></details>`).join('') + '</section>').join('') +
-      `<div class="setfoot"><button type="button" class="btn small ghostb" id="setReset" title="Alle Regeln und Vorräte auf die Standardwerte zurücksetzen">Standard wiederherstellen</button></div></div></details>`;
+      (game ? '' : `<div class="setfoot"><button type="button" class="btn small ghostb" id="setReset" title="Alle Regeln und Vorräte auf die Standardwerte zurücksetzen">Standard wiederherstellen</button></div>`) + '</div></details>';
   }
 
   // ---- Zustand der Einstellungs-Eingaben (Debounce, lokale Vorrang-Werte) -----------------------
   const ovr = new Map();       // path -> {val, until}  (eigene Eingaben, die der Server noch nicht bestaetigt hat)
   let patch = {}, flushT = 0, lastSettings = null;
+  let sbox = null; // Feld mit dem Einstellungs-Panel (Lobby oder Dialog „Spiel ändern“)
+  const getBox = () => sbox || $('lobbySettings');
   const isHost = () => { const v = C.view(); return !!v && v.host === v.you; };
   const eff = (path) => { const o = ovr.get(path); if (o && o.until > Date.now()) return o.val; return lastSettings ? getp(lastSettings, path) : undefined; };
 
@@ -266,7 +272,7 @@
   }
   function syncSettings(s, force) {
     lastSettings = s;
-    const host = isHost(), box = $('lobbySettings'); if (!box.firstChild) return;
+    const host = isHost(), box = getBox(); if (!box.firstChild) return;
     box.querySelectorAll('.ctl').forEach((ctl) => {
       const path = ctl.dataset.path; let val = eff(path); if (val === undefined) return;
       const busy = ctl.contains(document.activeElement) && ctl.dataset.type === 'num' && !force;
@@ -275,14 +281,13 @@
       const row = ctl.closest('.srow');
       const def = getp(DEF, path); row.classList.toggle('chg', JSON.stringify(val) !== JSON.stringify(def));
       if (!busy) paintCtl(ctl, val);
-      if (row.dataset.dep) { const [dp, dv] = row.dataset.dep.split('='); row.classList.toggle('inactive', String(eff(dp)) !== dv); }
+      if (row.dataset.dep) { const [dp] = row.dataset.dep.split('='); row.classList.toggle('inactive', !depOk({ [dp]: eff(dp) }, row.dataset.dep)); }
     });
     const n = box.querySelectorAll('.srow.chg').length;
-    $('setHint').textContent = (host ? '' : 'nur der Spielleiter kann ändern · ') + (n ? `${n} geändert` : 'Standard');
-    $('setReset').hidden = !host;
+    box.querySelector('#setHint').textContent = (host ? '' : 'nur der Spielleiter kann ändern · ') + (n ? `${n} geändert` : 'Standard');
+    const rs = box.querySelector('#setReset'); if (rs) rs.hidden = !host;
   }
-  function onSettingsEvents() {
-    const box = $('lobbySettings');
+  function onSettingsEvents(box) {
     const cur = (ctl) => { const v = readCtl(ctl); return Number.isFinite(v) ? v : (Number(ctl.dataset.def) || Number(ctl.dataset.min)); };
     const clamp = (ctl, n) => Math.max(Number(ctl.dataset.min), Math.min(Number(ctl.dataset.max), n));
     box.addEventListener('click', (e) => {
@@ -337,7 +342,7 @@
     const all = (s.variant ? `<div class="sum-row"><span>Variante</span><b>${C.esc(VNAME[s.variant] || s.variant)}</b></div>` : '') +
       (s.plannedPlayers ? `<div class="sum-row"><span>Geplante Spieler</span><b>${s.plannedPlayers}</b></div>` : '');
     return `<div class="sum">${all}` + schema().map((g) => {
-      const main = g.rows.filter((r) => !(r.dep && String(getp(s, r.dep.split('=')[0])) !== r.dep.split('=')[1]))
+      const main = g.rows.filter((r) => !(r.dep && !depOk(s, r.dep)))
         .map((r) => { const v = getp(s, r.path); const ch = JSON.stringify(v) !== JSON.stringify(getp(DEF, r.path)); return `<div class="sum-row${ch ? ' chg' : ''}"><span>${C.esc(r.label)}</span><b>${C.esc(fmt(r, v))}</b></div>`; }).join('');
       const subs = (g.subs || []).map((sb) => {
         const parts = sb.rows.map((r) => ({ r, v: getp(s, r.path) })), lim = parts.filter((x) => x.v !== null && x.v !== undefined);
@@ -360,7 +365,7 @@
     if (s.variant && s.variant !== 'klassisch') out.push({ n: 'Variante', v: VNAME[s.variant] || s.variant, d: VNAME.klassisch });
     for (const g of schema()) {
       const add = (r, label) => {
-        if (r.dep && String(getp(s, r.dep.split('=')[0])) !== r.dep.split('=')[1]) return;
+        if (r.dep && !depOk(s, r.dep)) return;
         const v = getp(s, r.path); if (v === undefined) return;
         const d = getp(DEF, r.path);
         if (JSON.stringify(v) !== JSON.stringify(d)) out.push({ n: label, v: fmt(r, v), d: fmt(r, d) });
@@ -464,7 +469,7 @@
   }
 
   function initLobby() {
-    onSettingsEvents();
+    onSettingsEvents($('lobbySettings'));
     $('lobby').addEventListener('click', async (e) => {
       const v = C.view(); if (!v) return;
       const start = e.target.closest('#startBtn');
@@ -492,10 +497,18 @@
     const gend = () => { gd = null; };
     grab.addEventListener('pointerup', gend); grab.addEventListener('pointercancel', gend);
   }
+  // Dasselbe Panel im Dialog „Spiel ändern“ (ohne Spielfeld-Einstellungen)
+  function mountPanel(box) {
+    ovr.clear(); patch = {}; clearTimeout(flushT);
+    sbox = box; box.innerHTML = panelHTML(true); onSettingsEvents(box);
+    const v = C.view(); if (v) syncSettings(v.settings, true);
+  }
+  function unmountPanel() { sbox = null; ovr.clear(); lastSettings = null; }
+  const syncPanel = (s) => { if (sbox && sbox.isConnected) syncSettings(s); };
   const resetLocal = () => { ovr.clear(); patch = {}; clearTimeout(flushT); lastSettings = null; $('lobbySettings').replaceChildren(); };
 
   root.Lobby = {
     init(ctx) { C = ctx; initLogin(); initLobby(); },
-    loginShown, setNotice, renderLobby, summaryHTML, deviations, deviationsHTML, resetLocal, VNAME,
+    mountPanel, unmountPanel, syncPanel, loginShown, setNotice, renderLobby, summaryHTML, deviations, deviationsHTML, resetLocal, VNAME,
   };
 })(typeof self !== 'undefined' ? self : this);

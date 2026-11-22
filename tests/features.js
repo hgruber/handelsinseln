@@ -58,7 +58,7 @@ test('Einstellungen: Standardwerte = bisheriges Verhalten, Prüfung und Zugriffs
   g.act(0, { type: 'set_settings', settings: reset });
   assert.equal('7' in g.S.settings.limits.fogChips, false);
   g.act(0, { type: 'start' });
-  throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 12 } }), /Auto-Ablauf/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { variant: 'nebel' } }), /Spielfeld/);
 });
 
 test('Lobby: Vorschau-Brett vorhanden, neu würfeln, Varianten und Spielerzahl wirken aufs Brett', () => {
@@ -231,11 +231,16 @@ test('Manueller Ablauf: Reihenfolge wird ausgewürfelt (Gleichstand würfelt neu
   assert.equal(a.S.setup.stage, 'settlement'); assert(a.view(0).orderShown, 'Auto zeigt die Reihenfolge ebenfalls');
 });
 
-test('Auto Ablauf: im laufenden Spiel nur vom Spielleiter und nur dice umschaltbar', () => {
+test('Spiel ändern: im laufenden Spiel nur vom Spielleiter, alles außer dem Spielfeld', () => {
   const g = mainBoard(3);
   g.S.ts.rolled = false;
   throws(() => g.act(1, { type: 'set_settings', settings: { dice: 'auto' } }), /Spielleiter/);
-  throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 5 } }), /nur der Auto-Ablauf/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { dense: true } }), /Spielfeld/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { plannedPlayers: 5 } }), /Spielfeld/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 1 } }), /Siegpunkte|ganze Zahlen/);
+  g.act(0, { type: 'set_settings', settings: { winPoints: 20, bankRate: 3, limits: { road: 7, fogChips: { 6: 1 } } } });
+  assert.equal(g.S.settings.winPoints, 20); assert.equal(g.S.settings.bankRate, 3); assert.equal(g.S.settings.limits.road, 7);
+  assert(g.S.log.some((l) => /einstellungen geändert/.test(l.text)));
   g.act(0, { type: 'set_settings', settings: { dice: 'auto' } });
   assert.equal(g.S.settings.dice, 'auto'); assert(g.S.ts.rolled, 'ausstehender Wurf wird sofort ausgeführt');
 });
@@ -655,3 +660,18 @@ test('Karten-Ereignisse (fx): Quelle, Ziel, Sichtbarkeit je Spieler', () => {
 });
 
 console.log(`${passed} Funktionstests bestanden`);
+
+test('Inseln dichter: kleinerer Spielfeldradius bei gleicher Landfläche', () => {
+  const B = require('../server/board.js'), Geo = require('../shared/geom.js');
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  for (const variant of ['inseln', 'archipel']) {
+    const r = { false: 0, true: 0 };
+    for (const dense of [false, true]) {
+      for (let i = 0; i < 20; i++) {
+        const S = {}; B.generate(S, 4, rnd, { variant, dense });
+        r[dense] += Math.max(...Object.keys(S.hexes).filter((k) => S.hexes[k].t !== 'meer').map((k) => { const c = Geo.hexCenter(k); return Math.hypot(c.x, c.y); }));
+      }
+    }
+    assert(r.true < r.false, `${variant}: dichter ist kompakter (${r.true.toFixed(0)} < ${r.false.toFixed(0)})`);
+  }
+});

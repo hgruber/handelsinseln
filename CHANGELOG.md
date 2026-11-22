@@ -4,6 +4,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Spiel ändern:** Der Spielleiter kann im Menü (vor „Spiel beenden“) und in der Statistik alle Einstellungen im laufenden Spiel ändern – außer dem Spielfeld (Variante, Spielerzahl, Inselabstand). Änderungen gelten sofort für alle und werden im Spielverlauf vermerkt; Siegpunkte müssen über dem höchsten Stand liegen. Angepasste Vorräte (Entwicklungskarten, Nebel-Felder/-Chips) berücksichtigen schon Gezogenes bzw. Aufgedecktes nur näherungsweise.
+- **Inseln dichter:** Neue Spielfeld-Einstellung für „Heimatinsel“ und „Archipel“, die die Abstände zwischen den Inseln verringert (gleiche Landfläche, kompakteres Brett).
+
+### Behoben
+- **Spielplan ansehen:** Das Spielfeld ist nicht mehr verschwommen und lässt sich wieder verschieben und zoomen.
+- **„Statistik anzeigen“** hüpft nicht mehr, wenn man mit der Maus darüberfährt.
+
 ## [1.3.0] - 2026-11-22
 
 ### Hinzugefügt
