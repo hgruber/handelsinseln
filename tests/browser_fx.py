@@ -72,6 +72,8 @@ try:
                 post('/api/act', {'token': token, 'type': 'roll'})
             elif v['turn'] == v['you'] and v['step'] == 'setup_settlement' and v['legal']['settlement']:
                 post('/api/act', {'token': token, 'type': 'place_settlement', 'v': v['legal']['settlement'][0]})
+            elif v['step'] == 'gold' and ((v.get('pending') or {}).get('gold') or {}).get(str(v['you'])):
+                post('/api/act', {'token': token, 'type': 'gold_pick', 'cards': {'holz': v['pending']['gold'][str(v['you'])]}})
             elif v['turn'] == v['you'] and v['step'] == 'setup_road':
                 e = (v['legal']['road'] or v['legal']['ship'])[0]
                 post('/api/act', {'token': token, 'type': 'place_road' if v['legal']['road'] else 'place_ship', 'e': e})

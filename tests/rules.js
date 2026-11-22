@@ -321,7 +321,7 @@ test('Lobby: Farbe/Name eindeutig, max. 6, nur Host startet, Reconnect per Token
 
 test('Aufbau: Schlangenreihenfolge, 2. Siedlung bringt Rohstoffe, Aufbau nur auf Startinsel', () => {
   const g = new Game({ rnd: rng(3) });
-  g.join('A', 'rot'); g.join('B', 'blau'); g.act(0, { type: 'start' });
+  g.join('A', 'rot'); g.join('B', 'blau'); g.act(0, { type: 'set_settings', settings: { dice: 'auto' } }); g.act(0, { type: 'start' });
   const S = g.S, order = S.order.slice();
   const seq = [order[0], order[1], order[1], order[0]];
   for (let i = 0; i < 4; i++) {

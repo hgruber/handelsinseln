@@ -374,7 +374,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
   .bn .av { --sz: 26px !important; }
   .bn .btn.small { padding: 3px 8px; font-size: 12px; }
 
-  #players { top: calc(50px + env(safe-area-inset-top)); left: calc(4px + env(safe-area-inset-left)); width: auto; max-width: calc(100vw - 8px); padding: 4px; gap: 6px; overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - var(--bh) - 70px); pointer-events: none; }
+  #players { top: calc(54px + env(safe-area-inset-top)); left: calc(4px + env(safe-area-inset-left)); width: auto; max-width: calc(100vw - 8px); padding: 4px; gap: 6px; overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - var(--bh) - 70px); pointer-events: none; }
   #players > * { pointer-events: auto; }
   .pc { padding: 2px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--pc); gap: 0; cursor: pointer; flex: none; box-shadow: 0 3px 8px rgba(0, 0, 0, .5); }
   .pc .av { --sz: 32px !important; border-width: 1px; }

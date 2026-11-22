@@ -45,8 +45,8 @@ try:
             r = pg.evaluate(RECTS)
             check(r['sw'] <= r['W'], 'keine horizontale Seitenverschiebung')
             check(inside(r['menu'], r['W'], r['H']) and inside(r['bottom'], r['W'], r['H']) and inside(r['banner'], r['W'], r['H']), 'Hamburger, Meldung und Handleiste liegen im Bild')
-            check(r['menu']['l'] < 20 and r['menu']['t'] < 20, 'Hamburger sitzt links oben in der Ecke')
-            check(not overlap(r['menu'], r['banner']) and not overlap(r['banner'], r['bottom']) and not overlap(r['pl'], r['bottom']) and not overlap(r['pl'], r['banner']), 'Hamburger, Meldung, Mitspieler und Handleiste überlappen nicht')
+            check(r['W'] - r['menu']['r'] < 20 and r['menu']['t'] < 20, 'Hamburger sitzt rechts oben in der Ecke')
+            check(not overlap(r['menu'], r['banner']) and not overlap(r['banner'], r['bottom']) and not overlap(r['pl'], r['bottom']) and not overlap(r['pl'], r['banner']), 'Hamburger, Meldung, Mitspieler und Handleiste überlappen nicht ' + str({k: {a: round(c) for a, c in r[k].items()} for k in ('menu', 'banner', 'pl', 'bottom') if r.get(k)}))
             compact = w <= 900 or h <= 520
             if compact:
                 check(r['bottom']['b'] - r['bottom']['t'] <= (100 if h < 520 else 160), 'Handleiste ist niedrig (' + str(round(r['bottom']['b'] - r['bottom']['t'])) + ' px)')
