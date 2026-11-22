@@ -4,6 +4,10 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- Handy: Die sechs Farben auf der Startseite stehen immer in einer Reihe (schrumpfen bei Bedarf, kein Umbruch mehr).
+- Handy: Die Lobby lässt sich am Griff oben an der Spalte stufenlos nach unten ziehen (und wieder hoch), damit das Spielfeld mehr Platz bekommt.
+
 ## [1.1.3] - 2026-11-22
 
 ### Geändert

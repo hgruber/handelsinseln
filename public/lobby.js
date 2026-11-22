@@ -467,6 +467,17 @@
     $('lobbyChatForm').addEventListener('submit', async (e) => { e.preventDefault(); const t = $('lobbyChatIn').value.trim(); if (!t) return; $('lobbyChatIn').value = ''; await C.act('chat', { text: t }); });
     $('lobbyBots').addEventListener('toggle', (e) => { if (e.target.classList.contains('botdrop')) L.botsOpen = e.target.open; }, true); // Auf-/Zuklappen merken, auch wenn die Liste neu gezeichnet wird
     $('leaveBtn').addEventListener('click', () => C.leave());
+    // Handy: Griff oben an der Spalte zieht die Lobby nach unten (grösseres Spielfeld) oder nach oben
+    const grab = $('lbGrab'); let gd = null, raf = 0;
+    grab.addEventListener('pointerdown', (e) => { gd = { y: e.clientY, h: $('lobbyPreview').getBoundingClientRect().height }; grab.setPointerCapture(e.pointerId); e.preventDefault(); });
+    grab.addEventListener('pointermove', (e) => {
+      if (!gd) return;
+      const h = Math.max(120, Math.min(innerHeight - 96, gd.h + e.clientY - gd.y));
+      $('lobby').style.setProperty('--pv', Math.round(h) + 'px');
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; dispatchEvent(new Event('resize')); });
+    });
+    const gend = () => { gd = null; };
+    grab.addEventListener('pointerup', gend); grab.addEventListener('pointercancel', gend);
   }
   const resetLocal = () => { ovr.clear(); patch = {}; clearTimeout(flushT); lastSettings = null; $('lobbySettings').replaceChildren(); };
 
