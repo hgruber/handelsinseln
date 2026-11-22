@@ -56,8 +56,6 @@ svg { display: block; }
 @keyframes shim { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
 .bob { animation: bob 3.4s ease-in-out infinite; }
 @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-1.2deg); } 50% { transform: translateY(-2px) rotate(1.2deg); } }
-.sway { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 2.8s ease-in-out infinite; }
-@keyframes sway { 0%, 100% { transform: skewX(-2.5deg) scaleX(1); } 50% { transform: skewX(3deg) scaleX(1.03); } }
 .wake { animation: wk 2.6s ease-in-out infinite; }
 @keyframes wk { 0%, 100% { opacity: .2; } 50% { opacity: .8; } }
 

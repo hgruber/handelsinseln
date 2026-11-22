@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Räuber:** Der Mantel schwingt nicht mehr (Animation `sway` entfernt); der Räuber steht ruhig.
+
 ## [1.1.2] - 2026-11-22
 
 ### Geändert

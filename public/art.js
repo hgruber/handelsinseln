@@ -275,7 +275,7 @@
       `<path class="wake" d="M-34,10 q8,-5 16,0 M-38,15 q10,-6 20,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
       stone('schiff', -31, -58, 62, 66, c) + `</g>`;
   }
-  const robber = () => sh(17, 5.5, 1) + stone('raeuber', -26.5, -69, 53, 69, null, 'sway');
+  const robber = () => sh(17, 5.5, 1) + stone('raeuber', -26.5, -69, 53, 69);
   function pirate() {
     return `<ellipse cy="11" rx="40" ry="7" fill="#000" opacity=".35"/><g class="bob">` +
       `<path class="wake" d="M-26,8 q6,-4 12,0 M-30,12 q8,-5 16,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
