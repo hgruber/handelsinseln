@@ -68,7 +68,9 @@ try:
         while time.time() - t0 < 200:
             v = view(token)
             if v['phase'] == 'main': break
-            if v['turn'] == v['you'] and v['step'] == 'setup_settlement' and v['legal']['settlement']:
+            if v['turn'] == v['you'] and v['step'] == 'setup_order':
+                post('/api/act', {'token': token, 'type': 'roll'})
+            elif v['turn'] == v['you'] and v['step'] == 'setup_settlement' and v['legal']['settlement']:
                 post('/api/act', {'token': token, 'type': 'place_settlement', 'v': v['legal']['settlement'][0]})
             elif v['turn'] == v['you'] and v['step'] == 'setup_road':
                 e = (v['legal']['road'] or v['legal']['ship'])[0]

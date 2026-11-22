@@ -135,6 +135,7 @@ function botPlay(game, pid, opts = {}) {
   if (active !== pid) return false;
 
   // ---------- Aufbau ----------
+  if (v.step === 'setup_order') return act({ type: 'roll' });
   if (v.step === 'setup_settlement') return act({ type: 'place_settlement', v: bestOf(L.settlement, vscore) });
   if (v.step === 'setup_road') {
     const last = S.setup.last;

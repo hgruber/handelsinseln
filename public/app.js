@@ -47,6 +47,8 @@
   const costChips = (kind) => RES.filter((r) => COST[kind][r]).map((r) => `<span class="cc">${Art.res(r, 16)}${COST[kind][r] > 1 ? '<b>' + COST[kind][r] + '</b>' : ''}</span>`).join('');
   const isMe = () => st.view && st.view.turn === st.view.you;
   const setg = () => (st.view && st.view.settings) || {};
+  // Auto-Ablauf (Einstellung „dice“): Hinweise verschwinden von selbst, Karten fliegen schnell; sonst Klick zum Wegklicken und langsamere Animation
+  const autoFlow = () => setg().dice === 'auto';
   const autoRobber = () => setg().robber === 'auto';
   const fmtLeft = (n) => (n >= 900 ? '∞' : String(n));
 
@@ -57,7 +59,10 @@
     const box = $('toasts'); box.appendChild(t);
     while (box.children.length > 4) box.firstChild.remove();
     const id = ++toastN; void id;
-    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 400); }, 4200);
+    const close = () => { t.classList.add('out'); setTimeout(() => t.remove(), 400); };
+    const live = st.view && (st.view.phase === 'main' || st.view.phase === 'setup');
+    if (live && !autoFlow() && kind !== 'err') { t.classList.add('sticky'); t.title = 'Zum Schließen klicken'; t.addEventListener('click', close); }
+    else setTimeout(close, 4200);
   }
 
   // ======================================================================================
@@ -166,8 +171,9 @@
     // Wuerfel
     const seq = v.diceSeq || 0;
     if (st.lastSeq == null) { setDice(v.dice, false); }
-    else if (seq !== st.lastSeq) { setDice(v.dice, true); if (v.dice) pulseNumber(v.dice[0] + v.dice[1]); }
+    else if (seq !== st.lastSeq) { setDice(v.dice, true); if (v.dice && v.phase === 'main') pulseNumber(v.dice[0] + v.dice[1]); }
     st.lastSeq = seq;
+    showOrder(v.orderShown);
     Fx.play(v); // Kartenanimation (Quelle → Ziel)
     showDev(v.devShown);
     void old;
@@ -185,7 +191,23 @@
     o.style.setProperty('--pc', colorOf(d.by));
     o.innerHTML = `<div class="ds-card">${Art.dev(d.type, 140)}<b>${esc(Art.DEV_NAMES[d.type])}</b></div><div class="ds-who">${esc(p ? p.name : '')}</div>`;
     document.body.appendChild(o);
-    setTimeout(() => o.remove(), 2000);
+    if (autoFlow()) setTimeout(() => o.remove(), 2000);
+    else { o.classList.add('manual'); o.insertAdjacentHTML('beforeend', '<div class="ds-hint">Klicken zum Schließen</div>'); o.addEventListener('click', () => o.remove()); }
+  }
+
+  // Feststehende Spielreihenfolge als Info-Fenster für alle (Auto: kurz, Manuell: bis zum Klick)
+  function showOrder(o) {
+    if (!o) { st.orderSeen = st.orderSeen || 0; return; }
+    if (st.orderSeen === undefined) { st.orderSeen = o.id; return; }
+    if (o.id < st.orderSeen) st.orderSeen = o.id - 1; // neues Spiel
+    if (o.id <= st.orderSeen) return;
+    st.orderSeen = o.id;
+    const v = V();
+    const el = document.createElement('div'); el.className = 'devshow ordshow';
+    el.innerHTML = `<div class="ds-card ord"><b>Spielreihenfolge</b><ol>${o.order.map((pid) => `<li style="--pc:${colorOf(pid)}">${avatar(pid, 34)}<span>${esc(v.players[pid] ? v.players[pid].name : '')}</span></li>`).join('')}</ol></div>`;
+    document.body.appendChild(el);
+    if (autoFlow()) setTimeout(() => el.remove(), 3500);
+    else { el.classList.add('manual'); el.insertAdjacentHTML('beforeend', '<div class="ds-hint">Klicken zum Schließen</div>'); el.addEventListener('click', () => el.remove()); }
   }
 
   // ======================================================================================
@@ -555,7 +577,7 @@
     const tradeHas = !!$('tradeDock').innerHTML;
     hud.classList.toggle('side-open', st.logOpen || tradeHas);
     hud.classList.toggle('log-open', st.logOpen);
-    $('build').hidden = $('dicebox').hidden = v.phase === 'setup';
+    $('build').hidden = v.phase === 'setup'; $('dicebox').hidden = v.phase === 'setup' && v.step !== 'setup_order';
     renderBanner(v); renderPlayers(v); renderHand(v); renderBuild(v); renderPrimary(v); renderLog(v);
     Trade.render();
     renderModal(v);
@@ -672,7 +694,8 @@
   function renderPrimary(v) {
     const you = isMe(); let html = '';
     if (v.phase === 'ended') html = '';
-    else if (you && v.step === 'roll') html = setg().dice === 'auto' ? '<div class="waitbox autodice" title="Der Server würfelt am Zugbeginn automatisch.">Würfelt automatisch …</div>' : '<button class="btn gold huge pulsing" data-a="roll">Würfeln</button>';
+    else if (you && v.step === 'roll') html = autoFlow() ? '<div class="waitbox autodice" title="Der Server würfelt am Zugbeginn automatisch.">Würfelt automatisch …</div>' : '<button class="btn gold huge pulsing" data-a="roll">Würfeln</button>';
+    else if (you && v.step === 'setup_order') html = '<button class="btn gold huge pulsing" data-a="roll">Würfeln</button>';
     else if (you && v.step === 'main') html = '<button class="btn gold big" data-a="end">Zug beenden</button>';
     else if (you && v.step === 'sbp') html = '<button class="btn gold big" data-a="sbp_done">Fertig</button>';
     else if (you) html = '';
@@ -698,7 +721,7 @@
     if (st.seenChat < 0) st.seenChat = lastId;
     if (st.tab === 'chat') st.seenChat = lastId;
     $('chatDot').hidden = !(lastId > st.seenChat);
-    const dv = Lobby.deviations(v.settings); setHTML($('rulesList'), Lobby.deviationsHTML(v.settings)); $('rulesTab').textContent = dv.length ? `Regeln (${dv.length})` : 'Regeln';
+    const dv = Lobby.deviations(v.settings); setHTML($('rulesList'), `<h4 class="rl-h">Einstellungen dieser Partie</h4>${Lobby.deviationsHTML(v.settings)}<h4 class="rl-h">Spielregeln</h4>${Regeln.html()}`); $('rulesTab').textContent = dv.length ? `Regeln (${dv.length})` : 'Regeln';
     logEl.hidden = st.tab !== 'log'; chatEl.hidden = st.tab !== 'chat'; $('rulesList').hidden = st.tab !== 'rules';
     document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.classList.toggle('on', b.dataset.tab === st.tab));
     $('sideToggle').textContent = st.logOpen ? '›' : '‹';
@@ -924,7 +947,8 @@
     const ctx = { get mockLogin() { return st.loginMock; }, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
-    Fx.init({ Art, hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
+    Regeln.init({ Art, costChips, settings: setg });
+    Fx.init({ Art, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
     Trade.init({ root: $('tradeDock'), view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
     const mock = q.get('mock');

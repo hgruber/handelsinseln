@@ -75,12 +75,14 @@
       fit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4,9 V4 H9 M15,4 H20 V9 M20,15 V20 H15 M9,20 H4 V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>',
       mic: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5,11 a6.5,6.5 0 0 0 13,0 M12,17.5 V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       exit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M10,4 H5 V20 H10 M14,8 L19,12 L14,16 M19,12 H9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      flow: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7,5 L19,12 L7,19z" fill="currentColor"/></svg>',
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
     };
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
     pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') +
       item('voice', I.mic, joined ? 'Sprachchat verlassen' : 'Sprachchat beitreten') +
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
+      (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
@@ -101,6 +103,7 @@
     else if (id === 'help') C.help();
     else if (id === 'sound') root.Sound.toggle();
     else if (id === 'fit') C.fit();
+    else if (id === 'flow') { const v = C.view(); await C.act('set_settings', { settings: { dice: v.settings.dice === 'auto' ? 'manuell' : 'auto' } }); }
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
     else if (id === 'leave') leaveGame();
   }

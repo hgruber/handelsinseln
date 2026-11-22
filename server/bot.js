@@ -41,6 +41,7 @@ function botAct(game, pid, opts = {}) {
 
   if (v.turn !== pid) return false;
   switch (v.step) {
+    case 'setup_order': return act({ type: 'roll' });
     case 'setup_settlement': return act({ type: 'place_settlement', v: pick(L.settlement, rnd) });
     case 'setup_road': {
       const opts2 = [...L.road.map((e) => ['place_road', e]), ...L.ship.map((e) => ['place_ship', e])];

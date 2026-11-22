@@ -88,6 +88,9 @@ try:
         A.screenshot(path=f'{SHOTS}/04-spiel-host.png')
         check(A.locator('#hud:not([hidden])').count() == 1, 'Spiel läuft im Browser des Hosts')
 
+        # Info-Fenster (manueller Ablauf: Spielreihenfolge) wegklicken
+        for pg in (A, B):
+            if pg.locator('.devshow.manual').count(): pg.locator('.devshow.manual').first.click()
         # --- Gast verlässt über das Menü mitten im Spiel
         B.click('#btnMenu'); B.click('[data-mi=leave]')
         B.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); B.click('#dlgRoot [data-d=yes]')

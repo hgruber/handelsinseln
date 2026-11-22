@@ -4,6 +4,17 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Avatare:** 8 neue Menschen-Typen (Kapitän, Piratin, Matrose, Forscherin, Händler, Navigatorin, Fischer, Schiffsjunge), mit Flux gemalt – insgesamt 16 wählbare Avatare.
+- **Regeln-Reiter:** Unter den abweichenden Einstellungen stehen jetzt die ausführlichen, bebilderten Spielregeln (Ziel, Aufbau, Zug, Gelände, Kosten, Handel, Räuber/Pirat, Entwicklungskarten, Handelsinseln).
+- **Spielreihenfolge:** Im manuellen Ablauf wird die Startreihenfolge ausgewürfelt (Gleichstand würfelt neu); die feststehende Reihenfolge wird in beiden Modi allen als Info-Fenster gezeigt.
+
+### Geändert
+- **Auto Ablauf:** „Würfeln“ heißt jetzt „Auto Ablauf“ und steuert mehr. Auto: sofort nach Zugende gewürfelt, Hinweise und Ereignisfenster (Entwicklungskarte, Spielreihenfolge) blenden sich selbst aus, Karten fliegen wie bisher. Manuell: Spieler löst den Wurf aus, Hinweise und Ereignisfenster werden weggeklickt, Karten fliegen deutlich langsamer und wachsen im Flug auf doppelte Größe. Der Spielleiter kann den Schalter als einzigen im laufenden Spiel über das Spielmenü umstellen.
+- Spielmenü (Hamburger) sitzt jetzt rechts, links neben dem Protokoll/Chat/Regeln-Fenster.
+- Info- und Ereignisfenster in der Bildschirmmitte machen den Hintergrund nicht mehr unscharf.
+- Lobby: Der gestrichelte Rahmen um das Inselbrett entfällt.
+
 ## [1.1.4] - 2026-11-22
 
 ### Geändert

@@ -58,7 +58,7 @@ test('Einstellungen: Standardwerte = bisheriges Verhalten, Prüfung und Zugriffs
   g.act(0, { type: 'set_settings', settings: reset });
   assert.equal('7' in g.S.settings.limits.fogChips, false);
   g.act(0, { type: 'start' });
-  throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 12 } }), /vor Spielbeginn/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 12 } }), /Auto-Ablauf/);
 });
 
 test('Lobby: Vorschau-Brett vorhanden, neu würfeln, Varianten und Spielerzahl wirken aufs Brett', () => {
@@ -216,6 +216,28 @@ test('Siegpunkte, Handlimit, Bankkurs, Minima, Spielerhandel aus Einstellungen',
   g3.rnd = (() => { const seq = [0.5, 0.34]; let i = 0; return () => seq[i++ % 2]; })();
   g3.act(0, { type: 'roll' });
   assert.deepEqual(g3.S.pend.discard, {}, 'unbegrenzt: niemand wirft ab');
+});
+
+test('Manueller Ablauf: Reihenfolge wird ausgewürfelt (Gleichstand würfelt neu), Auto: sofort; Reihenfolge wird allen angezeigt', () => {
+  const g = lobby(3, 21);
+  g.act(0, { type: 'start' });
+  assert.equal(g.S.setup.stage, 'order'); assert.equal(g.view(0).step, 'setup_order');
+  throws(() => g.act(g.S.turn, { type: 'place_settlement', v: '0' }), /ausgewürfelt/);
+  let guard = 0;
+  while (g.S.setup.stage === 'order' && guard++ < 60) g.act(g.S.turn, { type: 'roll' });
+  assert.equal(g.S.setup.stage, 'settlement'); assert.equal([...g.S.order].sort().join(), '0,1,2');
+  assert.deepEqual(g.view(1).orderShown.order, g.S.order); assert.equal(g.S.turn, g.S.order[0]);
+  const a = lobby(2, 22); a.act(0, { type: 'set_settings', settings: { dice: 'auto' } }); a.act(0, { type: 'start' });
+  assert.equal(a.S.setup.stage, 'settlement'); assert(a.view(0).orderShown, 'Auto zeigt die Reihenfolge ebenfalls');
+});
+
+test('Auto Ablauf: im laufenden Spiel nur vom Spielleiter und nur dice umschaltbar', () => {
+  const g = mainBoard(3);
+  g.S.ts.rolled = false;
+  throws(() => g.act(1, { type: 'set_settings', settings: { dice: 'auto' } }), /Spielleiter/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 5 } }), /nur der Auto-Ablauf/);
+  g.act(0, { type: 'set_settings', settings: { dice: 'auto' } });
+  assert.equal(g.S.settings.dice, 'auto'); assert(g.S.ts.rolled, 'ausstehender Wurf wird sofort ausgeführt');
 });
 
 test('Auto-Würfeln: Zug beginnt mit Wurf; manuelles Würfeln wird abgelehnt', () => {

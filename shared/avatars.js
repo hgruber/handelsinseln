@@ -5,6 +5,9 @@
     { id: 'fuchs', name: 'Kapitän Fuchs' }, { id: 'eule', name: 'Eule mit Fernrohr' }, { id: 'otter', name: 'Matrosen-Otter' },
     { id: 'pinguin', name: 'Rettungsring-Pinguin' }, { id: 'krake', name: 'Kraken-Käpt\'n' }, { id: 'robbe', name: 'Mützen-Robbe' },
     { id: 'moewe', name: 'Brötchen-Möwe' }, { id: 'krabbe', name: 'Krabbe Klaus' },
+    { id: 'kapitaen', name: 'Alter Kapitän' }, { id: 'piratin', name: 'Piratin mit Augenklappe' }, { id: 'matrose', name: 'Matrose' },
+    { id: 'forscherin', name: 'Forscherin mit Fernrohr' }, { id: 'haendler', name: 'Pfeffersack-Händler' }, { id: 'navigatorin', name: 'Navigatorin mit Kompass' },
+    { id: 'fischer', name: 'Fischer mit Pfeife' }, { id: 'junge', name: 'Schiffsjunge' },
   ];
   // Bots: feste Avatare, Namen und Spielstil; Menschen können sie nicht wählen
   const BOTS = {

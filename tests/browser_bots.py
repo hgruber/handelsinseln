@@ -39,7 +39,7 @@ try:
 
         # --- Anmeldung: Avatar-Auswahl
         A.wait_for_selector('#avatars .avb')
-        check(A.locator('#avatars .avb').count() == 8, 'Anmeldung zeigt 8 wählbare Avatare')
+        check(A.locator('#avatars .avb').count() == 16, 'Anmeldung zeigt 16 wählbare Avatare')
         check(A.locator('#avatars .avb.on').count() == 1, 'ein Avatar ist zufällig vorgewählt')
         imgs_ok = A.eval_on_selector_all('#avatars img', 'els => els.every(i => i.complete && i.naturalWidth > 0)')
         check(imgs_ok, 'alle Avatar-Bilder laden')

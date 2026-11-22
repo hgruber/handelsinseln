@@ -149,7 +149,7 @@
     const Art = C.Art;
     return [
       { id: 'ablauf', title: 'Ablauf', rows: [
-        { path: 'dice', type: 'seg', label: 'Würfeln', tip: 'Manuell: der Spieler klickt „Würfeln“. Automatisch: der Server würfelt am Zugbeginn.', opts: [['manuell', 'Manuell'], ['auto', 'Automatisch']] },
+        { path: 'dice', type: 'seg', label: 'Auto Ablauf', tip: 'Auto: Der Server würfelt sofort nach Zugende, Hinweise blenden sich selbst aus, Karten fliegen schnell. Manuell: der Spieler klickt „Würfeln“, Hinweise werden weggeklickt, Karten fliegen langsam. Lässt sich im Spiel über das Menü umschalten.', opts: [['manuell', 'Manuell'], ['auto', 'Auto']] },
         { path: 'robber', type: 'seg', label: 'Räuber versetzen', tip: 'Automatisch: Räuber/Pirat und Opfer werden vom Server gewählt.', opts: [['manuell', 'Manuell'], ['auto', 'Automatisch']] },
         { path: 'playerTrade', type: 'seg', label: 'Spielerhandel', tip: 'Aus: nur Handel mit der Bank.', opts: [[true, 'Erlaubt'], [false, 'Nur Bank']] },
       ] },

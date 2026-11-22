@@ -69,6 +69,7 @@ try:
         while time.time() - t0 < SECS:
             time.sleep(0.25)
             # Modale (Abwerfen, Gold, Stehlen, Sieger)
+            if n('.devshow.manual'): click('.devshow.manual'); continue  # Ereignis-/Info-Fenster (manueller Ablauf) wegklicken
             if n('[data-m=discard]'):
                 if not enabled('[data-m=discard]'): click('[data-m=refill]')
                 if click('[data-m=discard]'): note('abgeworfen')

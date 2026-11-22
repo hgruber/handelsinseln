@@ -229,8 +229,15 @@ class Game {
     if (this.S.phase !== 'lobby') fail('Das geht nur vor Spielbeginn.');
   }
   setSettings(pid, patch) {
-    this.hostOnly(pid, 'die Einstellungen ändern');
     const S = this.S;
+    // Während des Spiels darf der Spielleiter nur den Auto-Ablauf (dice) umschalten
+    if (S.phase !== 'lobby') {
+      if (pid !== S.host) fail('Nur der Spielleiter kann den Ablauf ändern.');
+      if (S.phase === 'ended' || !patch || typeof patch !== 'object' || Object.keys(patch).some((k) => k !== 'dice')) fail('Im Spiel lässt sich nur der Auto-Ablauf ändern.');
+      S.settings = ST.merge(S.settings, patch); S.v++; this.settle();
+      return;
+    }
+    this.hostOnly(pid, 'die Einstellungen ändern');
     let ns;
     try { ns = ST.merge(S.settings, patch); } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
     if (ns.plannedPlayers < S.players.length) ns.plannedPlayers = S.players.length;
@@ -289,15 +296,45 @@ class Game {
     S.fogGold = set.variant === 'nebel' ? 2.2 : set.variant === 'archipel' ? 1.6 : 1;
     this.buildDeck(n);
     S.order = B.shuffle([...Array(n).keys()], this.rnd);
-    S.phase = 'setup';
+    S.phase = 'setup'; S.dice = null;
+    S.stats = { startedAt: Date.now(), endedAt: null, rolls: {}, history: [], players: S.players.map(() => ({ built: { road: 0, ship: 0, settlement: 0, city: 0, dev: 0 }, produced: { holz: 0, lehm: 0, wolle: 0, getreide: 0, erz: 0 }, tradesPlayer: 0, tradesBank: 0, stolenFrom: 0, stolenBy: 0, discarded: 0, robberMoves: 0, sevens: 0, discovered: 0, maxRoute: 0 })) };
+    this.log(`Das Spiel beginnt! Erster mit ${set.winPoints} Punkten gewinnt.`, 'sys');
+    this.log('Aufbau: Jeder setzt zwei Siedlungen samt Straße oder Schiff (die zweite in umgekehrter Reihenfolge) und erhält dafür Startrohstoffe.', 'sys');
+    if (set.dice === 'auto') this.orderDone();
+    else {
+      // manueller Ablauf: die Reihenfolge wird ausgewürfelt (Gleichstände würfeln unter sich neu)
+      S.setup = { seq: null, i: 0, stage: 'order', last: null, ord: { groups: [S.order.slice()], cur: S.order.slice(), rolled: {}, idx: 0 } };
+      S.turn = S.order[0];
+      this.log('Die Reihenfolge wird ausgewürfelt: Wer die höchste Augenzahl wirft, beginnt.', 'sys');
+    }
+    S.v++;
+    this.settle();
+  }
+  // Reihenfolge steht fest: allen anzeigen und mit dem Aufbau beginnen
+  orderDone() {
+    const S = this.S;
     const seq = [...S.order, ...S.order.slice().reverse()];
     S.setup = { seq, i: 0, stage: 'settlement', last: null };
     S.turn = seq[0];
-    S.stats = { startedAt: Date.now(), endedAt: null, rolls: {}, history: [], players: S.players.map(() => ({ built: { road: 0, ship: 0, settlement: 0, city: 0, dev: 0 }, produced: { holz: 0, lehm: 0, wolle: 0, getreide: 0, erz: 0 }, tradesPlayer: 0, tradesBank: 0, stolenFrom: 0, stolenBy: 0, discarded: 0, robberMoves: 0, sevens: 0, discovered: 0, maxRoute: 0 })) };
-    this.log(`Das Spiel beginnt! Reihenfolge: ${S.order.map((i) => this.name(i)).join(' → ')}. Erster mit ${set.winPoints} Punkten gewinnt.`, 'sys');
-    this.log('Aufbau: Jeder setzt zwei Siedlungen samt Straße oder Schiff (die zweite in umgekehrter Reihenfolge) und erhält dafür Startrohstoffe.', 'sys');
-    S.v++;
-    this.settle();
+    S.orderSeq = (S.orderSeq || 0) + 1; S.orderShown = { id: S.orderSeq, order: S.order.slice() };
+    this.log(`Reihenfolge: ${S.order.map((i) => this.name(i)).join(' → ')}.`, 'sys');
+  }
+  orderRoll(pid) {
+    const S = this.S, o = S.setup.ord;
+    const a = 1 + Math.floor(this.rnd() * 6), b = 1 + Math.floor(this.rnd() * 6);
+    S.dice = [a, b]; S.diceSeq++;
+    o.rolled[pid] = a + b; o.idx++;
+    this.log(`${this.name(pid)} würfelt ${a + b} (${a}+${b}) um die Reihenfolge.`, 'roll', pid);
+    if (o.idx < o.cur.length) { S.turn = o.cur[o.idx]; return; }
+    // Runde vollständig: Gruppe nach Augenzahl aufteilen
+    const byVal = {}; o.cur.forEach((p) => { (byVal[o.rolled[p]] = byVal[o.rolled[p]] || []).push(p); });
+    const parts = Object.keys(byVal).map(Number).sort((x, y) => y - x).map((k) => byVal[k]);
+    const gi = o.groups.findIndex((g) => g === o.cur || (g.length === o.cur.length && g.every((p) => o.cur.includes(p))));
+    o.groups.splice(gi, 1, ...parts);
+    const next = o.groups.find((g) => g.length > 1);
+    if (!next) { S.order = o.groups.flat(); this.orderDone(); return; }
+    o.cur = next.slice(); o.rolled = {}; o.idx = 0; S.turn = o.cur[0];
+    this.log(`Gleichstand zwischen ${o.cur.map((p) => this.name(p)).join(', ')} – sie würfeln noch einmal.`, 'sys');
   }
 
   endGame(pid) {
@@ -517,6 +554,11 @@ class Game {
 
   setupAct(pid, a) {
     const S = this.S, su = S.setup;
+    if (su.stage === 'order') {
+      if (pid !== S.turn) fail(`${this.name(S.turn)} würfelt gerade um die Reihenfolge.`);
+      if (a.type !== 'roll') fail('Zuerst wird die Reihenfolge ausgewürfelt.');
+      return this.orderRoll(pid);
+    }
     if (!this.noPending()) fail('Zuerst müssen alle ihre Goldwahl treffen.');
     if (pid !== S.turn) fail(`${this.name(S.turn)} ist beim Aufbau an der Reihe.`);
     if (su.stage === 'settlement') {
@@ -1023,6 +1065,7 @@ class Game {
   }
   autoSetup(pid) {
     const S = this.S, su = S.setup;
+    if (su.stage === 'order') return this.setupAct(pid, { type: 'roll' });
     if (su.stage === 'settlement') {
       const spots = this.settlementSpots(pid);
       this.setupAct(pid, { type: 'place_settlement', v: spots[Math.floor(this.rnd() * spots.length)] });
@@ -1210,7 +1253,7 @@ class Game {
     if (S.phase === 'ended') return 'ended';
     if (Object.keys(S.pend.discard).length) return 'discard';
     if (Object.keys(S.pend.gold).length) return 'gold';
-    if (S.phase === 'setup') return S.setup.stage === 'settlement' ? 'setup_settlement' : 'setup_road';
+    if (S.phase === 'setup') return S.setup.stage === 'order' ? 'setup_order' : S.setup.stage === 'settlement' ? 'setup_settlement' : 'setup_road';
     if (S.sbp) return 'sbp';
     if (S.ts.sub) return S.ts.sub;
     return S.ts.rolled ? 'main' : 'roll';
@@ -1225,6 +1268,7 @@ class Game {
       case 'ended': return `${S.winner !== null ? this.name(S.winner) : ''} hat gewonnen!`;
       case 'discard': return S.pend.discard[pid] ? `Eine 7! Wirf ${S.pend.discard[pid]} Karten ab.` : 'Warte, bis alle Karten abgeworfen haben …';
       case 'gold': return S.pend.gold[pid] ? `Gold! Wähle ${S.pend.gold[pid]} beliebige${S.pend.gold[pid] > 1 ? '' : 'n'} Rohstoff${S.pend.gold[pid] > 1 ? 'e' : ''}.` : 'Warte auf die Goldwahl der anderen …';
+      case 'setup_order': return me ? 'Würfle um die Reihenfolge – die höchste Augenzahl beginnt.' : `${tn} würfelt um die Reihenfolge.`;
       case 'setup_settlement': return me ? `Setze deine ${S.setup.i >= S.order.length ? 'zweite' : 'erste'} Siedlung.` : `${tn} setzt eine Siedlung.`;
       case 'setup_road': return me ? 'Setze eine Straße oder (an der Küste) ein Schiff an deine neue Siedlung.' : `${tn} setzt eine Straße oder ein Schiff.`;
       case 'roll': return me ? 'Du bist dran – würfle! (Vorher darfst du eine Entwicklungskarte spielen.)' : `${tn} ist am Zug.`;
@@ -1252,7 +1296,7 @@ class Game {
         left: S.phase === 'lobby' ? { road: this.lim('road') === Infinity ? UNLIMITED : this.lim('road'), ship: this.lim('ship') === Infinity ? UNLIMITED : this.lim('ship'), settlement: this.lim('settlement') === Infinity ? UNLIMITED : this.lim('settlement'), city: this.lim('city') === Infinity ? UNLIMITED : this.lim('city') } : this.left(p.id),
         ...(S.pend.discard[p.id] ? { discarding: S.pend.discard[p.id] } : {}), ...(S.pend.gold[p.id] ? { pickingGold: S.pend.gold[p.id] } : {}),
       })),
-      order: S.order, turn, step, dice: S.dice, diceSeq: S.diceSeq, devShown: S.devShown || null,
+      order: S.order, turn, step, dice: S.dice, diceSeq: S.diceSeq, devShown: S.devShown || null, orderShown: S.orderShown || null, orderRolls: S.setup && S.setup.ord ? S.setup.ord.rolled : null,
       hexes: Object.keys(S.hexes).map((k) => ({ k, t: S.hexes[k].t, n: S.hexes[k].n })),
       fog: B.fog(S),
       harbors: Object.keys(S.harbors).map((e) => {
