@@ -7,7 +7,7 @@ Server: `node server/server.js` (Port 8080, keine npm-Abhängigkeiten). Statisch
 - `GET  /api/lobby` → `{phase, players:[{name,color}], takenColors:[..], maxPlayers:6}` (ohne Anmeldung)
 - `POST /api/join` `{name, color, token?}` → `{token, pid}` oder `{error}` (HTTP 400). Mit bekanntem `token`
   wird die Sitzung wieder aufgenommen (Reconnect). Token im `localStorage` speichern.
-- `GET  /api/events?token=T` → Server-Sent-Events. Event `state` (JSON = View, siehe unten) bei jeder Änderung,
+- `GET  /api/events?token=T[&table=1]` → Server-Sent-Events (mit `table=1` und `settings.table`, nur Spielleiter: zusätzlich Event `table` {views:[View je Spieler]}; `act` darf dann `as:<Spieler>` mitsenden = Handeln im Namen eines Mitspielers). Event `state` (JSON = View, siehe unten) bei jeder Änderung,
   sofort nach Verbindungsaufbau einmal. Event `ping` alle 20 s. `EventSource` verbindet selbst neu.
   Ist der Token unbekannt (Server neu gestartet), antwortet der Server mit HTTP 401 → Client zurück zum Anmeldebildschirm.
 - `POST /api/act` `{token, type, ...params}` → `{ok:true}` oder `{error:"deutscher Text"}` (HTTP 400, als Toast zeigen).

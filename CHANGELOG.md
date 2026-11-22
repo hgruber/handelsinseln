@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Digitaler Spieltisch** (Menü, nur Spielleiter, jederzeit im Spiel ein-/ausschaltbar): Der Browser des Spielleiters wird zur Tischplatte und handelt zusätzlich für alle Spieler. Das Spielfeld ist zentriert, Zoomen ist möglich, springt aber wieder zurück, sodass das ganze Feld sichtbar bleibt. Die Rohstoffleiste jedes Spielers sitzt je nach Spielerzahl verteilt am Bildschirmrand und ist zur Sitzposition gedreht (oben auf dem Kopf); Menü und Handel des Spielers am Zug erscheinen in seiner Leiste, bei einem Handelsangebot bekommt jeder Mitspieler ein eigenes Menü an seinem Platz (Annehmen/Ablehnen; Gegenangebote nur am eigenen Gerät). Stehlen und Abwerfen werden auf dem Tisch verdeckt animiert, Meldungen und Würfel bleiben in der Bildschirmmitte. Pflichten (Abwerfen, Gold) werden nacheinander je Spieler abgefragt.
 - **Spiel ändern:** Der Spielleiter kann im Menü (vor „Spiel beenden“) und in der Statistik alle Einstellungen im laufenden Spiel ändern – außer dem Spielfeld (Variante, Spielerzahl, Inselabstand). Änderungen gelten sofort für alle und werden im Spielverlauf vermerkt; Siegpunkte müssen über dem höchsten Stand liegen. Angepasste Vorräte (Entwicklungskarten, Nebel-Felder/-Chips) berücksichtigen schon Gezogenes bzw. Aufgedecktes nur näherungsweise.
 - **Inseln dichter:** Neue Spielfeld-Einstellung für „Heimatinsel“ und „Archipel“, die die Abstände zwischen den Inseln verringert (gleiche Landfläche, kompakteres Brett).
 

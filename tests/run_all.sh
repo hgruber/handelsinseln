@@ -20,4 +20,5 @@ run "Browser Kartenanimation" python3 tests/browser_fx.py
 run "Browser Bots+Avatare" python3 tests/browser_bots.py
 run "Bot-Turnier 3"        node tests/bots.js 3
 run "Browser Übernahme"     python3 tests/browser_takeover.py
+run "Browser Spieltisch"    python3 tests/browser_table.py
 exit $fail

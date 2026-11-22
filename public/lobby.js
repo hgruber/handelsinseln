@@ -232,7 +232,7 @@
   let patch = {}, flushT = 0, lastSettings = null;
   let sbox = null; // Feld mit dem Einstellungs-Panel (Lobby oder Dialog „Spiel ändern“)
   const getBox = () => sbox || $('lobbySettings');
-  const isHost = () => { const v = C.view(); return !!v && v.host === v.you; };
+  const isHost = () => { const v = C.view(); return !!v && (v.host === v.you || !!(C.tableOn && C.tableOn())); };
   const eff = (path) => { const o = ovr.get(path); if (o && o.until > Date.now()) return o.val; return lastSettings ? getp(lastSettings, path) : undefined; };
 
   function queue(path, val) {

@@ -19,6 +19,12 @@
       return { x: W / 2, y: H / 2 };
     }
     const pid = +ref.slice(2);
+    if (C.table && C.table()) { // Spieltisch: Ziel ist die Rohstoffleiste am Platz des Spielers
+      const seat = document.querySelector(`.seat[data-pid="${pid}"]`);
+      const slot = seat && res && seat.querySelector(`[data-res="${res}"]`);
+      if (slot) return center(slot.getBoundingClientRect());
+      if (seat) return center(seat.getBoundingClientRect());
+    }
     if (pid === v.you) {
       const slot = res && document.querySelector(`#hand .rcard[data-res="${res}"]`);
       if (slot) return center(slot.getBoundingClientRect());
@@ -58,7 +64,7 @@
   function pulse(ref, v, delay) {
     if (!ref.startsWith('p:')) return;
     const pid = +ref.slice(2);
-    const el = pid === v.you ? document.getElementById('hand') : document.querySelector(`.pc[data-pid="${pid}"]`);
+    const el = C.table && C.table() ? document.querySelector(`.seat[data-pid="${pid}"]`) : pid === v.you ? document.getElementById('hand') : document.querySelector(`.pc[data-pid="${pid}"]`);
     if (!el) return;
     setTimeout(() => { el.classList.add('fxpulse'); setTimeout(() => el.classList.remove('fxpulse'), 450); }, delay);
   }
@@ -75,10 +81,11 @@
     const T = (C.slow && C.slow()) ? 2.6 : 1.6; // manueller Ablauf: deutlich langsamer, Auto etwas schneller
     const step = Math.max(120, Math.min(380, 3600 / fresh.length)) * T; // Abstand zwischen den Bewegungen
     fresh.forEach((e, i) => {
-      const me = 'p:' + v.you, mine = e.f === me || e.t === me, hidden = !e.c;
+      // Spieltisch: alle schauen auf denselben Bildschirm – nur öffentliche Bewegungen (Ertrag, Handel, Bank) zeigen Gesichter
+      const tbl = !!(C.table && C.table()), me = 'p:' + v.you, mine = !tbl && (e.f === me || e.t === me), hidden = tbl ? !e.pub : !e.c;
       const size = mine ? 46 : hidden ? 26 : 32;
       const list = [];
-      if (e.c) RES.forEach((r) => { for (let k = 0; k < (e.c[r] || 0); k++) list.push(r); });
+      if (e.c && !hidden) RES.forEach((r) => { for (let k = 0; k < (e.c[r] || 0); k++) list.push(r); });
       else for (let k = 0; k < e.n; k++) list.push(null);
       const shown = list.slice(0, 8);
       const base = i * step;
@@ -88,7 +95,7 @@
         const from = where(e.f, v, r), to = where(e.t, v, r);
         const dur = (mine ? 1000 : 820) * T, dl = base + j * 130 * T;
         flight(from, to, el, size, dl, dur);
-        if (r && e.t === me) land[r] = Math.max(land[r] || 0, dl + dur * 0.88);
+        if (r && e.t === me && !tbl) land[r] = Math.max(land[r] || 0, dl + dur * 0.88);
       });
       pulse(e.t, v, base + 130 * T * (shown.length - 1) + (mine ? 850 : 700) * T);
     });

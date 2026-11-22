@@ -77,9 +77,13 @@
       return j;
     } catch (e) { return { error: 'Keine Verbindung zum Server.' }; }
   }
-  async function act(type, params) {
+  // Aktionen des Spielleiters selbst (nie im Namen eines Mitspielers)
+  const OWN_ACTS = new Set(['set_settings', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start']);
+  async function act(type, params, asPid) {
     if (st.mock) { toast(`Mock-Modus: „${type}“ ${JSON.stringify(params || {})} nicht gesendet`, 'info'); console.log('act', type, params); return { ok: true }; }
-    const j = await post('/api/act', Object.assign({ token: st.token, type }, params || {}));
+    const body = Object.assign({ token: st.token, type }, params || {});
+    if (st.tableOn && !OWN_ACTS.has(type)) { const who = asPid != null ? asPid : st.view && st.view.you; if (who != null) body.as = who; } // Spieltisch: im Namen des Fokus-Spielers
+    const j = await post('/api/act', body);
     if (j.status === 401) { logout('Die Sitzung ist abgelaufen – bitte neu anmelden.'); return j; }
     if (j.error) toast(j.error, 'err');
     return j;
@@ -89,9 +93,10 @@
   addEventListener('pageshow', () => { st.unloading = false; }); // Seite kommt aus dem Zurück-Cache wieder
   function connect() {
     if (st.es) st.es.close();
-    const es = new EventSource('/api/events?token=' + encodeURIComponent(st.token));
+    const es = new EventSource('/api/events?token=' + encodeURIComponent(st.token) + (st.tableStream ? '&table=1' : ''));
     st.es = es;
-    es.addEventListener('state', (e) => { setOnline(true); try { applyView(JSON.parse(e.data)); } catch (err) { console.error(err); } });
+    es.addEventListener('state', (e) => { setOnline(true); try { const v = JSON.parse(e.data); if (!tableState(v)) applyView(v); } catch (err) { console.error(err); } });
+    es.addEventListener('table', (e) => { setOnline(true); try { tableViews(JSON.parse(e.data).views); } catch (err) { console.error(err); } });
     es.addEventListener('signal', (e) => { try { Voice.onSignal(JSON.parse(e.data)); } catch (err) { console.error(err); } });
     es.addEventListener('kicked', () => { Lobby.setNotice('Du wurdest vom Spielleiter entfernt.'); logout('Du wurdest vom Spielleiter entfernt.'); });
     es.onopen = () => setOnline(true);
@@ -101,9 +106,28 @@
       else setOnline(false);
     };
   }
+  // ---- Digitaler Spieltisch ---------------------------------------------------------------------------
+  // Läuft der Tisch (Einstellung „table“, nur Spielleiter, nur im Spiel), kommt die Anzeige aus dem Ereignis „table“.
+  function tableState(v) {
+    const want = !!(v.settings && v.settings.table) && v.you === v.host && (v.phase === 'main' || v.phase === 'setup');
+    if (want && !st.tableStream) { st.tableStream = true; connect(); return true; }
+    if (!want && st.tableStream) { st.tableStream = false; st.tableOn = false; Table.deactivate(); st.tv = null; connect(); return true; }
+    return want;
+  }
+  function tableViews(views) {
+    if (!st.tableStream || !views || !views.length) return;
+    const first = !st.tableOn;
+    st.tableOn = true; st.tv = views;
+    Table.activate(views);
+    const focus = Table.focusOf(views);
+    applyView(views[focus]);
+    Table.render(views, focus);
+    if (first) { fit(true); setTimeout(() => fit(false), 120); }
+  }
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
+    st.tableStream = false; st.tableOn = false; st.tv = null; Table.deactivate();
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
@@ -478,6 +502,7 @@
   function area() {
     const W = board.clientWidth, H = board.clientHeight, g = (id) => $(id).getBoundingClientRect();
     if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, W, H }; }
+    if (st.tableOn) { const m = Table.margins(); return { left: m.left, top: m.top, right: W - m.right, bottom: H - m.bottom, W, H }; }
     const pl = g('players'), bt = g('bottom'), bn = g('banner'), sd = g('side');
     const cp = compact();
     const left = cp ? 54 : pl.right + 14;
@@ -504,12 +529,15 @@
     tgt.k = k; tgt.x = cx - (scx - a.W / 2) / k; tgt.y = cy - (scy - a.H / 2) / k;
     kick(snap);
   }
+  // Spieltisch: nach Zoomen/Verschieben springt die Ansicht zurück, damit das ganze Spielfeld sichtbar bleibt
+  let snapT = 0;
+  const snapBack = () => { if (!st.tableOn) return; clearTimeout(snapT); snapT = setTimeout(() => fit(false), 1500); };
   function zoomAt(f, mx, my) {
     const W = board.clientWidth, H = board.clientHeight;
     const k2 = Math.max(KMIN, Math.min(KMAX, tgt.k * f));
     const wx = tgt.x + (mx - W / 2) / tgt.k, wy = tgt.y + (my - H / 2) / tgt.k;
     tgt.k = k2; tgt.x = wx - (mx - W / 2) / k2; tgt.y = wy - (my - H / 2) / k2;
-    kick();
+    kick(); snapBack();
   }
   let moved = false;
   const ptrs = new Map(); let drag = null, pinch = null;
@@ -532,7 +560,7 @@
     if (!moved && Math.hypot(dx, dy) > 5) { moved = true; try { board.setPointerCapture(e.pointerId); } catch (_) { /* egal */ } board.classList.add('drag'); }
     if (moved) { tgt.x = drag.cx - dx / tgt.k; tgt.y = drag.cy - dy / tgt.k; Object.assign(cam, tgt); applyCam(); }
   });
-  const up = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { drag = null; board.classList.remove('drag'); setTimeout(() => { moved = false; }, 30); } };
+  const up = (e) => { snapBack(); ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { drag = null; board.classList.remove('drag'); setTimeout(() => { moved = false; }, 30); } };
   board.addEventListener('pointerup', up); board.addEventListener('pointercancel', up);
   board.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0017)), e.clientX, e.clientY); }, { passive: false });
   board.addEventListener('dblclick', (e) => { if (!e.target.closest('[data-t]')) fit(false); });
@@ -544,7 +572,7 @@
     if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) { lastTap = null; if (!e.target.closest('[data-t]')) fit(false); return; }
     lastTap = { t: now, x: e.clientX, y: e.clientY };
   });
-  addEventListener('resize', () => { applyCam(); if (st.view && st.view.phase === 'lobby') fit(true); });
+  addEventListener('resize', () => { applyCam(); if (st.tableOn) fit(true); if (st.view && st.view.phase === 'lobby') fit(true); });
 
   // ======================================================================================
   // WUERFEL
@@ -963,11 +991,12 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { get mockLogin() { return st.loginMock; }, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
+    const ctx = { get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });
-    Fx.init({ Art, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
+    Table.init({ act, Art, avatar, esc });
+    Fx.init({ Art, table: () => !!st.tableOn, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
     Trade.init({ root: $('tradeDock'), view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
     const mock = q.get('mock');

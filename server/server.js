@@ -40,6 +40,12 @@ function createServer(opts = {}) {
       const v = room.game.view(p.id);
       for (const res of set) send(res, 'state', v);
     }
+    // Digitaler Spieltisch: die Tisch-Verbindung des Spielleiters bekommt zusätzlich die Sicht aller Spieler
+    const S = room.game.S, hostTok = S.players[S.host] && S.players[S.host].token, ts = hostTok && clients.get(hostTok);
+    if (ts && S.settings.table && (S.phase === 'main' || S.phase === 'setup')) {
+      const tabs = [...ts].filter((r) => r.tableMode);
+      if (tabs.length) { const views = S.players.map((p) => room.game.view(p.id)); for (const res of tabs) send(res, 'table', { views }); }
+    }
     save();
   };
   const dropClients = (token, event) => {
@@ -76,6 +82,7 @@ function createServer(opts = {}) {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 2000\n\n');
         if (!clients.has(token)) clients.set(token, new Set());
+        res.tableMode = url.searchParams.get('table') === '1' && player.id === room.game.S.host;
         clients.get(token).add(res);
         hub.connected(room, player);
         room.game.settle();
@@ -120,7 +127,12 @@ function createServer(opts = {}) {
         }
         const g = room.game;
         g.lastKicked = null;
-        const err = guarded(() => g.act(player.id, b));
+        let actor = player.id;
+        if (b.as !== undefined && b.as !== null && b.as !== player.id) { // Spieltisch: der Spielleiter handelt für einen Mitspieler
+          if (!(g.S.settings.table && player.id === g.S.host && Number.isInteger(b.as) && g.S.players[b.as])) return json(res, 400, { error: 'Der digitale Spieltisch ist nicht aktiv.' });
+          actor = b.as;
+        }
+        const err = guarded(() => g.act(actor, b));
         if (err) return json(res, 400, { error: err.message });
         if (g.lastKicked) dropClients(g.lastKicked, 'kicked');
         broadcast(room);

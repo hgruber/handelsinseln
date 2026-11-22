@@ -1,0 +1,36 @@
+/* Digitaler Spieltisch (body.table): Spielfeld zentriert, Rohstoffleisten der Spieler am Rand, zur Sitzposition gedreht */
+body.table #players, body.table #side, body.table #sideToggle { display: none !important; }
+#seats { position: fixed; inset: 0; pointer-events: none; z-index: 12; }
+.seat { --sw: min(80vw, 920px); position: absolute; width: var(--sw); pointer-events: auto; display: flex; flex-direction: column; gap: 6px; transform-origin: 0 0; }
+.seat.s-bl, .seat.s-br, .seat.s-tl, .seat.s-tr { --sw: min(46vw, 640px); }
+.seat.s-l, .seat.s-r { --sw: min(62vh, 640px); }
+.s-b { left: 50%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-bl { left: 25%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-br { left: 75%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-t, .s-tl, .s-tr { top: 8px; margin-left: calc(var(--sw) / -2); transform: rotate(180deg) translate(-100%, -100%); }
+.s-t { left: 50%; } .s-tl { left: 25%; } .s-tr { left: 75%; }
+.s-l { left: 8px; top: 50%; margin-top: calc(var(--sw) / -2); transform: rotate(90deg) translateY(-100%); }
+.s-r { left: calc(100% - 8px); top: 50%; margin-top: calc(var(--sw) / -2); transform: rotate(-90deg) translate(-100%, -100%); }
+.seathead { display: flex; align-items: center; gap: 8px; align-self: center; padding: 3px 12px 3px 6px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); border-left: 4px solid var(--pc); font: 600 15px var(--serif); box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
+.seat.turn .seathead { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(245, 197, 66, .45), 0 4px 12px rgba(0, 0, 0, .4); }
+.seathead .vp { color: var(--gold2); } .seathead .vp i { font-style: normal; margin-left: 2px; }
+.seathead .dv { display: inline-flex; align-items: center; gap: 3px; font: 600 13px var(--sans); color: #cfdbef; }
+.seathead .duty { font: 700 12px var(--sans); color: #ffb3a8; } .seathead .duty.gold { color: var(--gold2); }
+.seatbar { display: flex; justify-content: center; gap: 8px; padding: 6px 10px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); border-bottom: 4px solid var(--pc); backdrop-filter: blur(10px); }
+.seatbar:empty, .seatmenu:empty { display: none; }
+.seatbar .rc { position: relative; width: 52px; height: 66px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(180deg, #f3e7c8, #d9c79a); border: 2px solid var(--rc); color: #2a1a05; box-shadow: 0 2px 4px rgba(0, 0, 0, .4); }
+.seatbar .rc b { position: absolute; right: -6px; bottom: -6px; min-width: 22px; height: 22px; border-radius: 11px; background: #1b2d4c; color: #fff; display: grid; place-items: center; font: 700 13px var(--sans); border: 1px solid var(--line); }
+.seatbar .rc.zero { opacity: .45; }
+.seatmenu { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.seatmenu #tradeDock { width: min(100%, 560px); }
+.seat .tmenu { width: min(100%, 460px); padding: 10px 14px; }
+.seat .tmenu .who { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.seat.active .seatpanel #bottom { position: static; width: 100%; box-sizing: border-box; }
+.seat .seatpanel:empty { display: none; }
+#tableCenter { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; gap: 14px; justify-items: center; pointer-events: none; z-index: 13; max-width: 46vw; }
+body.table #banner { position: static; }
+body.table #toasts { top: 38%; }
+/* Entscheidungsfenster in Blickrichtung des Spielers am Platz */
+body.table[data-tseat^="t"] #modalRoot .modal { transform: rotate(180deg); }
+body.table[data-tseat="l"] #modalRoot .modal { transform: rotate(90deg); }
+body.table[data-tseat="r"] #modalRoot .modal { transform: rotate(-90deg); }

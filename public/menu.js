@@ -71,7 +71,7 @@
   function openMenu() {
     closeMenu();
     const v = C.view(); if (!v) return;
-    const host = v.host === v.you, running = v.phase === 'main' || v.phase === 'setup';
+    const host = v.host === v.you || !!(C.tableOn && C.tableOn()), running = v.phase === 'main' || v.phase === 'setup';
     const V = root.Voice, joined = V.isJoined();
     const item = (id, ic, label, cls) => `<button type="button" role="menuitem" class="mi ${cls || ''}" data-mi="${id}"><span class="mic">${ic}</span>${label}</button>`;
     const I = {
@@ -93,7 +93,7 @@
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
-      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
+      (host && running ? item('table', I.gear, v.settings && v.settings.table ? 'Digitalen Spieltisch ausschalten' : 'Digitalen Spieltisch einschalten') + item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
@@ -111,6 +111,7 @@
     else if (id === 'sound') root.Sound.toggle();
     else if (id === 'fit') C.fit();
     else if (id === 'flow') { const v = C.view(); await C.act('set_settings', { settings: { dice: v.settings.dice === 'auto' ? 'manuell' : 'auto' } }); }
+    else if (id === 'table') { const v = C.view(); await C.act('set_settings', { settings: { table: !(v.settings && v.settings.table) } }); }
     else if (id === 'change') showChange();
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
     else if (id === 'leave') leaveGame();
