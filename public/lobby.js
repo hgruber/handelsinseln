@@ -393,7 +393,6 @@
     lastSettings = v.settings || lastSettings;
     $('lbGame').textContent = v.gameName || '';
     $('lbCount').textContent = `${v.players.length}/${v.maxPlayers || 6}`;
-    $('lbVariantName').textContent = VNAME[eff('variant')] ? '· ' + VNAME[eff('variant')] : '';
 
     // Spielerliste
     const act = document.activeElement;
@@ -437,7 +436,7 @@
     syncSettings(s);
 
     // Brett neu wuerfeln
-    C.setHTML($('lbRegen'), host ? `<button type="button" class="btn small gold" data-regen="1" title="Erzeugt ein neues Spielfeld mit denselben Einstellungen"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="8.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg> Neues Spielfeld würfeln</button>` : '<span class="muted small">Der Spielleiter wählt das Spielfeld.</span>');
+    C.setHTML($('lbRegen'), host ? `<button type="button" class="btn small gold" data-regen="1" title="Spielfeld neu würfeln (gleiche Einstellungen)"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="8.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg> neu</button>` : '');
 
     // Chat
     const chatEl = $('lobbyChat'), stick = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 40;

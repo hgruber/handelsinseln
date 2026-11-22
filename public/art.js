@@ -248,35 +248,27 @@
   const shadow = () => `<polygon points="${hexPts(1)}" fill="#000" opacity=".30" transform="translate(0,7)"/>`;
 
   // ---- Haefen -----------------------------------------------------------------------------------
-  // Lokal: Ursprung = Kantenmitte, +x zeigt zum Meer; Schild bleibt aufrecht (Gegenrotation).
+  // Lokal: Ursprung = Kantenmitte, +x zeigt zum Meer. Gemalter Holzsteg (public/img/steg.webp, Flux) parallel zur Kante,
+  // etwas abgesetzt, ueber zwei kurze Stege mit dem Ufer verbunden; mittig traegt er das Schild (bleibt aufrecht, Gegenrotation).
   function harbor(kind, ang) {
     const any = kind === 'any';
-    const sign = `<g transform="translate(48,0) rotate(${f(-ang)}) scale(1.18)"><circle r="22" cy="2.5" fill="#000" opacity=".3"/>` +
+    const sign = `<g transform="translate(42,0) rotate(${f(-ang)}) scale(.94)"><circle r="22" cy="3" fill="#000" opacity=".35"/>` +
       `<circle r="21" fill="url(#signw)" stroke="#5a3a1c" stroke-width="2"/><circle r="17" fill="#f6ecd0" stroke="#b49560" stroke-width=".8"/>` +
       (any ? `<text y="3" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="14" fill="#3a2a16">3:1</text><text y="13" text-anchor="middle" font-size="6.5" fill="#6b5330" font-family="system-ui,sans-serif">ALLE</text>`
         : `<g transform="translate(-9,-14) scale(.37)">${resInner(kind)}</g><text y="13.5" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="11" fill="#3a2a16">2:1</text>`) + `</g>`;
-    const planks = (y) => `<g stroke-linecap="round"><path d="M0,${y} L30,${y * .42}" stroke="#3a2412" stroke-width="7"/><path d="M0,${y} L30,${y * .42}" stroke="#a97c4a" stroke-width="5"/><path d="M0,${y} L30,${y * .42}" stroke="#d3a771" stroke-width="1.4" transform="translate(0,-1.2)"/></g>`;
-    return `<g transform="rotate(${f(ang)})">${planks(-38)}${planks(38)}<circle cx="0" cy="-38" r="3.4" fill="#5a3a1c"/><circle cx="0" cy="38" r="3.4" fill="#5a3a1c"/>${sign}</g>`;
+    const img = `<image href="${IMG_DIR}steg.webp" x="-42" y="-25" width="84" height="50" preserveAspectRatio="none"/>`;
+    const stub = (y) => `<svg x="0" y="${y - 4}" width="17" height="8" viewBox="-8 -4 17 8" overflow="hidden">${img}</svg>`;
+    return `<g style="filter:drop-shadow(2px 4px 3px rgba(0,0,0,.45))"><g transform="rotate(${f(ang)})">${stub(-23)}${stub(23)}` +
+      `<g transform="translate(42,0) rotate(90)">${img}</g>${sign}</g></g>`;
   }
 
   // ---- Figuren ----------------------------------------------------------------------------------
   const sh = (rx, ry, dy = 3) => `<ellipse cy="${dy}" rx="${rx}" ry="${ry}" fill="#000" opacity=".35"/>`;
-  function settlement(c) {
-    const o = `stroke="#000" stroke-opacity=".55" stroke-width="1.2" stroke-linejoin="round"`;
-    return `<g transform="scale(1.2)">` + sh(15, 5, 2) +
-      `<path d="M-10,0 V-12 H10 V0Z" fill="url(#pg-${c})" ${o}/><path d="M-13,-11 L0,-25 L13,-11Z" fill="url(#pd-${c})" ${o}/>` +
-      `<path d="M-10,-12 H-3 V0 H-10Z" fill="#fff" opacity=".18"/><rect x="-2.6" y="-8" width="5.2" height="8" rx="1" fill="#2b1d12" opacity=".7"/>` +
-      `<path d="M-9,-13 L0,-23" stroke="#fff" stroke-opacity=".4" stroke-width="1.4" stroke-linecap="round"/></g>`;
-  }
-  function city(c) {
-    const o = `stroke="#000" stroke-opacity=".55" stroke-width="1.2" stroke-linejoin="round"`;
-    return `<g transform="scale(1.12)">` + sh(22, 6, 2) +
-      `<path d="M-3,0 V-15 H19 V0Z" fill="url(#pg-${c})" ${o}/><path d="M-6,-14 L8,-26 L22,-14Z" fill="url(#pd-${c})" ${o}/>` +
-      `<path d="M-19,0 V-31 H-3 V0Z" fill="url(#pg-${c})" ${o}/><path d="M-22,-30 L-11,-45 L0,-30Z" fill="url(#pd-${c})" ${o}/>` +
-      `<path d="M-19,-31 H-12 V0 H-19Z" fill="#fff" opacity=".18"/><rect x="-14" y="-24" width="5" height="7" rx="2.2" fill="#2b1d12" opacity=".7"/>` +
-      `<rect x="4" y="-9" width="4.4" height="9" rx="1" fill="#2b1d12" opacity=".7"/><rect x="11" y="-10" width="4" height="4.4" fill="#ffe7a0" opacity=".85"/>` +
-      `<path d="M-11,-43 L-11,-52" stroke="#222" stroke-width="1.2"/><path d="M-11,-52 L-3,-49 L-11,-46Z" fill="#fff"/></g>`;
-  }
+  // Siedlung, Stadt, Raeuber, Piratenschiff: gemalte Steine (public/img/stein-*.webp, Flux, freigestellt).
+  // Siedlung/Stadt sind neutral hell gemalt und werden per Filter pt-<farbe> in der Spielerfarbe eingefaerbt.
+  const stone = (name, x, y, w, h, c) => `<image href="${IMG_DIR}stein-${name}.webp" x="${x}" y="${y}" width="${w}" height="${h}"${c ? ` filter="url(#pt-${c})"` : ''}/>`;
+  const settlement = (c) => sh(15, 4.5, 1) + stone('siedlung', -14, -38, 28, 38, c);
+  const city = (c) => sh(22, 5.5, 0) + stone('stadt', -19, -62, 38, 62, c);
   function road(c) {
     return `<rect x="-31" y="-4" width="62" height="12" rx="4" fill="#000" opacity=".32"/>` +
       `<rect x="-31" y="-7" width="62" height="12.5" rx="4.5" fill="url(#pr-${c})" stroke="#000" stroke-opacity=".55" stroke-width="1.2"/>` +
@@ -292,26 +284,17 @@
       `<path d="M-2,-30 Q-14,-18 -12,-5 H-2Z" fill="url(#pd-${c})" stroke="#000" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"/>` +
       `<path d="M0,-34 l9,3 l-9,3Z" fill="#fff"/></g>`;
   }
-  function robber() {
-    return `<g transform="scale(1.2)">` + sh(15, 5, 2) +
-      `<path d="M-13,0 Q-13,-10 -6,-17 Q-9,-24 0,-30 Q9,-24 6,-17 Q13,-10 13,0Z" fill="url(#rob)" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/>` +
-      `<path d="M-6,-24 Q0,-30 6,-24 Q0,-21 -6,-24Z" fill="#000" opacity=".55"/><circle cx="-2.4" cy="-24" r="1.2" fill="#ff5a3c"/><circle cx="2.4" cy="-24" r="1.2" fill="#ff5a3c"/>` +
-      `<path d="M-9,-6 Q-11,-12 -5,-17" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="2" stroke-linecap="round"/></g>`;
-  }
+  const robber = () => sh(12, 4, 1) + stone('raeuber', -10, -46, 20, 46);
   function pirate() {
     return `<ellipse cy="9" rx="28" ry="5.5" fill="#000" opacity=".35"/><g class="bob">` +
       `<path class="wake" d="M-26,8 q6,-4 12,0 M-30,12 q8,-5 16,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
-      `<path d="M-25,-1 H26 Q22,11 8,11 H-14 Q-22,10 -25,-1Z" fill="#1c1a1f" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/><path d="M-24,2 H24" stroke="#8c1c1c" stroke-width="2.4"/>` +
-      `<path d="M0,0 V-40" stroke="#111" stroke-width="2.8" stroke-linecap="round"/>` +
-      `<path d="M2,-36 Q26,-22 22,-4 H2Z" fill="#26232b" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/><path d="M-2,-34 Q-16,-22 -13,-6 H-2Z" fill="#17151a" stroke="#000" stroke-width="1.1"/>` +
-      `<circle cx="11" cy="-17" r="4.2" fill="#f1ede0"/><rect x="8.4" y="-14" width="5.2" height="2.6" rx=".8" fill="#f1ede0"/><circle cx="9.6" cy="-17.4" r="1" fill="#17151a"/><circle cx="12.4" cy="-17.4" r="1" fill="#17151a"/>` +
-      `<path d="M0,-40 l12,3.5 l-12,3.5Z" fill="#0c0c0e" stroke="#fff" stroke-opacity=".5" stroke-width=".6"/></g>`;
+      stone('pirat', -27, -52, 54, 60) + `</g>`;
   }
 
   // Figur in kleinem Symbol (Bau-Buttons)
   function pieceIcon(kind, c, size = 36) {
     const body = { road: road(c), ship: ship(c), settlement: settlement(c), city: city(c) }[kind] || '';
-    const vb = kind === 'road' ? '-36 -14 72 28' : kind === 'ship' ? '-34 -42 68 58' : kind === 'city' ? '-26 -54 52 62' : '-20 -30 40 36';
+    const vb = kind === 'road' ? '-36 -14 72 28' : kind === 'ship' ? '-34 -42 68 58' : kind === 'city' ? '-22 -64 44 68' : '-18 -40 36 44';
     return `<svg class="pi" viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
   }
 
@@ -398,6 +381,7 @@
     for (const [c, h] of Object.entries(COLORS)) {
       o += `<linearGradient id="pg-${c}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${lighten(h, .35)}"/><stop offset=".55" stop-color="${h}"/><stop offset="1" stop-color="${darken(h, .28)}"/></linearGradient>` +
         `<linearGradient id="pd-${c}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${darken(h, .05)}"/><stop offset="1" stop-color="${darken(h, .42)}"/></linearGradient>` +
+        `<filter id="pt-${c}" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB"><feFlood flood-color="${h}"/><feBlend in="SourceGraphic" mode="multiply"/><feComposite in2="SourceGraphic" operator="in"/></filter>` +
         `<linearGradient id="pr-${c}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lighten(h, .3)}"/><stop offset=".5" stop-color="${h}"/><stop offset="1" stop-color="${darken(h, .32)}"/></linearGradient>`;
     }
     return o;

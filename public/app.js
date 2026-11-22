@@ -445,7 +445,7 @@
   }
   function area() {
     const W = board.clientWidth, H = board.clientHeight, g = (id) => $(id).getBoundingClientRect();
-    if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top + 48, right: r.right, bottom: r.bottom, W, H }; }
+    if (st.view && st.view.phase === 'lobby') { const r = g('lobbyPreview'); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, W, H }; }
     const pl = g('players'), bt = g('bottom'), bn = g('banner'), sd = g('side');
     const cp = compact();
     const left = cp ? 54 : pl.right + 14;

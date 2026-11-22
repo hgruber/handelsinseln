@@ -48,16 +48,14 @@
 <main id="lobby" class="screen lobby" hidden>
   <div class="lb-wrap">
     <section class="lb-prev" aria-label="Spielfeld-Vorschau">
-      <div class="lb-prevbar glass"><b>Spielfeld</b><span id="lbVariantName" class="muted"></span><span class="grow"></span><span id="lbRegen"></span></div>
       <div id="lobbyPreview" class="lb-prevarea"></div>
     </section>
     <section class="lb-side glass">
-      <header class="lb-head"><div><h1>Lobby</h1><p id="lbGame" class="sub"></p></div><button class="link" id="leaveBtn" type="button">Lobby verlassen</button></header>
+      <header class="lb-head"><div><div class="lb-title"><h1>Lobby</h1><span id="lbRegen"></span></div><p id="lbGame" class="sub"></p></div><button class="lb-x" id="leaveBtn" type="button" title="Lobby verlassen" aria-label="Lobby verlassen">✕</button></header>
       <div class="lb-scroll">
         <h3 class="lb-h">Spieler <small id="lbCount"></small></h3>
         <ul id="lobbyList" class="lobby-list"></ul>
         <div id="lobbyBots" class="lb-bots"></div>
-        <div id="lobbyVoice" class="lb-voice"></div>
         <h3 class="lb-h">Spielfeld &amp; Variante</h3>
         <div id="lobbyVariants" class="variants"></div>
         <div id="lobbySeats" class="lb-seats"></div>
@@ -67,6 +65,7 @@
         <h3 class="lb-h">Chat</h3>
         <div id="lobbyChat" class="lb-chat scroll"></div>
         <form id="lobbyChatForm" class="lb-chatform"><input id="lobbyChatIn" maxlength="200" placeholder="Nachricht…" autocomplete="off"><button class="btn small" type="submit">Senden</button></form>
+        <div id="lobbyVoice" class="lb-voice"></div>
       </div>
       <div class="row center lb-act" id="lobbyAct"></div>
     </section>

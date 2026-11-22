@@ -4,6 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Spielsteine mit Flux:** Siedlungen, Städte, Räuber und See-Räuber (Piratenschiff) sind jetzt gemalte, freigestellte Flux-Bilder (`public/img/stein-*.webp`). Siedlung und Stadt sind neutral gemalt und werden per SVG-Filter in der Spielerfarbe eingefärbt.
+- **Handelshäfen** sind Holzstege (`public/img/steg.webp`), parallel zur Küstenkante ausgerichtet und über zwei kurze Stege mit dem Ufer verbunden. Mittig tragen sie, etwas abgesetzt, den Kreis mit Symbol und Tauschverhältnis.
+- **Lobby:** Die Zeile „Spielfeld · Variante · Neues Spielfeld würfeln“ entfällt; „neu“ (Spielfeld neu würfeln) steht neben „Lobby“, „Lobby verlassen“ ist ein „✕“. Der Sprachchat steht unterhalb des Chats. Die Zahlenfelder der Spieleinstellungen sind vertikal bündig ausgerichtet.
+
 ## [1.0.1] - 2026-11-22
 
 ### Geändert
