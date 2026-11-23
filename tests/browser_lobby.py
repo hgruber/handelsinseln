@@ -88,12 +88,15 @@ try:
         A.screenshot(path=f'{SHOTS}/04-spiel-host.png')
         check(A.locator('#hud:not([hidden])').count() == 1, 'Spiel läuft im Browser des Hosts')
 
-        # Info-Fenster (manueller Ablauf: Spielreihenfolge) wegklicken
+        # Info-Fenster (Spielreihenfolge, gespielte Karten) können jederzeit auftauchen: vor Klicks per Skript entfernen
+        def clear(*pages):
+            for q in pages: q.evaluate("document.querySelectorAll('.devshow').forEach((e) => e.remove())")
         for pg in (A, B):
-            if pg.locator('.devshow.manual').count(): pg.locator('.devshow.manual').first.click()
+            # mehrere Info-Fenster können übereinanderliegen: per Skript alle schließen statt zu klicken
+            pg.evaluate("document.querySelectorAll('.devshow.manual').forEach((e) => e.click())")
         # --- Gast verlässt über das Menü mitten im Spiel
-        B.click('#btnMenu'); B.click('[data-mi=leave]')
-        B.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); B.click('#dlgRoot [data-d=yes]')
+        clear(B); B.click('#btnMenu'); clear(B); B.click('[data-mi=leave]')
+        B.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); clear(B); B.click('#dlgRoot [data-d=yes]')
         B.wait_for_selector('#login:not([hidden])', timeout=5000)
         check(True, 'Gast hat das Spiel verlassen')
         time.sleep(1.5)
@@ -103,8 +106,8 @@ try:
         time.sleep(8)  # Auto-Modus spielt für den Gast
 
         # --- Host beendet das Spiel → Statistik
-        A.click('#btnMenu'); A.click('[data-mi=end]')
-        A.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); A.click('#dlgRoot [data-d=yes]')
+        clear(A); A.click('#btnMenu'); clear(A); A.click('[data-mi=end]')
+        A.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); clear(A); A.click('#dlgRoot [data-d=yes]')
         A.wait_for_selector('#stats:not([hidden])', timeout=5000)
         time.sleep(1.2)
         A.screenshot(path=f'{SHOTS}/06-statistik.png')
