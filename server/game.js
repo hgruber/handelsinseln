@@ -18,9 +18,10 @@ const COST = {
 };
 const MIN_P = 2, MAX_P = 6;
 // Digitaler Spieltisch: Plätze am Rand (b/t = unten/oben Mitte, l/r = links/rechts Mitte, Ecken: bl, br, tl, tr) und ihre Reihenfolge im Uhrzeigersinn
-// Sechs Grundplätze im Uhrzeigersinn: lange Bildschirmseiten (unten/oben) höchstens zwei Spieler, kurze (links/rechts) einer.
-// Sitzt auf einer langen Seite nur einer, rückt er in die Mitte (Platz b bzw. t).
-const RING = ['br', 'bl', 'l', 'tl', 'tr', 'r'];
+// Spieltisch: acht Plätze – an den langen Bildschirmseiten (unten/oben) je drei, an den kurzen (links/rechts) einer – und ihre Reihenfolge im Uhrzeigersinn.
+// Jeder Tischspieler wählt seinen Platz beim Spielstart.
+const SEATS = ['bl', 'b', 'br', 'tl', 't', 'tr', 'l', 'r'];
+const SEAT_CLOCK = ['br', 'b', 'bl', 'l', 'tl', 't', 'tr', 'r'];
 const DEV_MIX = { ritter: 14, siegpunkt: 5, strassenbau: 2, erfindung: 2, monopol: 2 }; // Mischungsverhältnis
 const UNLIMITED = 999; // so zeigt die Sicht unbegrenzte Vorräte an
 
@@ -190,8 +191,7 @@ class Game {
     S.v++;
   }
   // Digitaler Spieltisch: Tischspieler werden nur vom Spielleiter angelegt (nur Lobby). Der erste schaltet den Tisch ein, der letzte aus.
-  // Die Plätze ergeben sich aus der Tischverteilung: Platz des Spielleiters + freie Plätze (je nach geplanter Spielerzahl, sonst automatisch);
-  // die Spieler werden in der Reihenfolge des Anlegens im Uhrzeigersinn verteilt, der Spielleiter zuerst.
+  // Beim Spielstart wird jeder Spieler (Spielleiter zuerst, dann in Anlegereihenfolge) nach seinem Platz am Tisch gefragt.
   addTablePlayer(pid, a) {
     this.hostOnly(pid, 'Tischspieler anlegen');
     const S = this.S;
@@ -212,59 +212,11 @@ class Game {
     this.syncTable();
     S.v++;
   }
-  // Tischverteilung festlegen: Platz des Spielleiters und (optional) welche Plätze frei bleiben; free = null → automatisch
-  tableLayoutAction(pid, a) {
-    this.hostOnly(pid, 'die Tischverteilung ändern');
-    const S = this.S, host = a && a.host;
-    if (!RING.includes(host)) fail('Bitte einen Platz für den Spielleiter wählen.');
-    let free = a.free == null ? null : a.free;
-    if (free !== null) {
-      if (!Array.isArray(free) || free.some((x) => !RING.includes(x)) || new Set(free).size !== free.length) fail('Ungültige freie Plätze.');
-      if (free.includes(host)) fail('Der Platz des Spielleiters kann nicht frei bleiben.');
-    }
-    S.tableCfg = { host, free };
-    this.syncTable();
-    S.v++;
-  }
-  // Grundplätze im Uhrzeigersinn ab dem Spielleiter für `planned` Spieler: {host, free, ring}
-  tableLayout(planned) {
-    const S = this.S, cfg = S.tableCfg || { host: 'bl', free: null };
-    const host = RING.includes(cfg.host) ? cfg.host : 'bl', h = RING.indexOf(host), nfree = 6 - planned;
-    let free = Array.isArray(cfg.free) && cfg.free.length === nfree && !cfg.free.includes(host) ? cfg.free.slice() : null;
-    const manual = free !== null;
-    if (!free) { // automatisch: gegenüber, jedes zweite, die kurzen Seiten …
-      const at = (k) => RING[(h + k) % 6];
-      const used = planned >= 6 ? [0, 1, 2, 3, 4, 5] : planned === 5 ? [0, 1, 2, 4, 5] : planned === 3 ? [0, 2, 4] : planned <= 2 ? [0, 3] : null;
-      if (used) free = RING.filter((x) => !used.some((k) => at(k) === x));
-      else { // 4 Spieler: bevorzugt die kurzen Seiten frei, damit an jeder langen Seite zwei sitzen
-        free = ['l', 'r'].filter((x) => x !== host);
-        if (free.length < 2) { const other = [at(1), at(4)].filter((x) => x !== host && !free.includes(x)); free = free.concat(other).slice(0, 2); }
-      }
-    }
-    const ring = [];
-    for (let k = 0; k < 6; k++) { const b = RING[(h + k) % 6]; if (!free.includes(b)) ring.push(b); }
-    return { host, free, ring, manual };
-  }
-  // Plätze der Spieler: Spielleiter zuerst, dann in Anlegereihenfolge im Uhrzeigersinn
-  assignSeats() {
-    const S = this.S;
-    if (!S.settings.table) { S.players.forEach((p) => { p.seat = null; p.seatBase = null; p.ringPos = null; }); S.tableView = null; return; }
-    const lay = this.tableLayout(Math.max(S.settings.plannedPlayers, S.players.length));
-    const act = new Set(lay.ring);
-    const order = [S.host, ...S.players.map((p) => p.id).filter((i) => i !== S.host)];
-    order.forEach((id, i) => {
-      const p = S.players[id], base = lay.ring[i] || RING.find((x) => !lay.ring.slice(0, i).includes(x));
-      p.seatBase = base; p.ringPos = i;
-      const side = base[0], other = side === 'b' ? (base === 'bl' ? 'br' : 'bl') : side === 't' ? (base === 'tl' ? 'tr' : 'tl') : null;
-      p.seat = other && !act.has(other) ? side : base; // allein auf einer langen Seite: Mitte
-    });
-    S.tableView = { host: lay.host, free: lay.free, ring: lay.ring, manual: lay.manual };
-  }
-  // Tisch ein, sobald ein Tischspieler existiert; aus, wenn keiner mehr da ist (der Spielleiter sitzt dann wieder nicht am Tisch)
+  // Tisch ein, sobald ein Tischspieler existiert; aus, wenn keiner mehr da ist. Die Plätze werden erst beim Spielstart abgefragt.
   syncTable() {
     const S = this.S;
     S.settings.table = S.players.some((p) => p.tableGuest);
-    this.assignSeats();
+    S.players.forEach((p) => { p.seat = null; });
   }
   removeFromLobby(p) {
     const S = this.S, hostTok = S.players[S.host] && S.players[S.host].token;
@@ -321,7 +273,6 @@ class Game {
     const boardChanged = ns.variant !== S.settings.variant || ns.plannedPlayers !== S.settings.plannedPlayers || ns.dense !== S.settings.dense || Math.abs((ns.aspect || 0) - (S.settings.aspect || 0)) > 0.12;
     S.settings = ns;
     if (boardChanged) this.regen();
-    if (S.settings.table) this.assignSeats();
     S.v++;
   }
   // Im laufenden Spiel (und nach Spielende) darf der Spielleiter alles außer dem Spielfeld ändern
@@ -406,12 +357,19 @@ class Game {
     S.fogGold = set.variant === 'nebel' ? 2.2 : set.variant === 'archipel' ? 1.6 : 1;
     this.buildDeck(n);
     // Am Spieltisch bestimmt die Sitzordnung (im Uhrzeigersinn) die Reihenfolge; Würfeln legt nur fest, wer beginnt
-    S.order = set.table ? S.players.map((p) => p.id).sort((x, y) => S.players[x].ringPos - S.players[y].ringPos) : B.shuffle([...Array(n).keys()], this.rnd);
+    S.order = B.shuffle([...Array(n).keys()], this.rnd);
     S.phase = 'setup'; S.dice = null;
     S.stats = { startedAt: Date.now(), endedAt: null, rolls: {}, history: [], players: S.players.map(() => ({ built: { road: 0, ship: 0, settlement: 0, city: 0, dev: 0 }, produced: { holz: 0, lehm: 0, wolle: 0, getreide: 0, erz: 0 }, tradesPlayer: 0, tradesBank: 0, stolenFrom: 0, stolenBy: 0, discarded: 0, robberMoves: 0, sevens: 0, discovered: 0, maxRoute: 0 })) };
     this.log(`Das Spiel beginnt! Erster mit ${set.winPoints} Punkten gewinnt.`, 'sys');
     this.log('Aufbau: Jeder setzt zwei Siedlungen samt Straße oder Schiff (die zweite in umgekehrter Reihenfolge) und erhält dafür Startrohstoffe.', 'sys');
-    if (set.dice === 'auto') { if (set.table) this.startWith(S.order[Math.floor(this.rnd() * n)]); this.orderDone(); }
+    if (set.table) { // Spieltisch: erst wählt jeder Spieler seinen Platz (Spielleiter zuerst), danach steht die Reihenfolge fest
+      const ask = [S.host, ...S.players.map((p) => p.id).filter((i) => i !== S.host)];
+      S.order = ask.slice();
+      S.players.forEach((p) => { p.seat = null; });
+      S.setup = { seq: null, i: 0, stage: 'seat', last: null, ask, askIdx: 0 };
+      S.turn = ask[0];
+      this.log('Am Spieltisch wählt jetzt jeder Spieler seinen Platz.', 'sys');
+    } else if (set.dice === 'auto') this.orderDone();
     else {
       // manueller Ablauf: die Reihenfolge wird ausgewürfelt (Gleichstände würfeln unter sich neu)
       S.setup = { seq: null, i: 0, stage: 'order', last: null, ord: { table: !!set.table, groups: [S.order.slice()], cur: S.order.slice(), rolled: {}, idx: 0 } };
@@ -420,6 +378,28 @@ class Game {
     }
     S.v++;
     this.settle();
+  }
+  // Spieltisch: alle sitzen – die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn, gewürfelt wird nur, wer beginnt
+  afterSeating() {
+    const S = this.S, set = S.settings, n = S.players.length;
+    S.order = S.players.map((p) => p.id).sort((x, y) => SEAT_CLOCK.indexOf(S.players[x].seat) - SEAT_CLOCK.indexOf(S.players[y].seat));
+    if (set.dice === 'auto') { this.startWith(S.order[Math.floor(this.rnd() * n)]); this.orderDone(); return; }
+    S.setup = { seq: null, i: 0, stage: 'order', last: null, ord: { table: true, groups: [S.order.slice()], cur: S.order.slice(), rolled: {}, idx: 0 } };
+    S.turn = S.order[0];
+    this.log('Es wird gewürfelt, wer beginnt: Die höchste Augenzahl fängt an, danach geht es im Uhrzeigersinn weiter.', 'sys');
+  }
+  // Platzwahl am Tisch: der Spieler, der gefragt wird, setzt sich auf einen freien Platz
+  placeSeat(pid, a) {
+    const S = this.S, su = S.setup;
+    if (pid !== S.turn) fail(`${this.name(S.turn)} wählt gerade seinen Platz.`);
+    if (!SEATS.includes(a.seat)) fail('Bitte einen Platz am Tisch wählen.');
+    const taken = S.players.find((p) => p.seat === a.seat);
+    if (taken) fail(`Dieser Platz ist schon von ${taken.name} besetzt.`);
+    this.pl(pid).seat = a.seat;
+    this.log(`${this.name(pid)} sitzt am Tisch.`, 'sys', pid);
+    su.askIdx++;
+    if (su.askIdx < su.ask.length) S.turn = su.ask[su.askIdx];
+    else this.afterSeating();
   }
   // Reihenfolge steht fest: allen anzeigen und mit dem Aufbau beginnen
   orderDone() {
@@ -632,7 +612,6 @@ class Game {
     if (t === 'close_seats') { this.hostOnly(pid, 'die Plätze schließen'); this.S.closed = !!a.closed; this.log(this.S.closed ? 'Die Plätze sind besetzt – niemand kann mehr beitreten.' : 'Die Plätze sind wieder offen.', 'sys'); this.S.v++; return; }
     if (t === 'add_bot') return this.addBot(pid, a.kind);
     if (t === 'add_table_player') return this.addTablePlayer(pid, a);
-    if (t === 'table_layout') return this.tableLayoutAction(pid, a);
     if (t === 'kick') { this.lastKicked = this.kick(pid, a.pid); return; }
     if (t === 'end_game') return this.endGame(pid);
     if (S.phase === 'lobby') fail('Das Spiel hat noch nicht begonnen.');
@@ -693,6 +672,10 @@ class Game {
 
   setupAct(pid, a) {
     const S = this.S, su = S.setup;
+    if (su.stage === 'seat') {
+      if (a.type !== 'place_seat') fail('Zuerst wählt jeder Spieler seinen Platz am Tisch.');
+      return this.placeSeat(pid, a);
+    }
     if (su.stage === 'order') {
       if (pid !== S.turn) fail(`${this.name(S.turn)} würfelt gerade um die Reihenfolge.`);
       if (a.type !== 'roll') fail('Zuerst wird die Reihenfolge ausgewürfelt.');
@@ -1204,6 +1187,7 @@ class Game {
   }
   autoSetup(pid) {
     const S = this.S, su = S.setup;
+    if (su.stage === 'seat') return this.setupAct(pid, { type: 'place_seat', seat: SEATS.find((x) => !S.players.some((p) => p.seat === x)) });
     if (su.stage === 'order') return this.setupAct(pid, { type: 'roll' });
     if (su.stage === 'settlement') {
       const spots = this.settlementSpots(pid);
@@ -1392,7 +1376,7 @@ class Game {
     if (S.phase === 'ended') return 'ended';
     if (Object.keys(S.pend.discard).length) return 'discard';
     if (Object.keys(S.pend.gold).length) return 'gold';
-    if (S.phase === 'setup') return S.setup.stage === 'order' ? 'setup_order' : S.setup.stage === 'settlement' ? 'setup_settlement' : 'setup_road';
+    if (S.phase === 'setup') return S.setup.stage === 'seat' ? 'setup_seat' : S.setup.stage === 'order' ? 'setup_order' : S.setup.stage === 'settlement' ? 'setup_settlement' : 'setup_road';
     if (S.sbp) return 'sbp';
     if (S.ts.sub) return S.ts.sub;
     return S.ts.rolled ? 'main' : 'roll';
@@ -1407,6 +1391,7 @@ class Game {
       case 'ended': return `${S.winner !== null ? this.name(S.winner) : ''} hat gewonnen!`;
       case 'discard': return S.pend.discard[pid] ? `Eine 7! Wirf ${S.pend.discard[pid]} Karten ab.` : 'Warte, bis alle Karten abgeworfen haben …';
       case 'gold': return S.pend.gold[pid] ? `Gold! Wähle ${S.pend.gold[pid]} beliebige${S.pend.gold[pid] > 1 ? '' : 'n'} Rohstoff${S.pend.gold[pid] > 1 ? 'e' : ''}.` : 'Warte auf die Goldwahl der anderen …';
+      case 'setup_seat': return me ? 'Wo sitzt du?' : `${tn} wählt seinen Platz am Tisch.`;
       case 'setup_order': return me ? 'Würfle um die Reihenfolge – die höchste Augenzahl beginnt.' : `${tn} würfelt um die Reihenfolge.`;
       case 'setup_settlement': return me ? `Setze deine ${S.setup.i >= S.order.length ? 'zweite' : 'erste'} Siedlung.` : `${tn} setzt eine Siedlung.`;
       case 'setup_road': return me ? 'Setze eine Straße oder (an der Küste) ein Schiff an deine neue Siedlung.' : `${tn} setzt eine Straße oder ein Schiff.`;
@@ -1426,9 +1411,9 @@ class Game {
     const turn = S.sbp ? S.sbp.pid : S.turn;
     const v = {
       v: S.v, phase: S.phase, you: pid, host: S.host, minPlayers: MIN_P, maxPlayers: MAX_P, winPoints: S.settings.winPoints,
-      gameId: this.meta.id, gameName: this.meta.name, settings: S.settings, tableCfg: S.tableView || null, closed: S.closed, endedBy: S.endedBy, stats: this.statsView(),
+      gameId: this.meta.id, gameName: this.meta.name, settings: S.settings, closed: S.closed, endedBy: S.endedBy, stats: this.statsView(),
       players: S.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, seat: p.seat == null ? null : p.seat, seatBase: p.seatBase == null ? null : p.seatBase, tableGuest: !!p.tableGuest, connected: p.connected, auto: !!p.auto, gone: !!p.left,
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, seat: p.seat == null ? null : p.seat, tableGuest: !!p.tableGuest, connected: p.connected, auto: !!p.auto, gone: !!p.left,
         vp: S.phase === 'lobby' ? 0 : this.vp(p.id) + (S.phase === 'ended' ? this.hiddenVp(p.id) : 0), svp: p.svp,
         resCount: this.handSize(p.id), devCount: p.dev.length, knightsPlayed: p.knights, longestRoute: lens[p.id] || 0,
         hasLongest: S.longest === p.id, hasLargest: S.largest === p.id,
@@ -1467,5 +1452,5 @@ class Game {
   }
 }
 
-Game.RING = RING; Game.COST = COST; Game.COLORS = COLORS; Game.GameError = GameError;
+Game.SEATS = SEATS; Game.COST = COST; Game.COLORS = COLORS; Game.GameError = GameError;
 module.exports = Game;

@@ -407,23 +407,9 @@
   }
   const MINI = Object.fromEntries(VARIANTS.map((x) => [x.id, null]));
 
-  // Tischverteilung (Lobby, Tisch-Partie): wo sitzt der Spielleiter, welche Plätze bleiben frei; die Spieler folgen im Uhrzeigersinn
+  // Hinweis in der Lobby einer Tisch-Partie: die Plätze werden erst beim Spielstart am Tisch abgefragt
   function tableHTML(v, host, tblBtn) {
-    const cfg = v.tableCfg || { host: 'bl', free: [], ring: [], manual: false };
-    const planned = Math.max((v.settings && v.settings.plannedPlayers) || 0, v.players.length), need = 6 - planned;
-    const free = L.freeDraft || cfg.free, by = {};
-    v.players.forEach((p) => { if (p.seatBase) by[p.seatBase] = p; });
-    const mode = L.tlMode === 'free' && need > 0 ? 'free' : 'host';
-    const cell = (b) => {
-      const p = by[b], st = p ? (p.id === v.host ? 'host' : 'occ') : free.includes(b) ? 'free' : 'open';
-      const label = p ? C.esc(p.name) : free.includes(b) ? 'bleibt frei' : 'noch leer';
-      return `<button type="button" class="tlseat ${st}${b === cfg.host ? ' hostseat' : ''}" data-tlseat="${b}" ${host ? '' : 'disabled'} title="${host ? (mode === 'host' ? 'Hier sitzt der Spielleiter' : 'Platz frei lassen / belegen') : ''}">${p ? C.avatar(p.id, 26) : ''}<span>${label}</span></button>`;
-    };
-    const cells = ['tl', null, 'tr', 'l', 'T', 'r', 'bl', null, 'br'].map((b) => (b === 'T' ? '<div class="tltable">Tisch</div>' : b ? cell(b) : '<div></div>')).join('');
-    const hint = mode === 'host' ? 'Tippe auf den Platz des Spielleiters. Die weiteren Spieler setzen sich im Uhrzeigersinn dazu, in der Reihenfolge des Anlegens.' : `Wähle ${need} Platz${need === 1 ? '' : 'e'}, die frei bleiben (gewählt: ${free.length}).`;
-    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Alle Spieler sitzen am Tisch (keine Bots, keine Online-Spieler). An den langen Seiten sitzen höchstens zwei, an den kurzen einer. Die Reihenfolge ergibt sich aus den Plätzen; gewürfelt wird nur, wer beginnt.</small>` +
-      (host ? `<div class="tlmodes"><button type="button" class="btn small${mode === 'host' ? ' gold' : ' ghostb'}" data-tlmode="host">Platz des Spielleiters</button><button type="button" class="btn small${mode === 'free' ? ' gold' : ' ghostb'}" data-tlmode="free" ${need > 0 ? '' : 'disabled'}>Plätze freilassen</button><button type="button" class="btn small ghostb" data-tlauto="1" ${cfg.manual ? '' : 'disabled'} title="Freie Plätze automatisch wählen">Automatisch</button></div>` : '') +
-      `<div class="tlgrid">${cells}</div>${host ? `<small>${hint}</small>` : ''}${tblBtn}</div>`;
+    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Alle Spieler sitzen am Tisch (keine Bots, keine Online-Spieler). Beim Start wird jeder Spieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – nach seinem Platz am Tisch gefragt. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.</small>${tblBtn}</div>`;
   }
 
   function renderLobby(v) {
@@ -442,7 +428,6 @@
         return `<li class="${i === me ? 'me' : ''}${off ? ' off' : ''}" data-pid="${i}" style="--pc:${C.colorOf(i)}">${C.avatar(i, 42)}<span class="nm">${C.esc(p.name)}</span>${p.bot ? `<span class="botTag" title="${C.esc((AVS.BOTS[p.bot] || {}).desc || '')}">Bot · ${C.esc((AVS.BOTS[p.bot] || {}).label || '')}</span>` : ''}` +
           `${i === v.host ? '<span class="crown" title="Spielleiter">♛ Spielleiter</span>' : ''}${i === me ? '<span class="you">du</span>' : ''}` +
           `${off ? '<span class="away" title="Die Verbindung ist unterbrochen.">getrennt</span>' : ''}${p.auto ? '<span class="away auto" title="Der Auto-Modus spielt für diesen Spieler.">Auto</span>' : ''}` +
-          `${p.seat ? `<span class="away" title="Platz am Tisch">${SEAT_NAMES[p.seat]}</span>` : ''}` +
           `${p.tableGuest ? '<span class="botTag" title="Sitzt am digitalen Spieltisch">Tisch</span>' : ''}${root.Voice && !p.bot && !p.tableGuest ? root.Voice.badge(i) + (i !== me && root.Voice.inVoice(i) ? root.Voice.rowCtl(i) : '') : ''}` +
           `<span class="grow"></span>${host && i !== me ? `<button type="button" class="btn small red" data-kick="${i}" title="${C.esc(p.name)} aus der Lobby entfernen">Entfernen</button>` : ''}</li>`;
       }).join('') || '<li class="muted">Noch niemand hier.</li>');
@@ -502,19 +487,6 @@
       if (start) { if (start.getAttribute('aria-disabled') === 'true') { C.toast(start.title || 'Zu wenige Spieler.', 'warn'); return; } await C.act('start'); return; }
       const vc = e.target.closest('[data-var]'); if (vc && !vc.disabled && isHost()) { ovr.set('variant', { val: vc.dataset.var, until: Infinity }); queue('variant', vc.dataset.var); renderLobby(v); return; }
       const pl = e.target.closest('[data-plan]'); if (pl && !pl.disabled && isHost()) { const n = Math.max(2, Math.min(v.maxPlayers || 6, (eff('plannedPlayers') || 2) + Number(pl.dataset.plan))); queue('plannedPlayers', n); renderLobby(v); return; }
-      const tm = e.target.closest('[data-tlmode]'); if (tm && !tm.disabled && isHost()) { L.tlMode = tm.dataset.tlmode; L.freeDraft = null; renderLobby(v); return; }
-      const ta = e.target.closest('[data-tlauto]'); if (ta && !ta.disabled && isHost()) { L.freeDraft = null; await C.act('table_layout', { host: v.tableCfg.host, free: null }); return; }
-      const ts = e.target.closest('[data-tlseat]');
-      if (ts && !ts.disabled && isHost()) {
-        const b = ts.dataset.tlseat, cfg = v.tableCfg, planned = Math.max((v.settings && v.settings.plannedPlayers) || 0, v.players.length), need = 6 - planned;
-        if (L.tlMode === 'free' && need > 0) {
-          if (b === cfg.host) { C.toast('Der Platz des Spielleiters kann nicht frei bleiben.', 'warn'); return; }
-          const cur = (L.freeDraft || cfg.free).slice(); let d = cur.includes(b) ? cur.filter((x) => x !== b) : cur.concat(b);
-          if (d.length > need) d = d.slice(d.length - need); // zu viele gewählt: der älteste fällt heraus
-          if (d.length === need) { L.freeDraft = null; await C.act('table_layout', { host: cfg.host, free: d }); } else { L.freeDraft = d; renderLobby(v); }
-        } else { L.freeDraft = null; await C.act('table_layout', { host: b, free: cfg.manual && !cfg.free.includes(b) ? cfg.free : null }); }
-        return;
-      }
       const at = e.target.closest('[data-addtable]'); if (at && !at.disabled && isHost()) { Menu.showTablePlayer(); return; }
       const ab = e.target.closest('[data-addbot]'); if (ab && !ab.disabled && isHost()) { ab.disabled = true; await C.act('add_bot', { kind: ab.dataset.addbot }); return; }
       const cs = e.target.closest('[data-closeseats]'); if (cs && !cs.disabled) { await C.act('close_seats', { closed: cs.dataset.closeseats === '1' }); return; }

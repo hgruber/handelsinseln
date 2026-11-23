@@ -676,68 +676,56 @@ test('Inseln dichter: kleinerer Spielfeldradius bei gleicher Landfläche', () =>
   }
 });
 
-test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Plätze aus der Verteilung', () => {
+test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Tisch ein/aus', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');
-  g.act(0, { type: 'set_settings', settings: { plannedPlayers: 4 } });
   g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau' });
   assert.equal(g.S.settings.table, true, 'der erste Tischspieler schaltet den Tisch ein');
   g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen' });
-  g.act(0, { type: 'add_table_player', name: 'Dora', color: 'orange' });
-  const seats = () => g.S.players.map((p) => p.seat).join(',');
-  assert.equal(seats(), 'bl,tl,tr,br', 'vier Spieler: Ecken, im Uhrzeigersinn in Anlegereihenfolge (kurze Seiten bleiben frei)');
   throws(() => g.act(0, { type: 'add_table_player', name: 'Eva', color: 'blau' }), /Farbe/);
   throws(() => g.act(1, { type: 'add_table_player', name: 'Eva', color: 'violett' }), /Spielleiter/);
   throws(() => g.join('Online', 'violett'), /Spieltisch/);
   throws(() => g.act(0, { type: 'add_bot', kind: 'haendler' }), /Bots/);
   throws(() => g.act(0, { type: 'set_settings', settings: { table: false } }), /Unbekannte/);
-  // Tischverteilung: Platz des Spielleiters und freie Plätze
-  g.act(0, { type: 'table_layout', host: 'br', free: null });
-  assert.equal(seats(), 'br,bl,tl,tr');
-  throws(() => g.act(0, { type: 'table_layout', host: 'x', free: null }), /Platz/);
-  throws(() => g.act(0, { type: 'table_layout', host: 'l', free: ['l', 'r'] }), /nicht frei/);
-  g.act(0, { type: 'table_layout', host: 'l', free: ['bl', 'br'] });
-  assert.equal(seats(), 'l,tl,tr,r', 'manuell: nur die langen Seiten oben mit zwei, links/rechts je einer');
-  g.act(0, { type: 'set_settings', settings: { plannedPlayers: 5 } }); // passt nicht mehr (1 Platz müsste frei bleiben) → automatisch
-  assert.equal(g.S.players.length, 4); assert(g.S.tableView.free.length === 1);
-  // Entfernen: der Tisch bleibt, bis der letzte Tischspieler geht
-  g.act(0, { type: 'kick', pid: 3 }); g.act(0, { type: 'kick', pid: 2 });
+  assert(g.S.players.every((p) => p.seat == null), 'in der Lobby gibt es noch keine Plätze');
+  g.act(0, { type: 'kick', pid: 2 });
   assert.equal(g.S.settings.table, true);
   g.act(0, { type: 'kick', pid: 1 });
   assert.equal(g.S.settings.table, false, 'ohne Tischspieler ist der Tisch wieder aus');
-  assert.equal(g.S.players[0].seat, null);
   assert.doesNotThrow(() => g.join('Online', 'violett'));
 });
 
-test('Spieltisch: Plätze je Spielerzahl (zwei Spieler gegenüber, an langen Seiten zwei, an kurzen einer)', () => {
-  const want = { 2: 'b,t', 3: 'b,t,r', 4: 'bl,tl,tr,br', 5: 'bl,l,t,r,br', 6: 'bl,l,tl,tr,r,br' };
-  for (const n of [2, 3, 4, 5, 6]) {
-    const g = new Game({ rnd: rng(3) }); g.join('H', 'rot');
-    g.act(0, { type: 'set_settings', settings: { plannedPlayers: n } });
-    const cols = ['blau', 'gruen', 'orange', 'weiss', 'violett'];
-    for (let i = 1; i < n; i++) g.act(0, { type: 'add_table_player', name: 'P' + i, color: cols[i - 1] });
-    assert.equal(g.S.players.map((p) => p.seat).join(','), want[n], n + ' Spieler');
-  }
-});
-
-test('Spieltisch: Reihenfolge folgt den Plätzen im Uhrzeigersinn, Würfeln bestimmt nur den Beginner', () => {
-  const mk = () => {
+test('Spieltisch: Platzwahl beim Start (Spielleiter zuerst), Reihenfolge im Uhrzeigersinn, Würfeln nur für den Beginner', () => {
+  const mk = (dice) => {
     const g = new Game({ rnd: rng(4) });
     g.join('Hanna', 'rot');
     g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau' });
     g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen' });
     g.act(0, { type: 'add_table_player', name: 'Dora', color: 'orange' });
+    if (dice) g.act(0, { type: 'set_settings', settings: { dice } });
+    g.act(0, { type: 'start' });
     return g;
   };
-  const cyc = (g) => { const idx = g.S.order.map((p) => g.S.players[p].ringPos); let drops = 0; for (let i = 0; i < idx.length; i++) if (idx[(i + 1) % idx.length] < idx[i]) drops++; return drops <= 1; };
-  const a = mk(); a.act(0, { type: 'set_settings', settings: { dice: 'auto' } }); a.act(0, { type: 'start' });
-  assert(cyc(a), 'automatisch: Sitzordnung im Uhrzeigersinn, nur der Beginner ist ausgelost');
-  const m = mk(); m.act(0, { type: 'start' });
-  assert.equal(m.S.setup.stage, 'order');
-  for (let i = 0; i < 40 && m.S.setup.stage === 'order'; i++) m.act(m.S.turn, { type: 'roll' });
-  assert.notEqual(m.S.setup.stage, 'order', 'der Beginner steht nach höchstens ein paar Würfen fest');
-  assert(cyc(m), 'manuell: danach ebenfalls im Uhrzeigersinn');
-  assert.equal(m.S.turn, m.S.order[0]);
+  const g = mk();
+  assert.equal(g.S.phase, 'setup'); assert.equal(g.S.setup.stage, 'seat'); assert.equal(g.S.turn, 0, 'der Spielleiter wird zuerst gefragt');
+  assert.equal(g.view(0).step, 'setup_seat');
+  throws(() => g.act(1, { type: 'place_seat', seat: 'b' }), /gerade/);
+  throws(() => g.act(0, { type: 'place_seat', seat: 'x' }), /Platz/);
+  throws(() => g.act(0, { type: 'roll' }), /Platz/);
+  g.act(0, { type: 'place_seat', seat: 'tl' });
+  assert.equal(g.S.turn, 1, 'danach der Reihe nach in Anlegereihenfolge');
+  throws(() => g.act(1, { type: 'place_seat', seat: 'tl' }), /besetzt/);
+  g.act(1, { type: 'place_seat', seat: 'br' }); g.act(2, { type: 'place_seat', seat: 'bl' });
+  assert.equal(g.S.setup.stage, 'seat'); g.act(3, { type: 'place_seat', seat: 'tr' });
+  assert.deepEqual(g.S.order, [1, 2, 0, 3], 'Sitzordnung im Uhrzeigersinn (br, bl, tl, tr)');
+  assert.equal(g.S.setup.stage, 'order', 'danach wird gewürfelt, wer beginnt');
+  for (let i = 0; i < 40 && g.S.setup.stage === 'order'; i++) g.act(g.S.turn, { type: 'roll' });
+  assert.notEqual(g.S.setup.stage, 'order');
+  const idx = g.S.order.map((p) => ['br', 'b', 'bl', 'l', 'tl', 't', 'tr', 'r'].indexOf(g.S.players[p].seat));
+  let drops = 0; for (let i = 0; i < idx.length; i++) if (idx[(i + 1) % idx.length] < idx[i]) drops++;
+  assert(drops <= 1, 'die Reihenfolge bleibt im Uhrzeigersinn, nur der Beginner ist ausgewürfelt');
+  const a = mk('auto'); ['b', 'l', 't', 'r'].forEach((x, i) => a.act(i, { type: 'place_seat', seat: x }));
+  assert.equal(a.S.setup.stage, 'settlement', 'automatisch: sofort Aufbau, Beginner ausgelost');
 });
 
 test('Kartenformat: breiter Bildschirm gibt eine breitere Karte', () => {

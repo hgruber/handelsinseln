@@ -47,20 +47,47 @@
     msgEl.addEventListener('click', (e) => { const m = e.target.closest('.tmsg'); if (m) m.remove(); });
   }
 
+  // Platzabfrage beim Start: Der Spieler, der dran ist, sieht sein großes Avatar und wählt per Knopf seinen Platz (3 unten, 3 oben, je 1 links/rechts)
+  const SIDES = [['bl', 'b', 'br'], ['tl', 't', 'tr']];
+  const SEAT_LABEL = { tl: 'oben links', t: 'oben Mitte', tr: 'oben rechts', l: 'links', r: 'rechts', bl: 'unten links', b: 'unten Mitte', br: 'unten rechts' };
+  function seatAsk(v) {
+    let el = $('seatAsk');
+    if (v.step !== 'setup_seat') { if (el) el.remove(); return; }
+    const pid = v.turn, p = v.players[pid], by = {};
+    v.players.forEach((q) => { if (q.seat) by[q.seat] = q; });
+    const btn = (b) => { const q = by[b]; return `<button type="button" class="sa-seat${q ? ' taken' : ''}" data-seat="${b}" ${q ? 'disabled' : ''}>${q ? `${C.avatar(q.id, 34)}<span>${C.esc(q.name)}</span>` : `<span>${SEAT_LABEL[b]}</span>`}</button>`; };
+    const h = `<div class="sa-box glass"><div class="sa-av">${C.avatar(pid, 132)}</div><h2>Wo sitzt du, ${C.esc(p.name)}?</h2>` +
+      `<div class="sa-grid">${['tl', 't', 'tr', 'l', null, 'r', 'bl', 'b', 'br'].map((b) => (b ? btn(b) : '<div class="sa-table">Tisch</div>')).join('')}</div></div>`;
+    if (!el) { el = document.createElement('div'); el.id = 'seatAsk'; $('hud').appendChild(el); el.addEventListener('click', (e) => { const b = e.target.closest('.sa-seat'); if (b && !b.disabled && last) C.act('place_seat', { seat: b.dataset.seat }, last.views[0].turn); }); }
+    html(el, h);
+  }
+  // Elemente aus den Plätzen zurück an sichere Orte, bevor die Plätze neu aufgebaut werden
+  function parkAll() {
+    $('bottom').appendChild($('build')); $('bottom').appendChild($('dicebox'));
+    $('side').insertBefore($('tradeDock'), $('side').firstChild);
+    $('hud').insertBefore($('camBtns'), $('sideToggle'));
+  }
+
   function layout(v) {
-    const k = v.order.map((pid) => pid + ':' + v.players[pid].seat).join(',');
+    const placed = v.order.filter((pid) => v.players[pid].seat);
+    const k = placed.map((pid) => pid + ':' + v.players[pid].seat).join(',');
     if (k === key) return;
     key = k;
+    parkAll();
     for (const s of seats.values()) s.el.remove();
     seats.clear();
-    v.order.forEach((pid) => {
-      const slot = v.players[pid].seat || 'b';
+    const occ = new Set(placed.map((pid) => v.players[pid].seat));
+    placed.forEach((pid) => {
+      const slot = v.players[pid].seat;
       const el = document.createElement('section');
       el.className = 'seat s-' + slot; el.dataset.pid = pid;
       el.innerHTML = '<div class="seatmenu"></div><div class="badgerow"><div class="badge above"></div></div><div class="pubrow"><div class="badge top"></div><div class="seatctl"><div class="seathint"></div></div></div>' +
         '<div class="secretrow"><div class="secret"></div><div class="seathb"></div></div>';
       seatsEl.appendChild(el);
       const q = (c) => el.querySelector(c);
+      // sitzen auf einer langen Seite Nachbarn nebeneinander, werden die Plätze verkleinert, damit sie sich nicht überdecken
+      const grp = SIDES.find((g) => g.includes(slot));
+      if (grp) { const i = grp.indexOf(slot); if ((i > 0 && occ.has(grp[i - 1])) || (i < 2 && occ.has(grp[i + 1]))) el.style.zoom = Math.min(1, innerWidth * 0.3 / 575); }
       seats.set(pid, { el, menu: q('.seatmenu'), ctl: q('.seatctl'), hint: q('.seathint'), badgeTop: q('.badge.top'), badgeAbove: q('.badge.above'), secret: q('.secret'), hb: q('.seathb'), slot });
     });
   }
@@ -133,6 +160,7 @@
     last = { views, focus };
     const v = views[focus];
     layout(v);
+    seatAsk(v);
     messages(v);
     document.body.dataset.tseat = (seats.get(focus) || {}).slot || 'b';
     if (!v.trade) counter.clear();
@@ -177,6 +205,7 @@
     hud.insertBefore($('camBtns'), $('sideToggle'));
     b.insertBefore($('build'), $('score')); b.insertBefore($('dicebox'), $('score'));
     $('side').insertBefore($('tradeDock'), $('side').firstChild);
+    if ($('seatAsk')) $('seatAsk').remove();
     if (seatsEl) seatsEl.remove(); if (msgEl) msgEl.remove();
     seats.clear(); seatsEl = msgEl = null;
     document.body.classList.remove('table'); delete document.body.dataset.tseat; delete document.body.dataset.tedges;

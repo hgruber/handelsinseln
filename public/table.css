@@ -6,10 +6,10 @@ body.table #players, body.table #side, body.table #sideToggle, body.table #banne
 .seat.s-bl, .seat.s-br, .seat.s-tl, .seat.s-tr { --sw: min(560px, 46vw); }
 .seat.s-l, .seat.s-r { --sw: min(560px, 80vh); }
 .s-b { left: 50%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
-.s-bl { left: 25%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
-.s-br { left: 75%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-bl { left: 20%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-br { left: 80%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
 .s-t, .s-tl, .s-tr { top: 8px; margin-left: calc(var(--sw) / -2); transform: rotate(180deg) translate(-100%, -100%); }
-.s-t { left: 50%; } .s-tl { left: 25%; } .s-tr { left: 75%; }
+.s-t { left: 50%; } .s-tl { left: 20%; } .s-tr { left: 80%; }
 .s-l { left: 8px; top: 50%; margin-top: calc(var(--sw) / -2); transform: rotate(90deg) translateY(-100%); }
 .s-r { left: calc(100% - 8px); top: 50%; margin-top: calc(var(--sw) / -2); transform: rotate(-90deg) translate(-100%, -100%); }
 
@@ -86,3 +86,14 @@ body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top:
 .dflat.one i.p { background: radial-gradient(circle at 35% 30%, #ff6a5e, #a3141b); width: 12px; height: 12px; }
 body.table .die.rest .cube { visibility: hidden; } body.table .die.rest .dflat { display: grid; }
 @media (max-width: 1250px) { .dflat { padding: 5px; } .dflat i { width: 7px; height: 7px; } }
+
+/* Platzabfrage beim Start */
+#seatAsk { position: fixed; inset: 0; display: grid; place-items: center; z-index: 18; background: rgba(3, 8, 18, .55); }
+.sa-box { display: grid; justify-items: center; gap: 14px; padding: 26px 34px 30px; border-radius: 26px; max-width: 92vw; }
+.sa-box h2 { margin: 0; font: 700 32px var(--serif); color: var(--gold2); }
+.sa-av .av, .sa-av > * { box-shadow: 0 0 0 4px var(--gold2), 0 10px 30px rgba(0, 0, 0, .5); }
+.sa-grid { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 10px; }
+.sa-seat { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 64px; padding: 8px 12px; border-radius: 16px; border: 2px solid var(--line); background: linear-gradient(180deg, #34517e, #223a60); color: var(--text); font: 700 18px var(--sans); }
+.sa-seat:hover:not(:disabled) { filter: brightness(1.2); border-color: var(--gold2); }
+.sa-seat.taken { opacity: .5; background: rgba(255, 255, 255, .06); font-size: 15px; }
+.sa-table { grid-row: 2; grid-column: 2; display: grid; place-items: center; border-radius: 16px; background: rgba(60, 120, 90, .4); font: 700 20px var(--serif); color: var(--gold2); }

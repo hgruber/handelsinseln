@@ -63,12 +63,12 @@
     const colors = Object.keys(C.Art.COLORS), freeC = colors.find((c) => !usedC.includes(c));
     const seat0 = ['b', 't', 'l', 'r', 'bl', 'br', 'tl', 'tr'].find((s) => !taken[s]);
     const av = A.HUMAN.filter((a) => !usedA.includes(a.id)), av0 = av[Math.floor(Math.random() * av.length)] || A.HUMAN[0];
-    const html = '<h2>Tischspieler anlegen</h2><p class="lead small muted">Der Spieler sitzt am digitalen Spieltisch. Der Platz bestimmt die Reihenfolge (im Uhrzeigersinn).</p>' +
+    const html = '<h2>Tischspieler anlegen</h2><p class="lead small muted">Der Spieler sitzt am digitalen Spieltisch.</p>' +
       `<div class="tpform"><label class="tpl">Name<input id="tpName" maxlength="16" autocomplete="off" value="Spieler ${v.players.length + 1}" data-focus></label>` +
       `<div class="tpl">Farbe<div class="tpcols">${colors.map((c) => `<button type="button" class="sw tpcol${c === freeC ? ' on' : ''}${usedC.includes(c) ? ' taken' : ''}" data-c="${c}" ${usedC.includes(c) ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}" style="--c:${C.Art.COLORS[c]}"></button>`).join('')}</div></div>` +
       `<div class="tpl">Avatar<div id="tpAv" class="tpav" data-av="${av0.id}"><button type="button" class="avsel" aria-haspopup="listbox" aria-expanded="false"><img src="img/av/${av0.id}.webp" alt="" draggable="false"><span class="avn">${C.esc(av0.name)}</span><i class="chev" aria-hidden="true"></i></button>` +
       `<div class="avpanel glass" role="listbox" aria-label="Avatar wählen" hidden>${['Menschen', 'Tiere'].map((g) => `<div class="avg">${g}</div><div class="avgrid">${A.HUMAN.filter((a) => a.g === g).map((a) => { const tk = usedA.includes(a.id); return `<button type="button" class="avo${a.id === av0.id ? ' on' : ''}${tk ? ' taken' : ''}" data-a="${a.id}" role="option" aria-selected="${a.id === av0.id}" ${tk ? 'disabled' : ''} title="${tk ? 'In diesem Spiel vergeben' : C.esc(a.name)}"><img src="img/av/${a.id}.webp" alt="" draggable="false"><span>${C.esc(a.name)}</span></button>`; }).join('')}</div>`).join('')}</div></div></div>` +
-      '<p class="lead small muted">Der Platz ergibt sich aus der Tischverteilung (im Uhrzeigersinn in der Reihenfolge des Anlegens).</p></div>' +
+      '<p class="lead small muted">Den Platz am Tisch wählt der Spieler beim Spielstart.</p></div>' +
       '<div class="mact"><button class="btn ghostb" data-d="no">Abbrechen</button><button class="btn gold" id="tpOk">Anlegen</button></div>';
     openDlg('m-tp', () => html);
   }
