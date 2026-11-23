@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.5.6] - 2026-11-23
+
 ### Geändert
 - **Tischspieler anlegen (Lobby):** Die Avatar-Auswahl sieht jetzt aus wie auf der Startseite (Dropdown mit Vorschaubildern, gruppiert nach Menschen und Tieren).
 
