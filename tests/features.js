@@ -676,24 +676,30 @@ test('Inseln dichter: kleinerer Spielfeldradius bei gleicher Landfläche', () =>
   }
 });
 
-test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Reihenfolge nach Sitzplatz', () => {
+test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Plätze aus der Verteilung', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');
-  throws(() => g.act(0, { type: 'add_table_player', name: 'X', color: 'blau', seat: 'zz' }), /Platz/);
-  g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau', seat: 'l' });
+  g.act(0, { type: 'set_settings', settings: { plannedPlayers: 4 } });
+  g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau' });
   assert.equal(g.S.settings.table, true, 'der erste Tischspieler schaltet den Tisch ein');
-  assert(g.S.players[0].seat, 'der Spielleiter bekommt ebenfalls einen Platz');
-  g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen', seat: 't' });
-  g.act(0, { type: 'add_table_player', name: 'Dora', color: 'orange', seat: 'r' });
-  throws(() => g.act(0, { type: 'add_table_player', name: 'Eva', color: 'violett', seat: 'l' }), /besetzt/);
-  throws(() => g.act(1, { type: 'add_table_player', name: 'Eva', color: 'violett', seat: 'bl' }), /Spielleiter/);
+  g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen' });
+  g.act(0, { type: 'add_table_player', name: 'Dora', color: 'orange' });
+  const seats = () => g.S.players.map((p) => p.seat).join(',');
+  assert.equal(seats(), 'bl,tl,tr,br', 'vier Spieler: Ecken, im Uhrzeigersinn in Anlegereihenfolge (kurze Seiten bleiben frei)');
+  throws(() => g.act(0, { type: 'add_table_player', name: 'Eva', color: 'blau' }), /Farbe/);
+  throws(() => g.act(1, { type: 'add_table_player', name: 'Eva', color: 'violett' }), /Spielleiter/);
   throws(() => g.join('Online', 'violett'), /Spieltisch/);
   throws(() => g.act(0, { type: 'add_bot', kind: 'haendler' }), /Bots/);
   throws(() => g.act(0, { type: 'set_settings', settings: { table: false } }), /Unbekannte/);
-  g.act(0, { type: 'set_seat', pid: 3, seat: 'bl' });
-  assert.equal(g.S.players[3].seat, 'bl');
-  g.act(0, { type: 'set_seat', pid: 3, seat: 'l' }); // tauscht mit Bernd
-  assert.equal(g.S.players[1].seat, 'bl'); assert.equal(g.S.players[3].seat, 'l');
+  // Tischverteilung: Platz des Spielleiters und freie Plätze
+  g.act(0, { type: 'table_layout', host: 'br', free: null });
+  assert.equal(seats(), 'br,bl,tl,tr');
+  throws(() => g.act(0, { type: 'table_layout', host: 'x', free: null }), /Platz/);
+  throws(() => g.act(0, { type: 'table_layout', host: 'l', free: ['l', 'r'] }), /nicht frei/);
+  g.act(0, { type: 'table_layout', host: 'l', free: ['bl', 'br'] });
+  assert.equal(seats(), 'l,tl,tr,r', 'manuell: nur die langen Seiten oben mit zwei, links/rechts je einer');
+  g.act(0, { type: 'set_settings', settings: { plannedPlayers: 5 } }); // passt nicht mehr (1 Platz müsste frei bleiben) → automatisch
+  assert.equal(g.S.players.length, 4); assert(g.S.tableView.free.length === 1);
   // Entfernen: der Tisch bleibt, bis der letzte Tischspieler geht
   g.act(0, { type: 'kick', pid: 3 }); g.act(0, { type: 'kick', pid: 2 });
   assert.equal(g.S.settings.table, true);
@@ -703,17 +709,27 @@ test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spie
   assert.doesNotThrow(() => g.join('Online', 'violett'));
 });
 
+test('Spieltisch: Plätze je Spielerzahl (zwei Spieler gegenüber, an langen Seiten zwei, an kurzen einer)', () => {
+  const want = { 2: 'b,t', 3: 'b,t,r', 4: 'bl,tl,tr,br', 5: 'bl,l,t,r,br', 6: 'bl,l,tl,tr,r,br' };
+  for (const n of [2, 3, 4, 5, 6]) {
+    const g = new Game({ rnd: rng(3) }); g.join('H', 'rot');
+    g.act(0, { type: 'set_settings', settings: { plannedPlayers: n } });
+    const cols = ['blau', 'gruen', 'orange', 'weiss', 'violett'];
+    for (let i = 1; i < n; i++) g.act(0, { type: 'add_table_player', name: 'P' + i, color: cols[i - 1] });
+    assert.equal(g.S.players.map((p) => p.seat).join(','), want[n], n + ' Spieler');
+  }
+});
+
 test('Spieltisch: Reihenfolge folgt den Plätzen im Uhrzeigersinn, Würfeln bestimmt nur den Beginner', () => {
-  const clock = ['br', 'b', 'bl', 'l', 'tl', 't', 'tr', 'r'];
   const mk = () => {
     const g = new Game({ rnd: rng(4) });
     g.join('Hanna', 'rot');
-    g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau', seat: 'r' });
-    g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen', seat: 'l' });
-    g.act(0, { type: 'add_table_player', name: 'Dora', color: 'orange', seat: 't' });
+    g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau' });
+    g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen' });
+    g.act(0, { type: 'add_table_player', name: 'Dora', color: 'orange' });
     return g;
   };
-  const cyc = (g) => { const idx = g.S.order.map((p) => clock.indexOf(g.S.players[p].seat)); let drops = 0; for (let i = 0; i < idx.length; i++) if (idx[(i + 1) % idx.length] < idx[i]) drops++; return drops <= 1; };
+  const cyc = (g) => { const idx = g.S.order.map((p) => g.S.players[p].ringPos); let drops = 0; for (let i = 0; i < idx.length; i++) if (idx[(i + 1) % idx.length] < idx[i]) drops++; return drops <= 1; };
   const a = mk(); a.act(0, { type: 'set_settings', settings: { dice: 'auto' } }); a.act(0, { type: 'start' });
   assert(cyc(a), 'automatisch: Sitzordnung im Uhrzeigersinn, nur der Beginner ist ausgelost');
   const m = mk(); m.act(0, { type: 'start' });
@@ -722,4 +738,25 @@ test('Spieltisch: Reihenfolge folgt den Plätzen im Uhrzeigersinn, Würfeln best
   assert.notEqual(m.S.setup.stage, 'order', 'der Beginner steht nach höchstens ein paar Würfen fest');
   assert(cyc(m), 'manuell: danach ebenfalls im Uhrzeigersinn');
   assert.equal(m.S.turn, m.S.order[0]);
+});
+
+test('Kartenformat: breiter Bildschirm gibt eine breitere Karte', () => {
+  const Bd = require('../server/board.js'), Geo = require('../shared/geom.js');
+  let seed = 9; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  for (const variant of ['klassisch', 'inseln', 'archipel']) {
+    const f = { std: 0, wide: 0 };
+    for (const asp of ['std', 'wide']) for (let i = 0; i < 12; i++) {
+      const S = {}; Bd.generate(S, 4, rnd, { variant, aspect: asp === 'wide' ? 1.78 : null });
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (const k of Object.keys(S.hexes)) { if (S.hexes[k].t === 'meer') continue; const c = Geo.hexCenter(k); x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y); }
+      f[asp] += (x1 - x0 + 1.7) / (y1 - y0 + 2);
+    }
+    assert(f.wide > f.std * 1.3, `${variant}: Format ${(f.wide / 12).toFixed(2)} statt ${(f.std / 12).toFixed(2)}`);
+  }
+  const g = new Game({ rnd: rng(2) }); g.join('A', 'rot');
+  g.act(0, { type: 'set_settings', settings: { aspect: 1.78 } });
+  assert.equal(g.S.settings.aspect, 1.78);
+  throws(() => g.act(0, { type: 'set_settings', settings: { aspect: 9 } }), /Seitenverhältnis/);
+  g.join('B', 'blau'); g.act(0, { type: 'start' });
+  throws(() => g.act(0, { type: 'set_settings', settings: { aspect: 1 } }), /Spielfeld/);
 });

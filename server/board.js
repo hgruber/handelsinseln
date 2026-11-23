@@ -41,13 +41,13 @@ function island(S, k) {
   return seen;
 }
 
-function growBlob(count, rnd, avoid, startFn) {
+function growBlob(count, rnd, avoid, startFn, shape) {
   const blob = new Set([startFn()]);
   while (blob.size < count) {
     const cand = [...ringNeighbors(blob)].filter((k) => !avoid(k));
     if (!cand.length) break;
     // bevorzugt kompakte Formen (viele Nachbarn im Blob), mit Zufall
-    const scored = cand.map((k) => ({ k, s: G.neighbors(k).filter((n) => blob.has(n)).length + rnd() * 1.6 }));
+    const scored = cand.map((k) => ({ k, s: G.neighbors(k).filter((n) => blob.has(n)).length + rnd() * 1.6 - (shape ? shape(k) : 0) }));
     scored.sort((a, b) => b.s - a.s);
     blob.add(scored[0].k);
   }
@@ -64,29 +64,38 @@ function drawTerrain(S, rnd) {
 }
 
 // Startkarte je Variante
-function placeIslands(S, n, rnd, variant, dense) {
+function placeIslands(S, n, rnd, variant, dense, asp) {
   const origin = '0,0';
+  // Seitenverhältnis des Bildschirms (Breite/Höhe): außerhalb von etwa 1:1 bis 1,3:1 wird die Karte in x gestreckt und in y gestaucht
+  // (gleiche Fläche), damit sie das Format füllt. Ohne Angabe bleibt die runde Standardkarte.
+  const wide = !!asp && (asp < 1.0 || asp > 1.3);
+  const sx = wide ? Math.sqrt(asp) : 1, sy = wide ? 1 / Math.sqrt(asp) : 1, SQ3 = Math.sqrt(3);
+  const toXY = (k) => { const { q, r } = G.parseH(k); return { x: SQ3 * (q + r / 2), y: 1.5 * r }; };
+  const fromXY = (x, y) => { const r = Math.round(y / 1.5); return G.hk(Math.round(x / SQ3 - r / 2), r); };
+  const stretch = (k) => { if (!wide) return k; const p = toXY(k); return fromXY(p.x * sx, p.y * sy); };
+  const rad = (k) => { if (!wide) return dist(k, origin); const p = toXY(k); return Math.hypot(p.x / sx, p.y / sy) / 1.5; };
+  const shape = wide ? (k) => rad(k) * 0.3 : null;
   const land = new Set(), islands = [];
   const near = (k) => { for (const l of land) if (dist(k, l) < 2) return true; return false; };
   const add = (blob) => { blob.forEach((k) => land.add(k)); islands.push(blob); return blob; };
   if (variant === 'inseln') {
     const size = n <= 3 ? 7 : n === 4 ? 6 : 5;
     const R = dense ? Math.max(3, Math.ceil(4 / (2 * Math.sin(Math.PI / n)))) : Math.ceil(5 / (2 * Math.sin(Math.PI / n))) + 1;
-    const ring = [];
-    for (let q = -R; q <= R; q++) for (let r = -R; r <= R; r++) if (dist(G.hk(q, r), origin) === R) ring.push(G.hk(q, r));
+    const ring = [], RR = wide ? Math.ceil(R * Math.max(sx, sy) * 1.3) + 2 : R;
+    for (let q = -RR; q <= RR; q++) for (let r = -RR; r <= RR; r++) if (wide || dist(G.hk(q, r), origin) === R) ring.push(G.hk(q, r));
     const rot = rnd() * Math.PI * 2;
     const home = [];
     for (let i = 0; i < n; i++) {
       const a = rot + (i * 2 * Math.PI) / n;
-      const tx = Math.cos(a) * R * Math.sqrt(3), ty = Math.sin(a) * R * 1.5;
+      const tx = wide ? Math.cos(a) * R * 1.5 * sx : Math.cos(a) * R * Math.sqrt(3), ty = wide ? Math.sin(a) * R * 1.5 * sy : Math.sin(a) * R * 1.5;
       const start = ring.slice().sort((x, y) => { const px = G.hexCenter(x), py = G.hexCenter(y); return Math.hypot(px.x - tx, px.y - ty) - Math.hypot(py.x - tx, py.y - ty); })[0];
       home.push(add(growBlob(size, rnd, near, () => start)));
     }
     const center = add(growBlob(3, rnd, near, () => origin));
     // eine weitere kleine Insel weiter draußen
     for (let t = 0; t < 200; t++) {
-      const q = Math.floor(rnd() * (2 * R + 9)) - R - 4, r = Math.floor(rnd() * (2 * R + 9)) - R - 4, st = G.hk(q, r);
-      if (near(st) || dist(st, origin) < R + 3) continue;
+      const M = wide ? RR + 4 : R + 4, q = Math.floor(rnd() * (2 * M + 1)) - M, r = Math.floor(rnd() * (2 * M + 1)) - M, st = G.hk(q, r);
+      if (near(st) || rad(st) < R + 3 || (wide && rad(st) > R + 6)) continue;
       add(growBlob(1 + Math.floor(rnd() * 2), rnd, near, () => st)); break;
     }
     return { land, islands, home: new Set(home.flatMap((b) => [...b])), desertIn: center, exploredR: 2, neutral: islands.filter((b) => !home.includes(b)) };
@@ -98,10 +107,11 @@ function placeIslands(S, n, rnd, variant, dense) {
     for (let i = 0; i < K; i++) {
       const w = rnd();
       const size = w < 0.3 ? 2 : w < 0.65 ? 3 : w < 0.9 ? 4 : 5;
+      const M = wide ? Math.ceil(R * Math.max(sx, sy) * 1.4) + 1 : R;
       for (let t = 0; t < 400; t++) {
-        const q = Math.floor(rnd() * (2 * R + 1)) - R, r = Math.floor(rnd() * (2 * R + 1)) - R, st = G.hk(q, r);
-        if (dist(st, origin) > R || near(st)) continue;
-        const blob = growBlob(size, rnd, (k) => near(k) || dist(k, origin) > R + 1, () => st);
+        const q = Math.floor(rnd() * (2 * M + 1)) - M, r = Math.floor(rnd() * (2 * M + 1)) - M, st = G.hk(q, r);
+        if (rad(st) > R || near(st)) continue;
+        const blob = growBlob(size, rnd, (k) => near(k) || rad(k) > R + 1, () => st);
         if (blob.size < 2 || [...blob].some(near)) continue;
         add(blob); break;
       }
@@ -110,7 +120,7 @@ function placeIslands(S, n, rnd, variant, dense) {
     return { land, islands, home: all, desertIn: islands[Math.floor(rnd() * islands.length)], exploredR: 2, neutral: [] };
   }
   const mainCount = variant === 'nebel' ? 8 + 2 * n : 10 + 3 * n;
-  const main = add(growBlob(mainCount, rnd, () => false, () => origin));
+  const main = add(growBlob(mainCount, rnd, () => false, () => origin, shape));
   if (variant === 'klassisch') {
     const nSmall = n > 4 ? 4 : 3;
     for (let i = 0; i < nSmall; i++) {
@@ -118,8 +128,10 @@ function placeIslands(S, n, rnd, variant, dense) {
       for (let tries = 0; tries < 200; tries++) {
         const R = 6 + Math.floor(rnd() * 3);
         const q = Math.floor(rnd() * (2 * R + 1)) - R, r = Math.floor(rnd() * (2 * R + 1)) - R;
-        const start = G.hk(q, r);
-        if (dist(start, origin) > R + 1 || near(start)) continue;
+        const raw = G.hk(q, r);
+        if (dist(raw, origin) > R + 1) continue;
+        const start = stretch(raw);
+        if (near(start)) continue;
         const blob = growBlob(size, rnd, near, () => start);
         if ([...blob].some(near)) continue;
         add(blob); break;
@@ -132,7 +144,7 @@ function placeIslands(S, n, rnd, variant, dense) {
 function generateOnce(S, nPlayers, rnd, settings) {
   const variant = (settings && settings.variant) || 'klassisch';
   S.hexes = {}; S.harbors = {}; S.numBag = []; S.landBag = []; S.robber = null;
-  const L = placeIslands(S, nPlayers, rnd, variant, !!(settings && settings.dense));
+  const L = placeIslands(S, nPlayers, rnd, variant, !!(settings && settings.dense), settings && settings.aspect);
   const { land, islands, home } = L;
   // Meer: alles bis zum Aufdeckungsradius um Land ist bekannt
   const sea = new Set();

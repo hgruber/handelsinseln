@@ -37,15 +37,14 @@ try:
         games = json.load(urllib.request.urlopen(BASE + '/api/games'))['games']
         gid = games[0]['id']
         # Spieltisch: Tischspieler gibt es nur über die Lobby (Spielleiter); Bots und Online-Spieler sind dann nicht erlaubt
-        r = post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': 'Bernd', 'color': 'blau', 'seat': 'l'})
-        check(r.get('ok'), 'Tischspieler Bernd angelegt (Platz links) – der Tisch schaltet sich ein')
-        for nm, col, seat in (('Carla', 'gruen', 't'), ('Dora', 'orange', 'r')):
-            post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': nm, 'color': col, 'seat': seat})
+        r = post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': 'Bernd', 'color': 'blau'})
+        check(r.get('ok'), 'Tischspieler Bernd angelegt – der Tisch schaltet sich ein')
+        for nm, col in (('Carla', 'gruen'), ('Dora', 'orange')):
+            post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': nm, 'color': col})
         pg.wait_for_function("document.querySelectorAll('#lobbyList li').length === 4", timeout=6000)
-        check(pg.locator('#lobbyList .seatsel').count() == 4, 'Lobby zeigt für alle vier den Platz am Tisch')
+        check(pg.locator('.tlseat').count() == 6 and pg.locator('.tlseat.hostseat').count() == 1, 'Lobby zeigt die Tischverteilung mit dem Platz des Spielleiters')
         check('error' in post('/api/act', {'token': tok, 'type': 'add_bot', 'kind': 'haendler'}), 'kein Bot am Spieltisch')
         check('error' in post('/api/join', {'name': 'Online', 'color': 'violett', 'game': gid}), 'kein Online-Beitritt am Spieltisch')
-        check('error' in post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': 'Doppelt', 'color': 'violett', 'seat': 'l'}), 'besetzter Platz wird abgelehnt')
         check('error' in post('/api/act', {'token': tok, 'type': 'set_settings', 'settings': {'table': False}}), 'Tisch lässt sich nicht per Einstellung umschalten')
         # Platz tauschen: Dora (rechts) und Carla (oben) per Lobby-Auswahl
         gm = json.load(urllib.request.urlopen(BASE + '/api/games'))['games'][0]
@@ -56,14 +55,14 @@ try:
         check('error' in r, 'ungültiger Platz für „im Namen von“ wird abgelehnt')
         check(pg.locator('.seat').count() == 4, 'vier Sitzplätze')
         slots = pg.eval_on_selector_all('.seat', 'els => els.map(e => e.className.split(" ").find(c => c.startsWith("s-")))')
-        check(sorted(slots) == ['s-b', 's-l', 's-r', 's-t'], f'Plätze wie in der Lobby festgelegt ({slots})')
+        check(sorted(slots) == ['s-bl', 's-br', 's-tl', 's-tr'], f'vier Spieler sitzen in den Ecken, im Uhrzeigersinn verteilt ({slots})')
         check(pg.locator('.seat.active').count() == 1, 'genau ein aktiver Platz (Fokus)')
         check(pg.locator('.seat.ctl .pubrow #build').count() == 1 and pg.locator('.seat.ctl .pubrow #dicebox').count() == 1, 'Bedienelemente des Spielers am Zug sitzen in seiner öffentlichen Zeile')
         check(pg.locator('.seat .secret .rc').count() == 20, 'jeder Platz zeigt immer seinen geheimen Bereich (5 Rohstoffstapel)')
         check(pg.locator('.seat .seathb #btnMenu').count() == 1, 'Hamburger-Menü sitzt rechts vom geheimen Bereich des Spielleiters')
         check(pg.locator('#banner').is_hidden(), 'keine Anweisungsmeldung am Tisch')
         rot = pg.eval_on_selector_all('.seat', 'els => els.map(e => [e.className.split(" ").find(c => c.startsWith("s-")), getComputedStyle(e).transform])')
-        check(all(t != 'none' for s, t in rot if s != 's-b'), 'Plätze außer unten sind gedreht')
+        check(all(t != 'none' for s, t in rot if s not in ('s-b', 's-bl', 's-br')), 'Plätze oben sind gedreht')
         r = pg.evaluate("[...document.querySelectorAll('.seat')].map(e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom, innerWidth, innerHeight]; })")
         check(all(x[0] >= -2 and x[1] >= -2 and x[2] <= x[4] + 2 and x[3] <= x[5] + 2 for x in r), 'alle Plätze liegen im Bild')
         pg.screenshot(path=f'{SHOTS}/tisch-4.png')
@@ -100,7 +99,7 @@ try:
 
         # Zoom springt zurück
         k0 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
-        pg.mouse.move(800, 450)
+        pg.mouse.move(1000, 300)
         for _ in range(6): pg.mouse.wheel(0, 400)
         pg.wait_for_timeout(500)
         k1 = pg.evaluate("document.getElementById('world').getAttribute('transform')")

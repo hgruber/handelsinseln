@@ -9,7 +9,7 @@ const nullMap = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
 
 function defaults() {
   return {
-    variant: 'klassisch', plannedPlayers: 4, dense: false, table: false,
+    variant: 'klassisch', plannedPlayers: 4, dense: false, table: false, aspect: null,
     dice: 'manuell', robber: 'manuell',
     winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
     islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3,
@@ -41,6 +41,7 @@ function merge(cur, patch) {
     switch (k) {
       case 'variant': s.variant = oneOf(v, VARIANTS, 'Variante'); break;
       case 'dense': if (typeof v !== 'boolean') bad('Inseln dichter: ja/nein erwartet.'); s.dense = v; break;
+      case 'aspect': s.aspect = v === null ? null : (Number.isFinite(v) && v >= 0.5 && v <= 3 ? Math.round(v * 100) / 100 : bad('Seitenverhältnis: Zahl von 0,5 bis 3 erwartet.')); break;
       case 'plannedPlayers': s.plannedPlayers = int(v, 2, 6, 'Geplante Spielerzahl'); break;
       case 'dice': s.dice = oneOf(v, ['manuell', 'auto'], 'Würfeln'); break;
       case 'robber': s.robber = oneOf(v, ['manuell', 'auto'], 'Räuber'); break;
