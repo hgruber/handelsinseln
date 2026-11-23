@@ -27,7 +27,7 @@ JS_BOARD = """() => {
   const area = document.getElementById('lobbyPreview').getBoundingClientRect();
   const fogs = [...document.querySelectorAll('#board .L-hex > g.fog')];
   const out = fogs.filter(g => { const r = g.getBoundingClientRect(); const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2; return cx < area.left - 25 || cx > area.right + 25 || cy < area.top + 15 || cy > area.bottom + 25; }).length; // Mittelpunkt im Bild (unter der Kopfleiste)
-  return { total: keys.length, fog: fogs.length, fogOutside: out, sig: keys.join(',') };
+  return { total: keys.length, fog: fogs.length, fogOutside: out, sig: keys.slice().sort().join(',') }; // Menge der Felder, nicht die DOM-Reihenfolge (hängt vom bisherigen Verlauf ab)
 }"""
 
 try:
