@@ -66,7 +66,8 @@
     const html = '<h2>Tischspieler anlegen</h2><p class="lead small muted">Der Spieler sitzt am digitalen Spieltisch. Der Platz bestimmt die Reihenfolge (im Uhrzeigersinn).</p>' +
       `<div class="tpform"><label class="tpl">Name<input id="tpName" maxlength="16" autocomplete="off" value="Spieler ${v.players.length + 1}" data-focus></label>` +
       `<div class="tpl">Farbe<div class="tpcols">${colors.map((c) => `<button type="button" class="sw tpcol${c === freeC ? ' on' : ''}${usedC.includes(c) ? ' taken' : ''}" data-c="${c}" ${usedC.includes(c) ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}" style="--c:${C.Art.COLORS[c]}"></button>`).join('')}</div></div>` +
-      `<label class="tpl">Avatar<select id="tpAv">${A.HUMAN.map((a) => `<option value="${a.id}"${a.id === av0.id ? ' selected' : ''}${usedA.includes(a.id) ? ' disabled' : ''}>${C.esc(a.name)}</option>`).join('')}</select></label>` +
+      `<div class="tpl">Avatar<div id="tpAv" class="tpav" data-av="${av0.id}"><button type="button" class="avsel" aria-haspopup="listbox" aria-expanded="false"><img src="img/av/${av0.id}.webp" alt="" draggable="false"><span class="avn">${C.esc(av0.name)}</span><i class="chev" aria-hidden="true"></i></button>` +
+      `<div class="avpanel glass" role="listbox" aria-label="Avatar wählen" hidden>${['Menschen', 'Tiere'].map((g) => `<div class="avg">${g}</div><div class="avgrid">${A.HUMAN.filter((a) => a.g === g).map((a) => { const tk = usedA.includes(a.id); return `<button type="button" class="avo${a.id === av0.id ? ' on' : ''}${tk ? ' taken' : ''}" data-a="${a.id}" role="option" aria-selected="${a.id === av0.id}" ${tk ? 'disabled' : ''} title="${tk ? 'In diesem Spiel vergeben' : C.esc(a.name)}"><img src="img/av/${a.id}.webp" alt="" draggable="false"><span>${C.esc(a.name)}</span></button>`; }).join('')}</div>`).join('')}</div></div></div>` +
       `<div class="tpl">Platz am Tisch<div class="seatpick">${SEAT_CELLS.map((c) => c ? `<button type="button" class="tpseat${c[0] === seat0 ? ' on' : ''}" data-seat="${c[0]}" ${taken[c[0]] ? 'disabled' : ''} title="${taken[c[0]] ? C.esc(taken[c[0]]) : c[1]}">${taken[c[0]] ? C.esc(taken[c[0]]) : c[1]}</button>` : '<div class="tptable">Tisch</div>').join('')}</div></div></div>` +
       '<div class="mact"><button class="btn ghostb" data-d="no">Abbrechen</button><button class="btn gold" id="tpOk">Anlegen</button></div>';
     openDlg('m-tp', () => html);
@@ -148,11 +149,19 @@
     });
     $('dlgRoot').addEventListener('click', async (e) => {
       const sw = e.target.closest('.tpcol'), se = e.target.closest('.tpseat'), ok = e.target.closest('#tpOk');
+      const avs = e.target.closest('#tpAv .avsel'), avo = e.target.closest('#tpAv .avo');
+      if (avs) { const pn = $('tpAv').querySelector('.avpanel'); pn.hidden = !pn.hidden; avs.setAttribute('aria-expanded', String(!pn.hidden)); return; }
+      if (avo && !avo.disabled) {
+        const box = $('tpAv'), a = root.Avatars.HUMAN.find((x) => x.id === avo.dataset.a);
+        box.dataset.av = a.id; box.querySelector('.avsel img').src = 'img/av/' + a.id + '.webp'; box.querySelector('.avn').textContent = a.name;
+        box.querySelectorAll('.avo').forEach((x) => { x.classList.toggle('on', x === avo); x.setAttribute('aria-selected', String(x === avo)); });
+        box.querySelector('.avpanel').hidden = true; box.querySelector('.avsel').setAttribute('aria-expanded', 'false'); return;
+      }
       if (sw && !sw.disabled) { $('dlgRoot').querySelectorAll('.tpcol').forEach((x) => x.classList.toggle('on', x === sw)); return; }
       if (se && !se.disabled) { $('dlgRoot').querySelectorAll('.tpseat').forEach((x) => x.classList.toggle('on', x === se)); return; }
       if (ok) {
         const col = $('dlgRoot').querySelector('.tpcol.on'), seat = $('dlgRoot').querySelector('.tpseat.on');
-        const j = await C.act('add_table_player', { name: $('tpName').value, color: col && col.dataset.c, avatar: $('tpAv').value, seat: seat && seat.dataset.seat });
+        const j = await C.act('add_table_player', { name: $('tpName').value, color: col && col.dataset.c, avatar: $('tpAv').dataset.av, seat: seat && seat.dataset.seat });
         if (j && !j.error) closeDlg(true);
       }
     });

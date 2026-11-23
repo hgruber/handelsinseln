@@ -317,3 +317,5 @@ body[data-screen="ended"]:has(#stats.peek) #board { pointer-events: auto; filter
 .tpseat, .tptable { padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .07); color: inherit; font: 600 13px var(--sans); text-align: center; }
 .tpseat.on { background: linear-gradient(180deg, #fbdb85, #d99b27); color: #2a1a05; border-color: #fff0b8; } .tpseat:disabled { opacity: .45; }
 .tptable { background: rgba(60, 120, 90, .35); display: grid; place-items: center; }
+
+.tpav { position: relative; } .tpav .avpanel { max-height: min(36vh, 280px); } .tpav .avpanel[hidden] { display: none; }
