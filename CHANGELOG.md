@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Lobby, Spieleinstellungen:** Schalter und Zahlenfelder stehen in festen Spalten bündig untereinander (gleich breite Umschalter, „−“ links und „+“ rechts der Zahl, „Std“/„∞“ in eigener Spalte); für Mitspieler bleibt das Raster beim Ausblenden der Knöpfe erhalten.
+
 ## [1.5.8] - 2026-11-23
 
 ### Geändert
