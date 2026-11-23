@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Spieltisch:** Die Würfel an den seitlichen Plätzen verschwinden nach der Animation nicht mehr: Im Ruhezustand wird eine flache Würfelseite statt des 3D-Würfels gezeigt.
+
 ## [1.5.4] - 2026-11-23
 
 ### Geändert

@@ -77,3 +77,12 @@ body.table[data-tseat="r"] #modalRoot .modal { transform: rotate(-90deg); }
 body.table[data-tseat^="b"] #modalRoot .mback { align-items: end; padding-bottom: 250px; }
 body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top: 250px; }
 .seathb { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+
+/* Würfel am Tisch: nach dem Wurf eine flache 2D-Seite (3D-Würfel verschwinden in gedrehten Plätzen, z. B. in Firefox) */
+.die { position: relative; }
+.dflat { display: none; position: absolute; inset: 0; border-radius: 11px; background: linear-gradient(145deg, #fffdf6, #e2d8be); border: 1px solid #b8ab88; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px; box-sizing: border-box; box-shadow: inset 0 0 10px rgba(120, 90, 30, .25); }
+.dflat i { place-self: center; width: 9px; height: 9px; border-radius: 50%; }
+.dflat i.p { background: radial-gradient(circle at 35% 30%, #5a4a38, #1b140d); }
+.dflat.one i.p { background: radial-gradient(circle at 35% 30%, #ff6a5e, #a3141b); width: 12px; height: 12px; }
+body.table .die.rest .cube { visibility: hidden; } body.table .die.rest .dflat { display: grid; }
+@media (max-width: 1250px) { .dflat { padding: 5px; } .dflat i { width: 7px; height: 7px; } }

@@ -583,21 +583,29 @@
   const faceOrder = [[1, 'f1'], [6, 'f6'], [3, 'f3'], [4, 'f4'], [2, 'f2'], [5, 'f5']];
   const cubes = ['d1', 'd2'].map((id) => {
     const d = $(id);
-    d.innerHTML = '<div class="cube">' + faceOrder.map(([n, c]) => `<div class="dface ${c}">${Array.from({ length: 9 }, (_, i) => `<i${PIPS[n].includes(i) ? ' class="p"' : ''}></i>`).join('')}</div>`).join('') + '</div>';
+    d.innerHTML = '<div class="cube">' + faceOrder.map(([n, c]) => `<div class="dface ${c}">${Array.from({ length: 9 }, (_, i) => `<i${PIPS[n].includes(i) ? ' class="p"' : ''}></i>`).join('')}</div>`).join('') + '</div>' +
+      '<div class="dflat">' + Array.from({ length: 9 }, () => '<i></i>').join('') + '</div>'; // Tisch: im Ruhezustand flache 2D-Seite (3D-Würfel verschwinden in gedrehten Plätzen)
     return d.firstChild;
   });
   const rotStr = (v, a = 0, b = 0) => `rotateX(${ROT[v][0] + a}deg) rotateY(${ROT[v][1] + b}deg)`;
   function setDice(vals, anim) {
     $('dice').classList.toggle('idle', !vals);
     const show = vals || [1, 1];
+    const rest = (c, v) => { // Tisch: flache Seite mit dem Wurf anzeigen
+      const die = c.parentNode, flat = die.querySelector('.dflat');
+      flat.classList.toggle('one', v === 1);
+      flat.querySelectorAll('i').forEach((p, k) => p.classList.toggle('p', PIPS[v].includes(k)));
+      die.classList.add('rest');
+    };
     cubes.forEach((c, i) => {
       const v = show[i];
       c.style.transform = rotStr(v);
-      if (anim && !reduced) c.animate([
+      const die = c.parentNode; die.classList.remove('rest'); const tok = c._dt = (c._dt || 0) + 1; // nur der letzte Wurf zeigt die Ruheseite
+      if (anim && !reduced) { const an = c.animate([
         { transform: `translateY(0) ${rotStr(v, 720 + i * 360, 1080 - i * 360)}` },
         { transform: `translateY(-70px) ${rotStr(v, 360, 540)}`, offset: .4 },
         { transform: `translateY(0) ${rotStr(v)}` },
-      ], { duration: 950 + i * 160, easing: 'cubic-bezier(.25,.7,.3,1)' });
+      ], { duration: 950 + i * 160, easing: 'cubic-bezier(.25,.7,.3,1)' }); an.finished.then(() => { if (c._dt === tok) rest(c, v); }, () => {}); } else rest(c, v);
     });
   }
 
