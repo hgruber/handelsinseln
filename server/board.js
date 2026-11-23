@@ -167,8 +167,8 @@ function generateOnce(S, nPlayers, rnd, settings) {
     for (const k of shuffle([...isl], rnd)) {
       if (k === desert) types[k] = 'wueste';
       else if (isHome && goldLeft > 0 && homeCount > 0) { types[k] = 'gold'; goldLeft--; }
-      else if (variant === 'archipel' && rnd() < 0.25) types[k] = 'gold';
-      else if (!isHome) types[k] = rnd() < (variant === 'inseln' ? 0.55 : 0.4) ? 'gold' : drawTerrain(S, rnd);
+      else if (variant === 'archipel' && rnd() < 0.10) types[k] = 'gold';
+      else if (!isHome) types[k] = rnd() < 0.15 ? 'gold' : drawTerrain(S, rnd);
       else types[k] = drawTerrain(S, rnd);
     }
   });

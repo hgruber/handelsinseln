@@ -354,7 +354,7 @@ class Game {
     const n = S.players.length, set = S.settings;
     // Vorrat für aufgedeckte Felder (Nebel)
     S.supply = { terrain: { ...set.limits.fogTerrain }, chips: { ...set.limits.fogChips } };
-    S.fogGold = set.variant === 'nebel' ? 2.2 : set.variant === 'archipel' ? 1.6 : 1;
+    S.fogGold = set.variant === 'nebel' ? 1.3 : set.variant === 'archipel' ? 1.6 : 1;
     this.buildDeck(n);
     // Am Spieltisch bestimmt die Sitzordnung (im Uhrzeigersinn) die Reihenfolge; Würfeln legt nur fest, wer beginnt
     S.order = B.shuffle([...Array(n).keys()], this.rnd);
