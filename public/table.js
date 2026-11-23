@@ -57,11 +57,11 @@
       const slot = v.players[pid].seat || 'b';
       const el = document.createElement('section');
       el.className = 'seat s-' + slot; el.dataset.pid = pid;
-      el.innerHTML = '<div class="seatmenu"></div><div class="pubrow"><div class="badge top"></div><div class="seatctl"></div></div>' +
+      el.innerHTML = '<div class="seatmenu"></div><div class="pubrow"><div class="badge top"></div><div class="seatctl"><div class="seathint"></div></div></div>' +
         '<div class="secretrow"><div class="badge side"></div><div class="secret"></div><div class="seathb"></div></div>';
       seatsEl.appendChild(el);
       const q = (c) => el.querySelector(c);
-      seats.set(pid, { el, menu: q('.seatmenu'), ctl: q('.seatctl'), badgeTop: q('.badge.top'), badgeSide: q('.badge.side'), secret: q('.secret'), hb: q('.seathb'), slot });
+      seats.set(pid, { el, menu: q('.seatmenu'), ctl: q('.seatctl'), hint: q('.seathint'), badgeTop: q('.badge.top'), badgeSide: q('.badge.side'), secret: q('.secret'), hb: q('.seathb'), slot });
     });
   }
 
@@ -116,7 +116,8 @@
   function messages(v) {
     const lg = v.log || [], max = lg.length ? lg[lg.length - 1].id : 0;
     if (seenLog === null || max < seenLog) { seenLog = max; return; }
-    const skip = /ist an der Reihe| würfelt |erhält|^Startrohstoffe|^Handel:/; // Reihenfolge, Würfel und Karten sind am Tisch zu sehen
+    // Reihenfolge, Würfel, Karten und alles, was direkt auf dem Spielfeld passiert (Bauen, Räuber, Schiffe), ist am Tisch zu sehen
+    const skip = /ist an der Reihe| würfelt |erhält|^Startrohstoffe|^Handel:| baut | setzt | versetzt ein Schiff| stellt den | übernimmt | legt /;
     const fresh = lg.filter((l) => l.id > seenLog && !skip.test(l.text));
     seenLog = max;
     fresh.slice(-3).forEach((l) => {
@@ -141,6 +142,8 @@
       s.el.classList.toggle('active', active);
       s.el.classList.toggle('turn', turn);
       s.el.classList.toggle('ctl', pid === ctlSeat);
+      // Aufbau: der Spieler am Zug sieht in seiner Zeile, was er tun soll (Siedlung bzw. Straße/Schiff setzen)
+      html(s.hint, pid === ctlSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
       const bh = badgeHTML(v, p, pid);
       html(s.badgeTop, bh); html(s.badgeSide, bh);

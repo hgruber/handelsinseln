@@ -12,7 +12,7 @@
   // Bildschirmposition eines Ortes; res = Rohstoff (für den Kartenplatz in der eigenen Hand)
   function where(ref, v, res) {
     const W = root.innerWidth, H = root.innerHeight;
-    if (ref === 'bank') return { x: W / 2, y: 34 };
+    if (ref === 'bank') return C.table && C.table() ? { x: W - 46, y: H - 46 } : { x: W / 2, y: 34 }; // Tisch: Bank = Ecke unten rechts
     if (ref.startsWith('h:')) {
       const el = C.hexEl(ref.slice(2));
       if (el) { const p = center(el.getBoundingClientRect()); return { x: Math.max(20, Math.min(W - 20, p.x)), y: Math.max(20, Math.min(H - 20, p.y)) }; }
