@@ -177,7 +177,7 @@
         { path: 'bankRate', type: 'num', label: 'Bankkurs', tip: 'So viele gleiche Karten für 1 Karte der Bank (ohne Hafen).', min: 2, max: 6, suffix: ' : 1' },
         { path: 'islandBonus', type: 'num', label: 'Inselbonus (Punkte)', tip: 'Sonderpunkte für jede neu besiedelte Insel.', min: 0, max: 9 },
         { path: 'islandBonusMax', type: 'num', label: 'Inselbonus für höchstens … Inseln', min: 0, max: 99 },
-        { path: 'longestMin', type: 'num', label: 'Längste Route ab', min: 2, max: 20 },
+        { path: 'longestMin', type: 'num', label: 'Längster Handelsweg ab', min: 2, max: 20 },
         { path: 'armyMin', type: 'num', label: 'Stärkste Schutzmacht ab', min: 1, max: 20 },
       ] },
       { id: 'vorraete', title: 'Vorräte & Limits', rows: [
