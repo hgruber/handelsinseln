@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.5.7] - 2026-11-23
+
 ### Geändert
 - **Kartenformat:** Die Karte wird passend zum Seitenverhältnis des Spielleiter-Bildschirms erzeugt (z. B. 16:9): Heimatinseln, Archipel und die kleinen Inseln der klassischen Karte verteilen sich auf einer Ellipse, die Hauptinsel wird breiter. Die Landfläche bleibt gleich, nur die Form ändert sich; die Lobby gleicht das Format automatisch an (bei deutlicher Fenster­änderung wird die Vorschau neu erzeugt).
 - **Tischverteilung (Spieltisch):** Die Plätze werden nicht mehr einzeln gewählt. Die Tischspieler setzen sich im Uhrzeigersinn in der Reihenfolge, wie sie angelegt werden, der Spielleiter zuerst. In der Lobby legt der Spielleiter fest, **wo er sitzt** und (bei weniger als sechs geplanten Spielern) **welche Plätze frei bleiben**; „Automatisch“ wählt sinnvolle freie Plätze (2 Spieler gegenüber, 4 in den Ecken, …). An den langen Bildschirmseiten sitzen höchstens zwei Spieler, an den kurzen einer; sitzt unten/oben nur einer, rückt er in die Mitte. Die Anzahl der geplanten Spieler bestimmt die Verteilung.
