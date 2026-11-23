@@ -6,12 +6,12 @@ body.table #players, body.table #side, body.table #sideToggle, body.table #banne
 .seat.s-bl, .seat.s-br, .seat.s-tl, .seat.s-tr { --sw: min(560px, 46vw); }
 .seat.s-l, .seat.s-r { --sw: min(560px, 80vh); }
 .s-b { left: 50%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
-.s-bl { left: 32%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
-.s-br { left: 68%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-bl { left: 25%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
+.s-br { left: 75%; bottom: 8px; margin-left: calc(var(--sw) / -2); }
 .s-t, .s-tl, .s-tr { top: 8px; margin-left: calc(var(--sw) / -2); transform: rotate(180deg) translate(-100%, -100%); }
-.s-t { left: 50%; } .s-tl { left: 32%; } .s-tr { left: 68%; }
-.s-l { left: 8px; top: 58%; margin-top: calc(var(--sw) / -2); transform: rotate(90deg) translateY(-100%); }
-.s-r { left: calc(100% - 8px); top: 42%; margin-top: calc(var(--sw) / -2); transform: rotate(-90deg) translate(-100%, -100%); }
+.s-t { left: 50%; } .s-tl { left: 25%; } .s-tr { left: 75%; }
+.s-l { left: 8px; top: 50%; margin-top: calc(var(--sw) / -2); transform: rotate(90deg) translateY(-100%); }
+.s-r { left: calc(100% - 8px); top: 50%; margin-top: calc(var(--sw) / -2); transform: rotate(-90deg) translate(-100%, -100%); }
 
 /* Namensfeld (öffentlich): Avatar, Name, Punkte, weitere Daten */
 .badge { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 6px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); border-left: 4px solid var(--pc); box-shadow: 0 4px 12px rgba(0, 0, 0, .4); backdrop-filter: blur(10px); }
@@ -49,9 +49,8 @@ body.table .seat #primary .btn { padding: 8px 10px; font-size: 13px; font-family
 .secret .dc { width: 40px; height: 56px; flex: none; border-radius: 8px; display: grid; place-items: center; padding: 0; background: linear-gradient(180deg, #6a7bb0, #2c3560); border: 1px solid #8ea0d8; color: inherit; }
 .secret .dc.fresh { outline: 2px dashed var(--gold2); } .secret button.dc.play { cursor: pointer; box-shadow: 0 0 0 2px var(--gold); }
 .secret .dmore { font: 700 13px var(--sans); color: var(--gold2); }
-/* Namensfeld des Spielers am Zug: links neben dem geheimen Bereich */
-.secretrow .badge.side { display: none; position: absolute; right: calc(100% + 8px); bottom: 0; width: max-content; }
-.seat.turn .secretrow .badge.side { display: flex; }
+.badgerow { display: none; justify-content: center; }
+.seat.turn .badgerow { display: flex; }
 .seat.turn .pubrow .badge.top { display: none; }
 .seathb { flex: none; } .seathb #camBtns { position: static; display: flex; z-index: 20; }
 

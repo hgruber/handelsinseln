@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Spieltisch:** Die Punkteanzeige (Name, Punkte, öffentliche Daten) des Spielers am Zug sitzt mittig über seinem Aktionsbereich statt links neben dem geheimen Bereich.
+
 ## [1.5.3] - 2026-11-23
 
 ### Geändert

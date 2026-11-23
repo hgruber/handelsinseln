@@ -57,11 +57,11 @@
       const slot = v.players[pid].seat || 'b';
       const el = document.createElement('section');
       el.className = 'seat s-' + slot; el.dataset.pid = pid;
-      el.innerHTML = '<div class="seatmenu"></div><div class="pubrow"><div class="badge top"></div><div class="seatctl"><div class="seathint"></div></div></div>' +
-        '<div class="secretrow"><div class="badge side"></div><div class="secret"></div><div class="seathb"></div></div>';
+      el.innerHTML = '<div class="seatmenu"></div><div class="badgerow"><div class="badge above"></div></div><div class="pubrow"><div class="badge top"></div><div class="seatctl"><div class="seathint"></div></div></div>' +
+        '<div class="secretrow"><div class="secret"></div><div class="seathb"></div></div>';
       seatsEl.appendChild(el);
       const q = (c) => el.querySelector(c);
-      seats.set(pid, { el, menu: q('.seatmenu'), ctl: q('.seatctl'), hint: q('.seathint'), badgeTop: q('.badge.top'), badgeSide: q('.badge.side'), secret: q('.secret'), hb: q('.seathb'), slot });
+      seats.set(pid, { el, menu: q('.seatmenu'), ctl: q('.seatctl'), hint: q('.seathint'), badgeTop: q('.badge.top'), badgeAbove: q('.badge.above'), secret: q('.secret'), hb: q('.seathb'), slot });
     });
   }
 
@@ -146,7 +146,7 @@
       html(s.hint, pid === ctlSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
       const bh = badgeHTML(v, p, pid);
-      html(s.badgeTop, bh); html(s.badgeSide, bh);
+      html(s.badgeTop, bh); html(s.badgeAbove, bh);
       html(s.secret, secretHTML(v, pv, pid, active));
       html(s.menu, active ? '' : menuHTML(views, pid, v));
       if (active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
