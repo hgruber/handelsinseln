@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.5.8] - 2026-11-23
+
 ### Geändert
 - **Spieltisch, Platzwahl beim Start:** Die Plätze werden nicht mehr in der Lobby festgelegt (die Tischverteilung aus 1.5.7 entfällt). Beim Spielstart wird jeder Spieler der Reihe nach – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – mit großem Avatar gefragt „Wo sitzt du, <Name>?“ und wählt per Knopf einen der acht Plätze (an den langen Seiten je drei, an den kurzen einer; belegte Plätze sind gesperrt). Danach ergibt sich die Reihenfolge aus den Plätzen im Uhrzeigersinn, gewürfelt wird nur, wer beginnt. Sitzen auf einer langen Seite Nachbarn nebeneinander, werden die Plätze verkleinert.
 
