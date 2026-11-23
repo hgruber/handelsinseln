@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- **Räuber animiert:** Der Räuber hat einen neuen Look (ohne rote Augen) und sein Mantel flattert einseitig im Wind – eine mit Wan 2.2 erzeugte Animation (`public/img/stein-raeuber.webp`, animiertes WebP, 24 fps) ersetzt das Standbild.
 - **Lobby, Spieleinstellungen:** Schalter und Zahlenfelder stehen in festen Spalten bündig untereinander (gleich breite Umschalter, „−“ links und „+“ rechts der Zahl, „Std“/„∞“ in eigener Spalte); für Mitspieler bleibt das Raster beim Ausblenden der Knöpfe erhalten.
 - **Goldfluss-Felder seltener:** Auf Nebeninseln (klassisch, Inseln, Archipel) sind nur noch etwa 15 % der Felder Gold statt 40–55 %, im Archipel auf der Heimatinsel 10 % statt 25 %; im Nebel-Modus ist die Gold-Gewichtung von ×2,2 auf ×1,3 gesenkt.
 
