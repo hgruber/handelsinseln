@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.5.3] - 2026-11-23
+
 ### Geändert
 - **Spieltisch:** Die Punkteanzeige des Spielers am Zug blinkt langsam und deutlich in seiner Farbe und bleibt zweizeilig, wenn sie links vom geheimen Bereich sitzt. Karten zur Bank fliegen in die Ecke unten rechts. Beim Aufbau zeigt die öffentliche Zeile des Spielers, was er tun soll; Aktionen direkt auf dem Spielfeld (Bauen, Räuber, Schiffe) erzeugen keine Mitteilungen mehr.
 
