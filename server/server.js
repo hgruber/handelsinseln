@@ -34,7 +34,9 @@ function createServer(opts = {}) {
   };
   const send = (res, ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
   // Sichten mit Zusätzen, die nicht zum Spielstand gehören: display = es ist eine Tisch-Anzeige (Zuschauer) verbunden, arm = Standortwahl am Tisch
-  const displays = (room) => (room.watchers ? [...room.watchers.keys()].filter((t) => clients.has(t)).length : 0);
+  // Tisch-Anzeigen: verbundene Zuschauer und – bei laufendem digitalen Spieltisch – der Browser des Spielleiters
+  const tableStream = (room) => { const S = room.game.S, tok = S.players[S.host] && S.players[S.host].token, set = tok && clients.get(tok); return !!(S.settings.table && set && [...set].some((r) => r.tableMode)); };
+  const displays = (room) => (room.watchers ? [...room.watchers.keys()].filter((t) => clients.has(t)).length : 0) + (tableStream(room) ? 1 : 0);
   const pview = (room, pid) => { const v = room.game.view(pid); v.display = displays(room) > 0; v.arm = Arm.viewFor(room, pid); return v; };
   const wview = (room) => { const v = room.game.watchView(); v.arm = Arm.viewFor(room, 'watch'); return v; };
   const broadcast = (room) => {
@@ -49,7 +51,7 @@ function createServer(opts = {}) {
     const S = room.game.S, hostTok = S.players[S.host] && S.players[S.host].token, ts = hostTok && clients.get(hostTok);
     if (ts && S.settings.table && (S.phase === 'main' || S.phase === 'setup')) {
       const tabs = [...ts].filter((r) => r.tableMode);
-      if (tabs.length) { const views = S.players.map((p) => pview(room, p.id)); for (const res of tabs) send(res, 'table', { views }); }
+      if (tabs.length) { const pub = wview(room), views = S.players.map((p) => (room.game.isTablePlayer(p.id) ? pview(room, p.id) : pub)); for (const res of tabs) send(res, 'table', { views }); } // Online-Spieler und Bots: am Tisch nur Öffentliches
     }
     // Zuschauer: nur die öffentliche Sicht
     if (room.watchers && room.watchers.size) {
@@ -134,10 +136,12 @@ function createServer(opts = {}) {
         }
         const wf = hub.findWatcher(b.token);
         if (url.pathname === '/api/pick') { // Tisch-Anzeige: ein Ziel antippen (gilt nur, wenn ein Spieler am Handy die Aktion freigegeben hat und dort bestätigt)
-          if (!wf) return json(res, 403, { error: 'Nur eine Tisch-Anzeige (Zuschauer) kann Ziele wählen.' });
-          const err = guarded(() => Arm.pick(wf.room, String(b.t), String(b.k), String(b.kind)));
+          const hf = !wf && hub.findByToken(b.token), tbl = hf && hf.player.id === hf.room.game.S.host && tableStream(hf.room) ? hf : null; // oder der laufende Spieltisch des Spielleiters
+          const rm = wf ? wf.room : tbl && tbl.room;
+          if (!rm) return json(res, 403, { error: 'Nur eine Tisch-Anzeige (Zuschauer oder Spieltisch) kann Ziele wählen.' });
+          const err = guarded(() => Arm.pick(rm, String(b.t), String(b.k), String(b.kind)));
           if (err) return json(res, 400, { error: err.message });
-          broadcast(wf.room);
+          broadcast(rm);
           return json(res, 200, { ok: true });
         }
         if (wf) { // Zuschauer dürfen nichts tun außer das Zuschauen beenden
@@ -188,7 +192,7 @@ function createServer(opts = {}) {
         g.lastKicked = null;
         let actor = player.id;
         if (b.as !== undefined && b.as !== null && b.as !== player.id) { // Spieltisch: der Spielleiter handelt für einen Mitspieler
-          if (!(g.S.settings.table && player.id === g.S.host && Number.isInteger(b.as) && g.S.players[b.as])) return json(res, 400, { error: 'Der digitale Spieltisch ist nicht aktiv.' });
+          if (!(g.S.settings.table && player.id === g.S.host && Number.isInteger(b.as) && g.isTablePlayer(b.as))) return json(res, 400, { error: 'Der digitale Spieltisch ist nicht aktiv, oder der Spieler sitzt nicht am Tisch.' });
           actor = b.as;
         }
         const err = guarded(() => g.act(actor, b));

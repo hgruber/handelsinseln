@@ -156,7 +156,6 @@ class Game {
       const p = S.players.find((x) => x.token === token);
       if (p) return { token, pid: p.id };
     }
-    if (S.settings.table) fail('Dies ist eine Partie am digitalen Spieltisch – Spieler lassen sich nur am Tisch hinzufügen.');
     name = String(name || '').trim().replace(/\s+/g, ' ');
     if (name.length < 1 || name.length > 16) fail('Bitte einen Namen mit 1–16 Zeichen angeben.');
     if (!COLORS.includes(color)) fail('Bitte eine Farbe wählen.');
@@ -177,7 +176,6 @@ class Game {
   addBot(pid, kind) {
     this.hostOnly(pid, 'Bots hinzufügen');
     const S = this.S, B0 = AV.BOTS[kind];
-    if (S.settings.table) fail('Am digitalen Spieltisch sind keine Bots erlaubt.');
     if (!B0) fail('Diesen Bot gibt es nicht.');
     if (S.closed) fail('Die Plätze sind als besetzt erklärt.');
     if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
@@ -201,7 +199,6 @@ class Game {
     if (!COLORS.includes(color)) fail('Bitte eine Farbe wählen.');
     if (S.closed) fail('Die Plätze sind als besetzt erklärt.');
     if (S.players.length >= MAX_P) fail('Das Spiel ist voll (maximal 6 Spieler).');
-    if (S.players.some((p) => p.id !== S.host && !p.tableGuest)) fail('Am digitalen Spieltisch gibt es nur Tischspieler: Bots und Online-Spieler müssen zuerst gehen.');
     if (S.players.some((p) => p.color === color)) fail('Diese Farbe ist schon vergeben.');
     if (S.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name ist schon vergeben.');
     if (Object.values(AV.BOTS).some((b) => b.name.toLowerCase() === name.toLowerCase())) fail('Dieser Name gehört einem Bot.');
@@ -211,6 +208,11 @@ class Game {
     if (S.players.length > S.settings.plannedPlayers) { S.settings.plannedPlayers = S.players.length; this.regen(); this.log(`Das Spielfeld wurde für ${S.players.length} Spieler neu erzeugt.`, 'sys'); }
     this.syncTable();
     S.v++;
+  }
+  // Tischspieler: der Spielleiter (er bedient den Tisch) und die am Tisch angelegten Gäste – sobald der Tisch läuft. Online-Spieler und Bots sind keine Tischspieler.
+  isTablePlayer(pid) {
+    const S = this.S, p = S.players[pid];
+    return !!p && !!S.settings.table && (pid === S.host || !!p.tableGuest);
   }
   // Tisch ein, sobald ein Tischspieler existiert; aus, wenn keiner mehr da ist. Die Plätze werden erst beim Spielstart abgefragt.
   syncTable() {
@@ -363,12 +365,12 @@ class Game {
     this.log(`Das Spiel beginnt! Erster mit ${set.winPoints} Punkten gewinnt.`, 'sys');
     this.log('Aufbau: Jeder setzt zwei Siedlungen samt Straße oder Schiff (die zweite in umgekehrter Reihenfolge) und erhält dafür Startrohstoffe.', 'sys');
     if (set.table) { // Spieltisch: erst wählt jeder Spieler seinen Platz (Spielleiter zuerst), danach steht die Reihenfolge fest
-      const ask = [S.host, ...S.players.map((p) => p.id).filter((i) => i !== S.host)];
+      const ask = [S.host, ...S.players.map((p) => p.id).filter((i) => i !== S.host && this.isTablePlayer(i))]; // nur Tischspieler wählen selbst; Online-Spieler und Bots bekommen einen freien Platz
       S.order = ask.slice();
       S.players.forEach((p) => { p.seat = null; });
       S.setup = { seq: null, i: 0, stage: 'seat', last: null, ask, askIdx: 0 };
       S.turn = ask[0];
-      this.log('Am Spieltisch wählt jetzt jeder Spieler seinen Platz.', 'sys');
+      this.log('Am Spieltisch wählt jetzt jeder Tischspieler seinen Platz.', 'sys');
     } else if (set.dice === 'auto') this.orderDone();
     else {
       // manueller Ablauf: die Reihenfolge wird ausgewürfelt (Gleichstände würfeln unter sich neu)
@@ -382,6 +384,9 @@ class Game {
   // Spieltisch: alle sitzen – die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn, gewürfelt wird nur, wer beginnt
   afterSeating() {
     const S = this.S, set = S.settings, n = S.players.length;
+    // Online-Spieler und Bots sitzen auf den noch freien Plätzen (Reihenfolge der Plätze: unten, oben, links, rechts, dann die Ecken)
+    const free = ['b', 't', 'l', 'r', 'bl', 'br', 'tl', 'tr'].filter((x) => !S.players.some((p) => p.seat === x));
+    S.players.filter((p) => !p.seat).forEach((p) => { p.seat = free.shift(); this.log(`${p.name} sitzt am Tisch.`, 'sys', p.id); });
     S.order = S.players.map((p) => p.id).sort((x, y) => SEAT_CLOCK.indexOf(S.players[x].seat) - SEAT_CLOCK.indexOf(S.players[y].seat));
     if (set.dice === 'auto') { this.startWith(S.order[Math.floor(this.rnd() * n)]); this.orderDone(); return; }
     S.setup = { seq: null, i: 0, stage: 'order', last: null, ord: { table: true, groups: [S.order.slice()], cur: S.order.slice(), rolled: {}, idx: 0 } };
@@ -626,7 +631,7 @@ class Game {
   }
   afterAction() {
     const S = this.S;
-    if (S.trade && !S.settings.table && !this.canPay(S.trade.from, S.trade.give)) { // Anbieter hat die Karten inzwischen ausgegeben
+    if (S.trade && !this.isTablePlayer(S.trade.from) && !this.canPay(S.trade.from, S.trade.give)) { // Anbieter hat die Karten inzwischen ausgegeben
       S.trade = null; this.log('Das Angebot wurde automatisch zurückgezogen (Karten nicht mehr vorhanden).', 'trade');
     }
     if (S.phase === 'main') this.checkWin();
@@ -1023,7 +1028,7 @@ class Game {
     const give = cleanCards(a.give), want = cleanCards(a.want);
     if (!sum(give) || !sum(want)) fail('Ein Angebot braucht Karten auf beiden Seiten.');
     if (RES.some((r) => give[r] && want[r])) fail('Gib nicht dieselbe Ressource, die du verlangst.');
-    if (!S.settings.table && !this.canPay(pid, give)) fail('Du besitzt diese Karten nicht.');
+    if (!this.isTablePlayer(pid) && !this.canPay(pid, give)) fail('Du besitzt diese Karten nicht.');
     S.trade = { id: ++S.tradeSeq, from: pid, give, want, responses: {} };
     this.log(`${this.name(pid)} bietet ${fmt(give)} gegen ${fmt(want)}.`, 'trade', pid);
     // Auto-Spieler nehmen jedes 1:1-Angebot an, wenn sie die verlangte Karte besitzen

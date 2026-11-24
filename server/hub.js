@@ -44,7 +44,7 @@ class Hub {
       plannedPlayers: S.settings.plannedPlayers, maxPlayers: 6,
       players: S.players.filter((p) => !p.left).map((p) => ({ name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null })),
       table: !!S.settings.table,
-      joinable: S.phase === 'lobby' && !S.closed && S.players.length < 6 && !S.settings.table,
+      joinable: S.phase === 'lobby' && !S.closed && S.players.length < 6,
       watchable: S.phase === 'setup' || S.phase === 'main', // läuft: man kann zusehen
     };
   }

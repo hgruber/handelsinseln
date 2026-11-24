@@ -99,7 +99,7 @@ body.table .die.rest .cube { visibility: hidden; } body.table .die.rest .dflat {
 .sa-table { grid-row: 2; grid-column: 2; display: grid; place-items: center; border-radius: 16px; background: rgba(60, 120, 90, .4); font: 700 20px var(--serif); color: var(--gold2); }
 
 /* Zuschauer (body.watch): öffentliche Sicht wie am Tisch, ohne geheimen Bereich und ohne Bedienelemente */
-body.watch .secretrow, body.watch .seat #build, body.watch .seat #primary { display: none !important; }
+body.watch .secretrow, body.watch .seat #build, body.watch .seat #primary, .seat.pub .secretrow, .seat.pub #build, .seat.pub #primary { display: none !important; }
 .wresp { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; } .wresp .wr { display: inline-flex; align-items: center; gap: 3px; }
 .wresp .st { font: 700 15px var(--sans); } .wresp .st.ok { color: #7fe3ae; } .wresp .st.no { color: #ff9a8f; } .wresp .st.cnt2 { color: var(--gold2); }
-body.watch .pubrow .seatctl { width: auto; margin: 0 auto; }
+body.watch .pubrow .seatctl, .seat.pub .pubrow .seatctl { width: auto; margin: 0 auto; }

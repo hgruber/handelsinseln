@@ -422,7 +422,7 @@
 
   // Hinweis in der Lobby einer Tisch-Partie: die Plätze werden erst beim Spielstart am Tisch abgefragt
   function tableHTML() {
-    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Alle Spieler sitzen am Tisch (keine Bots, keine Online-Spieler). Beim Start wird jeder Spieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – nach seinem Platz am Tisch gefragt. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.</small></div>`;
+    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Der Spielleiter und die angelegten Tischspieler sitzen am Tisch; Online-Spieler (am eigenen Gerät) und Bots lassen sich dazu mischen. Beim Start wählt jeder Tischspieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – seinen Platz am Tisch, die übrigen bekommen einen freien Platz. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.</small></div>`;
   }
 
   function renderLobby(v) {
@@ -450,11 +450,10 @@
     // Bots hinzufügen (nur Spielleiter): bereits dabeigesetzte verschwinden aus der Liste, sind alle dabei, entfällt sie ganz
     const full = v.players.length >= (v.maxPlayers || 6), here = new Set(v.players.map((p) => p.bot).filter(Boolean));
     const avail = Object.entries(AVS.BOTS).filter(([k]) => !here.has(k));
-    const tbl = !!s.table, others = v.players.some((p) => p.id !== v.host && !p.tableGuest);
-    const tblBtn = host ? `<button type="button" class="btn small gold" data-addtable="1" ${full || v.closed || others ? 'disabled' : ''} title="${others ? 'Am Spieltisch gibt es nur Tischspieler – entferne erst Bots und Online-Spieler' : full ? 'Das Spiel ist voll' : 'Einen Spieler am digitalen Spieltisch anlegen'}">Tischspieler anlegen …</button>` : '';
+    const tbl = !!s.table;
+    const tblBtn = host ? `<button type="button" class="btn small gold" data-addtable="1" ${full || v.closed ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : 'Einen Spieler am digitalen Spieltisch anlegen'}">Tischspieler anlegen …</button>` : '';
     C.setHTML($('lbTbl'), tblBtn); // „Tischspieler anlegen“ sitzt rechts neben „Spieler 1/6“
-    if (tbl) { C.setHTML($('lobbyBots'), tableHTML()); }
-    else C.setHTML($('lobbyBots'), (host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
+    C.setHTML($('lobbyBots'), (tbl ? tableHTML() : '') + (host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
       const dis = full || !!v.closed;
       return `<div class="botcard"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
         `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">Hinzufügen</button></div>`;

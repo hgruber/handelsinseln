@@ -18,7 +18,8 @@
   // Wer wird gerade bedient: Spieler mit offener Pflicht (Abwerfen, Gold), sonst der Spieler am Zug
   function focusOf(views) {
     const v = views[0];
-    const owing = (k) => v.order.find((pid) => v.players[pid][k] > 0);
+    // Wer eine Pflicht hat: Tischspieler zuerst (Online-Spieler und Bots erledigen sie selbst am Handy bzw. automatisch)
+    const owing = (k) => v.order.find((pid) => v.players[pid][k] > 0 && !views[pid].watch) ?? v.order.find((pid) => v.players[pid][k] > 0);
     if (v.step === 'discard') { const p = owing('discarding'); if (p != null) return p; }
     if (v.step === 'gold') { const p = owing('pickingGold'); if (p != null) return p; }
     return v.turn != null ? v.turn : v.host >= 0 ? v.host : (v.order && v.order.length ? v.order[0] : 0);
@@ -184,27 +185,29 @@
     messages(v);
     document.body.dataset.tseat = (seats.get(focus) || {}).slot || 'b';
     if (!v.trade) counter.clear();
-    const ctlSeat = v.turn === focus && v.phase !== 'ended' ? focus : null;
+    const isPub = (pid) => !!watch || !!(views[pid] && views[pid].watch); // Zuschauer-Tisch oder Online-Spieler/Bot am Tisch: nur Öffentliches
+    const diceSeat = v.turn === focus && v.phase !== 'ended' ? focus : null; // Würfel zeigt auch der öffentliche Platz des Spielers am Zug
     for (const [pid, s] of seats) {
-      const pv = views[pid], p = v.players[pid], active = pid === focus, turn = v.turn === pid;
+      const pv = views[pid], p = v.players[pid], active = pid === focus, turn = v.turn === pid, pub = isPub(pid);
       s.el.classList.toggle('active', active);
+      s.el.classList.toggle('pub', pub);
       s.el.classList.toggle('turn', turn);
-      s.el.classList.toggle('ctl', pid === ctlSeat);
+      s.el.classList.toggle('ctl', pid === diceSeat);
       // Aufbau: der Spieler am Zug sieht in seiner Zeile, was er tun soll (Siedlung bzw. Straße/Schiff setzen)
-      html(s.hint, armHint(v, pid) ? C.esc(armHint(v, pid)) : pid === ctlSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
+      html(s.hint, armHint(v, pid) ? C.esc(armHint(v, pid)) : pid === diceSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
       const bh = badgeHTML(v, p, pid);
       html(s.badgeTop, bh); html(s.badgeAbove, bh);
-      if (!watch) html(s.secret, secretHTML(v, pv, pid, active));
-      html(s.menu, watch ? watchMenuHTML(v, pid) : active ? '' : menuHTML(views, pid, v));
-      if (!watch && active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
-      if (pid === ctlSeat) {
+      if (!pub) html(s.secret, secretHTML(v, pv, pid, active));
+      html(s.menu, pub ? (v.trade && v.trade.from === pid ? watchMenuHTML(v, pid) : '') : active ? '' : menuHTML(views, pid, v));
+      if (!pub && active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
+      if (pid === diceSeat) {
         if ($('build').parentNode !== s.ctl) s.ctl.appendChild($('build'));
         if ($('dicebox').parentNode !== s.ctl) s.ctl.appendChild($('dicebox'));
       }
       if (!watch && pid === v.host && $('camBtns').parentNode !== s.hb) s.hb.appendChild($('camBtns')); // Hamburger-Menü rechts vom geheimen Bereich des Spielleiters
     }
-    if (ctlSeat === null) { // niemand am Zug: Bedienelemente wegräumen
+    if (diceSeat === null) { // niemand am Zug: Bedienelemente wegräumen
       const b = $('bottom');
       if ($('build').parentNode !== b) b.appendChild($('build'));
       if ($('dicebox').parentNode !== b) b.appendChild($('dicebox'));

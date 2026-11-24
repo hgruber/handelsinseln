@@ -21,6 +21,7 @@ run "Browser Bots+Avatare" python3 tests/browser_bots.py
 run "Bot-Turnier 3"        node tests/bots.js 3
 run "Browser Übernahme"     python3 tests/browser_takeover.py
 run "Browser Spieltisch"    python3 tests/browser_table.py
+run "Browser Gemischt"      python3 tests/browser_mixed.py
 run "Browser Zuschauer"     python3 tests/browser_watch.py
 run "Browser Controller"    python3 tests/browser_controller.py
 exit $fail

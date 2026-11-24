@@ -43,12 +43,10 @@ try:
             post('/api/act', {'token': tok, 'type': 'add_table_player', 'name': nm, 'color': col})
         pg.wait_for_function("document.querySelectorAll('#lobbyList li').length === 4", timeout=6000)
         check(pg.locator('.tblnote').count() >= 1 and pg.locator('.tlseat').count() == 0, 'Lobby einer Tisch-Partie fragt keine Plätze ab')
-        check('error' in post('/api/act', {'token': tok, 'type': 'add_bot', 'kind': 'haendler'}), 'kein Bot am Spieltisch')
-        check('error' in post('/api/join', {'name': 'Online', 'color': 'violett', 'game': gid}), 'kein Online-Beitritt am Spieltisch')
         check('error' in post('/api/act', {'token': tok, 'type': 'set_settings', 'settings': {'table': False}}), 'Tisch lässt sich nicht per Einstellung umschalten')
         # Platz tauschen: Dora (rechts) und Carla (oben) per Lobby-Auswahl
         gm = json.load(urllib.request.urlopen(BASE + '/api/games'))['games'][0]
-        check(gm.get('table') and not gm.get('joinable'), 'Spiel ist in der Liste als Spieltisch gekennzeichnet und nicht beitretbar')
+        check(gm.get('table') and gm.get('joinable'), 'Spiel ist in der Liste als Spieltisch gekennzeichnet und beitretbar (Online-Spieler und Bots dürfen dazu)')
         post('/api/act', {'token': tok, 'type': 'set_settings', 'settings': {'dice': 'auto'}})
         pg.click('#startBtn'); pg.wait_for_selector('#seatAsk', timeout=10000)
         # Platzwahl: der Reihe nach (Spielleiter zuerst) per Knopf

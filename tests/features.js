@@ -777,7 +777,30 @@ test('Controller: Aktivieren → Wählen am Tisch → Bestätigen am Handy (Aufb
   }
 });
 
-test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Tisch ein/aus', () => {
+test('Gemischte Lobby: Tischspieler, Online-Spieler und Bots; Plätze nur für Tischspieler wählbar, Handel ohne Karten nur am Tisch', () => {
+  const g = new Game({ rnd: rng(9) }); g.join('Hanna', 'rot'); g.join('Otto', 'blau');
+  g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'gruen' });
+  g.act(0, { type: 'add_bot', kind: 'haendler' });
+  assert.equal(g.S.settings.table, true); assert.equal(g.S.players.length, 4);
+  assert.deepEqual([0, 1, 2, 3].map((i) => g.isTablePlayer(i)), [true, false, true, false], 'Tischspieler: Spielleiter und Gast');
+  const room = ST; void room;
+  assert.equal(new Hub().summary({ id: 'x', game: g }).joinable, true, 'Tisch-Partie ist beitretbar');
+  g.act(0, { type: 'start' });
+  assert.deepEqual(g.S.setup.ask, [0, 2], 'nur Tischspieler werden nach dem Platz gefragt');
+  assert.throws(() => g.act(1, { type: 'place_seat', seat: 'b' }), /wählt gerade/);
+  g.act(0, { type: 'place_seat', seat: 'b' }); g.act(2, { type: 'place_seat', seat: 't' });
+  const seats = g.S.players.map((p) => p.seat);
+  assert(seats.every(Boolean) && new Set(seats).size === 4, 'alle haben einen verschiedenen Platz: ' + seats);
+  assert.equal(g.S.order.length, 4, 'Reihenfolge enthält alle');
+  // Handel: Online-Spieler und Bots brauchen die Karten, Tischspieler nicht
+  g.S.players.forEach((p) => { for (const k of Object.keys(p.hand)) p.hand[k] = 0; });
+  assert.throws(() => g.tradeOffer(1, { give: { holz: 1 }, want: { lehm: 1 } }), /besitzt/, 'Online-Spieler ohne Karten');
+  assert.throws(() => g.tradeOffer(3, { give: { holz: 1 }, want: { lehm: 1 } }), /besitzt/, 'Bot ohne Karten');
+  g.tradeOffer(2, { give: { holz: 1 }, want: { lehm: 1 } });
+  assert(g.S.trade && g.S.trade.from === 2, 'Tischspieler darf anbieten');
+});
+
+test('Spieltisch: Tischspieler nur über den Spielleiter, Tisch ein/aus', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');
   g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'blau' });
@@ -785,8 +808,6 @@ test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spie
   g.act(0, { type: 'add_table_player', name: 'Carla', color: 'gruen' });
   throws(() => g.act(0, { type: 'add_table_player', name: 'Eva', color: 'blau' }), /Farbe/);
   throws(() => g.act(1, { type: 'add_table_player', name: 'Eva', color: 'violett' }), /Spielleiter/);
-  throws(() => g.join('Online', 'violett'), /Spieltisch/);
-  throws(() => g.act(0, { type: 'add_bot', kind: 'haendler' }), /Bots/);
   throws(() => g.act(0, { type: 'set_settings', settings: { table: false } }), /Unbekannte/);
   assert(g.S.players.every((p) => p.seat == null), 'in der Lobby gibt es noch keine Plätze');
   g.act(0, { type: 'kick', pid: 2 });
@@ -794,6 +815,7 @@ test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spie
   g.act(0, { type: 'kick', pid: 1 });
   assert.equal(g.S.settings.table, false, 'ohne Tischspieler ist der Tisch wieder aus');
   assert.doesNotThrow(() => g.join('Online', 'violett'));
+  assert.doesNotThrow(() => g.act(0, { type: 'add_bot', kind: 'haendler' }), 'Bots sind am Tisch erlaubt (gemischte Lobby)');
 });
 
 test('Spieltisch: Platzwahl beim Start (Spielleiter zuerst), Reihenfolge im Uhrzeigersinn, Würfeln nur für den Beginner', () => {
