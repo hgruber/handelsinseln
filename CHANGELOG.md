@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Statistik, Siegpunkt-Verlauf:** Der Graph endete mit dem Stand zu Beginn der letzten Runde; der letzte Zug (z. B. der Siegzug) fehlte. Jetzt gibt es einen abschließenden Messpunkt „Spielende“ mit dem Endstand samt aufgedeckter Siegpunktkarten, passend zur Endwertung. Wird das Spiel fortgesetzt, entfällt er wieder.
+
 ## [1.7.1] - 2026-11-24
 
 ### Geändert

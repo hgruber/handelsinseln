@@ -344,7 +344,10 @@ class GameLobby {
   finish(winner, by) {
     const S = this.S;
     S.endedFrom = S.phase; S.phase = 'ended'; S.winner = winner; S.endedBy = by; S.aborted = by === 'host'; S.trade = null;
-    if (S.stats) S.stats.endedAt = Date.now();
+    if (S.stats) { // letzter Messpunkt: Endstand nach dem letzten Zug, mit aufgedeckten Siegpunktkarten (wie die Endwertung)
+      S.stats.endedAt = Date.now();
+      S.stats.history.push({ round: S.stats.history.length + 1, vp: S.players.map((q) => this.vp(q.id) + this.hiddenVp(q.id)), end: true });
+    }
   }
 
   // Zurück ins laufende Spiel: mit neuem Siegpunktziel (winPoints) weiterspielen
@@ -357,7 +360,7 @@ class GameLobby {
     if (wp <= top) fail(`Das neue Siegpunktziel muss über dem höchsten Stand (${top}) liegen.`);
     S.settings.winPoints = wp;
     S.phase = S.endedFrom || 'main'; S.winner = null; S.endedBy = null; S.aborted = false;
-    if (S.stats) S.stats.endedAt = null;
+    if (S.stats) { S.stats.endedAt = null; const h = S.stats.history; if (h.length && h[h.length - 1].end) h.pop(); } // Endpunkt gilt nicht mehr
     this.log(`Das Spiel geht weiter – neues Siegpunktziel: ${wp}.`, 'sys');
     S.v++; this.settle();
   }

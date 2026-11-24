@@ -393,6 +393,12 @@ test('Statistik: Sieg und Abbruch liefern vollständige Statistik', () => {
   assert(st && st.aborted && st.players.length === 3 && st.turns >= 40);
   assert.equal(Object.values(st.rolls).reduce((a, b) => a + b, 0) > 20, true);
   assert(st.history.length >= 5 && st.history[0].vp.length === 3);
+  const fin = st.history[st.history.length - 1]; // letzter Messpunkt = Endstand nach dem letzten Zug (wie die Endwertung)
+  assert(fin.end && fin.round === st.history.length, 'Endpunkt fehlt');
+  assert.deepEqual(fin.vp, st.players.map((p) => p.vp));
+  const n = st.history.length;
+  g.act(0, { type: 'resume_game', winPoints: 20 });
+  assert.equal(g.S.stats.history.length, n - 1, 'Fortsetzen entfernt den Endpunkt');
   const p0 = st.players[0];
   assert(p0.built.settlement >= 0 && 'total' in p0.produced && 'maxRoute' in p0);
   assert(st.players.reduce((a, p) => a + p.produced.total, 0) > 0, 'Erträge gezählt');

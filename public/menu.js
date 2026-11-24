@@ -243,7 +243,7 @@
     const lab = labels.map((l) => `<text class="dl" x="${ml + pw + 9}" y="${(l.y + 4).toFixed(1)}" style="fill:${l.col}"><tspan class="dn">${C.esc(l.name.length > 9 ? l.name.slice(0, 8) + '…' : l.name)}</tspan> <tspan class="dv">${l.vp}</tspan></text>`).join('');
     // Hover-Spalten mit nativem Tooltip
     const cw = hist.length > 1 ? pw / (hist.length - 1) : pw;
-    const cols = hist.map((h) => `<rect class="hov" x="${(x(h.round) - cw / 2).toFixed(1)}" y="${mt}" width="${cw.toFixed(1)}" height="${ph}"><title>Runde ${h.round}\n${st.players.map((p, i) => `${p.name}: ${h.vp[i] || 0}`).join('\n')}</title></rect>`).join('');
+    const cols = hist.map((h) => `<rect class="hov" x="${(x(h.round) - cw / 2).toFixed(1)}" y="${mt}" width="${cw.toFixed(1)}" height="${ph}"><title>${h.end ? 'Spielende' : 'Runde ' + h.round}\n${st.players.map((p, i) => `${p.name}: ${h.vp[i] || 0}`).join('\n')}</title></rect>`).join('');
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Siegpunkt-Verlauf pro Runde"><line class="axis" x1="${ml}" x2="${ml + pw}" y1="${mt + ph}" y2="${mt + ph}"/>${g}${cols}${lines}${lab}</svg>` +
       `<div class="legend">${st.players.map((p, i) => `<span><i class="lg mkr" style="--c:${C.Art.COLORS[p.color] || '#ccc'}"><svg viewBox="-8 -8 16 16" width="14" height="14">${MARK[i % MARK.length](0, 0)}</svg></i>${C.esc(p.name)}</span>`).join('')}<span><i class="lg wline"></i>Siegpunkt-Ziel</span></div>`;
   }
