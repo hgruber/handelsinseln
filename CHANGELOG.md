@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Lobby auf iOS (Safari), Start-Button:** „Spiel starten“ hängt als feste Leiste unten an der scrollenden Lobby-Spalte, statt die Spielfeld-Varianten zu überlagern (die Zeilen der Spalte wurden zusammengedrückt). Geprüft mit WebKitGTK 2.54.
+
 ## [1.5.10] - 2026-11-24
 
 ### Behoben

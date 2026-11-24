@@ -243,7 +243,8 @@ body[data-screen="ended"]:has(#stats.peek) #board { pointer-events: auto; filter
   .lb-side { grid-template-rows: auto auto auto auto; align-content: start; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .lb-grab { display: block; height: 26px; cursor: ns-resize; touch-action: none; position: relative; }
   .lb-grab::before { content: ''; position: absolute; left: 50%; top: 9px; width: 54px; height: 5px; margin-left: -27px; border-radius: 3px; background: rgba(255, 255, 255, .4); }
-  .lb-scroll { overflow: visible; }
+  .lb-scroll { overflow: visible; min-height: auto; }
+  .lb-act { position: sticky; bottom: 0; z-index: 2; background: #0d1a33; border-radius: 0 0 22px 22px; }
   .variants { grid-template-columns: 1fr; }
   .vcard { grid-template-columns: 90px 1fr; justify-items: start; text-align: left; } .vcard .vmini-map { grid-row: 1 / 3; height: 60px; }
   .stgrid { grid-template-columns: 1fr; } .stcard.wide2 { grid-column: auto; }
