@@ -6,7 +6,14 @@
 (function (root) {
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
   const hk = (q, r) => q + ',' + r;
-  const parseH = (k) => { const [q, r] = k.split(',').map(Number); return { q, r }; };
+  // Schlüssel werden ständig zerlegt (Sortieren von Kanten/Ecken): Ergebnisse zwischenspeichern. Die Koordinaten sind
+  // begrenzt, die Caches wachsen also nicht unbeschränkt. Rückgaben sind eingefroren, weil sie geteilt werden.
+  const PARSED = new Map();
+  const parseH = (k) => {
+    let o = PARSED.get(k);
+    if (!o) { const i = k.indexOf(','); o = Object.freeze({ q: +k.slice(0, i), r: +k.slice(i + 1) }); PARSED.set(k, o); }
+    return o;
+  };
   const cmp = (a, b) => { const A = parseH(a), B = parseH(b); return A.q - B.q || A.r - B.r; };
   const sortKeys = (arr) => arr.slice().sort(cmp);
   const edgeKey = (a, b) => sortKeys([a, b]).join('|');
@@ -16,11 +23,17 @@
   const edgeHexes = (e) => e.split('|');
   const vertHexes = (v) => v.split('|');
   // Zwei Endecken einer Kante
+  const EDGE_VERTS = new Map();
   function edgeVerts(e) {
-    const [a, b] = edgeHexes(e);
-    const na = neighbors(a);
-    const i = na.indexOf(b);
-    return [vertKey(a, b, na[(i + 1) % 6]), vertKey(a, b, na[(i + 5) % 6])];
+    let out = EDGE_VERTS.get(e);
+    if (!out) {
+      const [a, b] = edgeHexes(e);
+      const na = neighbors(a);
+      const i = na.indexOf(b);
+      out = Object.freeze([vertKey(a, b, na[(i + 1) % 6]), vertKey(a, b, na[(i + 5) % 6])]);
+      EDGE_VERTS.set(e, out);
+    }
+    return out;
   }
   // Drei Kanten an einer Ecke
   function vertEdges(v) {
