@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.7.0] - 2026-11-24
+
 ### Geändert
 - **Lizenz:** Das Projekt steht unter der MIT-Lizenz (`LICENSE`).
 - **Schneller:** Die Hex-Geometrie merkt sich zerlegte Schlüssel und Kanten-Ecken; Spiellogik und Bots rechnen etwa doppelt so schnell (Server und Browser).
