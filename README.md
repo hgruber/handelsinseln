@@ -149,3 +149,5 @@ Längster Handelsweg ab 5, Stärkste Schutzmacht ab 3 Rittern) plus:
 
 Grafik: Die gemalten Geländetexturen, Spielsteine (Siedlung, Stadt, Räuber, Piratenschiff) und Hafenstege (`public/img/`) wurden mit Flux über einen Forge-Server erzeugt (je Motiv mehrere Entwürfe, der schönste gewählt); der Räuber ist ein mit Wan 2.2 (ComfyUI) animiertes WebP mit flatterndem Mantel.
 Protokoll Client ⇄ Server: `PROTOKOLL.md`.
+
+Lizenz: MIT, siehe `LICENSE`.

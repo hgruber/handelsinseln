@@ -3,7 +3,7 @@
   "version": "1.6.1",
   "description": "Die Handelsinseln – Brettspiel im Browser",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "start": "node server/server.js",
     "dev": "DATA_DIR=/tmp/handelsinseln-dev PORT=8090 HTTPS_PORT=0 node --watch server/server.js",
