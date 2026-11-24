@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.6.0] - 2026-11-24
+
 ### Hinzugefügt
 - **Karte drehen:** In allen Ansichten dreht ↺/↻ neben dem Menü die Karte in 60°-Schritten, auf dem Handy auch mit zwei Fingern. Die Zahlenchips bleiben aufrecht; am Spieltisch folgen sie der Blickrichtung des Tischspielers am Zug (ist das ein Bot oder Online-Spieler, des folgenden Tischspielers).
 - **Goldfluss-Einstellungen:** „Goldfluss auf der Startinsel“ (Spielfeld, nur beim Erzeugen), „Erstsiedlung am Goldfluss“ (Vorgabe: nein, wie bisher) und „Max. Ertragsrate Goldfluss“ 1–5 (Vorgabe 3, wie bisher): Goldfelder tragen nur Zahlen bis zu dieser Klasse – 1: 2 oder 12, 2: 3 oder 11, 3: 4 oder 10, 4: 5 oder 9, 5: 6 oder 8 (jeweils samt den schwächeren); gilt auch für im Nebel entdeckte Felder.
