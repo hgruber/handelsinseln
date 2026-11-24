@@ -8,6 +8,8 @@ After=network-online.target
 [Container]
 Image=localhost/handelsinseln:latest
 HostName=handelsinseln
+# Ohne Reverse-Proxy im selben Podman-Netz stattdessen den Port veröffentlichen:
+# PublishPort=8080:8080
 Volume=handelsinseln:/data
 Environment=TZ=Europe/Berlin
 Environment=PORT=8080
