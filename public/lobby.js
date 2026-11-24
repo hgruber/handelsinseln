@@ -483,8 +483,8 @@
   function initLobby() {
     onSettingsEvents($('lobbySettings'));
     if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.documentElement.classList.add('ios'); // iOS: Scroll-Container braucht pointer-events:auto (siehe lobby.css)
-    // Mobil (schmale Ansicht): „Spiel starten“ steht zwischen „Bots hinzufügen“ und „Spielfeld & Variante“, sonst unten an der Spalte
-    const mq = matchMedia('(max-width: 980px)'), placeAct = () => { const a = $('lobbyAct'); if (mq.matches) $('lobbyBots').after(a); else $('lobbyBots').closest('.lb-side').append(a); };
+    // Mobil (schmale Ansicht): „Spiel starten“ steht unter „Plätze fertig besetzt“, sonst unten an der Spalte
+    const mq = matchMedia('(max-width: 980px)'), placeAct = () => { const a = $('lobbyAct'); if (mq.matches) $('lobbySeats').after(a); else $('lobbyBots').closest('.lb-side').append(a); };
     mq.addEventListener('change', placeAct); placeAct();
     $('lobby').addEventListener('click', async (e) => {
       const v = C.view(); if (!v) return;
