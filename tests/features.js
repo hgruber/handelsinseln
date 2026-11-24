@@ -800,6 +800,49 @@ test('Gemischte Lobby: Tischspieler, Online-Spieler und Bots; Plätze nur für T
   assert(g.S.trade && g.S.trade.from === 2, 'Tischspieler darf anbieten');
 });
 
+test('Kontrollübergabe: Anfrage mit Nummer, Antwort am Tisch, Übernahme (Bot wird Mensch), Rückgabe, Verfall, Spielleiter-Platz', () => {
+  const Handover = require('../server/handover');
+  const mk = () => {
+    const g = new Game({ rnd: rng(9) }); g.join('Hanna', 'rot');
+    g.act(0, { type: 'add_table_player', name: 'Bernd', color: 'gruen' }); g.act(0, { type: 'add_bot', kind: 'haendler' });
+    g.act(0, { type: 'set_settings', settings: { dice: 'auto' } }); g.act(0, { type: 'start' });
+    g.act(0, { type: 'place_seat', seat: 'b' }); g.act(1, { type: 'place_seat', seat: 'l' });
+    return { game: g, watchers: new Map([['w1', {}], ['w2', {}]]), absent: new Map() };
+  };
+  const room = mk(), g = room.game;
+  assert.deepEqual(g.takeable(), [0, 1, 2], 'übernehmbar: Spielleiter, Tischspieler, Bot');
+  assert.throws(() => Handover.request(room, 'nix', 1), /zusehende/, 'nur Zuschauer fragen an');
+  assert.throws(() => Handover.request(room, 'w1', 9), /nicht übernehmen/);
+  const r1 = Handover.request(room, 'w1', 1, 1000), code = r1.req.code;
+  assert(/^\d{4}$/.test(code), 'vierstellige Nummer');
+  assert.deepEqual(Handover.pending(room, 1000).map((x) => x.pid), [1], 'Tisch sieht die Anfrage');
+  assert.throws(() => Handover.answer(room, 1, '0000', true, 1100), /passt nicht/, 'falsche Nummer');
+  assert.equal(Handover.answer(room, 1, code, false, 1100).accepted, false, 'ablehnen'); assert.equal(Handover.pending(room, 1100).length, 0);
+  assert.equal(g.S.players[1].tableGuest, true, 'abgelehnt: nichts geändert');
+  // Verfall (15 s)
+  const r2 = Handover.request(room, 'w1', 1, 2000);
+  assert.equal(Handover.pending(room, 2000 + 16000).length, 0, 'nach Ablauf nicht mehr sichtbar');
+  assert.throws(() => Handover.answer(room, 1, r2.req.code, true, 2000 + 16000), /abgelaufen/);
+  // Übernahme eines Tischspielers
+  const r3 = Handover.request(room, 'w1', 1); Handover.answer(room, 1, r3.req.code, true);
+  const p1 = g.S.players[1];
+  assert.equal(p1.token, 'w1'); assert.equal(p1.tableGuest, false); assert.equal(p1.handover, true); assert(!room.watchers.has('w1'), 'Zuschauer ist jetzt Spieler');
+  assert.equal(g.isTablePlayer(1), false, 'am Tisch nur noch öffentlich'); assert(!g.takeable().includes(1), 'schon übergeben');
+  // Bot: Mensch bleibt Mensch
+  const r4 = Handover.request(room, 'w2', 2); Handover.answer(room, 2, r4.req.code, true);
+  assert.equal(g.S.players[2].bot, null, 'aus dem Bot wurde ein Mensch'); assert.equal(g.S.players[2].token, 'w2');
+  Handover.handBack(room, 2);
+  assert.equal(g.S.players[2].bot, null); assert.equal(g.S.players[2].tableGuest, true, 'zurück am Tisch als Tischspieler, nie wieder Bot'); assert.equal(g.S.players[2].token, null);
+  assert.throws(() => Handover.handBack(room, 2), /nicht von einem Handy/);
+  // Spielleiter-Platz: Token bleibt beim Tisch, das Handy steuert über `phone`
+  const room2 = mk(), g2 = room2.game, host = g2.S.host, htok = g2.S.players[host].token;
+  const r5 = Handover.request(room2, 'w1', host); Handover.answer(room2, host, r5.req.code, true);
+  assert.equal(g2.S.players[host].token, htok); assert.equal(g2.S.players[host].phone, 'w1'); assert.equal(g2.S.host, host, 'Spielleiter bleibt am Tisch');
+  assert.equal(g2.isTablePlayer(host), false); assert.equal(g2.S.players[host].handover, true);
+  assert.equal(Handover.handBack(room2, host), 'w1'); assert.equal(g2.S.players[host].phone, null); assert.equal(g2.isTablePlayer(host), true);
+  assert.equal(new Hub().findByToken('w1'), null);
+});
+
 test('Spieltisch: Tischspieler nur über den Spielleiter, Tisch ein/aus', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');

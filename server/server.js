@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const Game = require('./game');
 const Arm = require('./arm');
+const Handover = require('./handover');
 const { Hub } = require('./hub');
 const selfsigned = require('./selfsigned');
 
@@ -37,21 +38,23 @@ function createServer(opts = {}) {
   // Tisch-Anzeigen: verbundene Zuschauer und – bei laufendem digitalen Spieltisch – der Browser des Spielleiters
   const tableStream = (room) => { const S = room.game.S, tok = S.players[S.host] && S.players[S.host].token, set = tok && clients.get(tok); return !!(S.settings.table && set && [...set].some((r) => r.tableMode)); };
   const displays = (room) => (room.watchers ? [...room.watchers.keys()].filter((t) => clients.has(t)).length : 0) + (tableStream(room) ? 1 : 0);
-  const pview = (room, pid) => { const v = room.game.view(pid); v.display = displays(room) > 0; v.arm = Arm.viewFor(room, pid); return v; };
+  const pview = (room, pid, viaPhone) => { const v = room.game.view(pid); v.display = displays(room) > 0; v.arm = Arm.viewFor(room, pid); if (viaPhone) v.host = -1; return v; }; // Handy am Spielleiter-Platz: keine Spielleiter-Funktionen
   const wview = (room) => { const v = room.game.watchView(); v.arm = Arm.viewFor(room, 'watch'); return v; };
   const broadcast = (room) => {
     if (!hub.rooms.has(room.id)) return;
     for (const p of room.game.S.players) {
-      const set = p.token && clients.get(p.token);
-      if (!set || !set.size) continue;
-      const v = pview(room, p.id);
-      for (const res of set) send(res, 'state', v);
+      for (const tok of [p.token, p.phone]) {
+        const set = tok && clients.get(tok);
+        if (!set || !set.size) continue;
+        const v = pview(room, p.id, !!p.phone && tok === p.phone);
+        for (const res of set) send(res, 'state', v);
+      }
     }
     // Digitaler Spieltisch: die Tisch-Verbindung des Spielleiters bekommt zusätzlich die Sicht aller Spieler
     const S = room.game.S, hostTok = S.players[S.host] && S.players[S.host].token, ts = hostTok && clients.get(hostTok);
     if (ts && S.settings.table && (S.phase === 'main' || S.phase === 'setup')) {
       const tabs = [...ts].filter((r) => r.tableMode);
-      if (tabs.length) { const pub = wview(room), views = S.players.map((p) => (room.game.isTablePlayer(p.id) ? pview(room, p.id) : pub)); for (const res of tabs) send(res, 'table', { views }); } // Online-Spieler und Bots: am Tisch nur Öffentliches
+      if (tabs.length) { const pub = wview(room), views = S.players.map((p) => (room.game.isTablePlayer(p.id) ? pview(room, p.id) : pub)); for (const res of tabs) send(res, 'table', { views, requests: Handover.pending(room) }); } // Online-Spieler und Bots: am Tisch nur Öffentliches
     }
     // Zuschauer: nur die öffentliche Sicht
     if (room.watchers && room.watchers.size) {
@@ -60,6 +63,17 @@ function createServer(opts = {}) {
     }
     save();
   };
+  const notify = (token, ev, data) => { const set = token && clients.get(token); if (set) for (const r of set) send(r, ev, data || {}); };
+  const scheduleExpire = (room, ms) => {
+    const t = setTimeout(() => {
+      const gone = Handover.expire(room);
+      for (const r of gone) notify(r.token, 'handover', { state: 'expired', pid: r.pid });
+      if (gone.length) broadcast(room);
+    }, ms + 60);
+    t.unref();
+  };
+  const HOST_ACTS = new Set(['set_settings', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'add_table_player', 'kick', 'start']);
+  const bad = (m) => { throw new Game.GameError(m); };
   const dropClients = (token, event) => {
     const set = clients.get(token);
     if (!set) return;
@@ -112,21 +126,21 @@ function createServer(opts = {}) {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 2000\n\n');
         if (!clients.has(token)) clients.set(token, new Set());
-        res.tableMode = url.searchParams.get('table') === '1' && player.id === room.game.S.host;
+        res.tableMode = !f.phone && url.searchParams.get('table') === '1' && player.id === room.game.S.host;
         clients.get(token).add(res);
-        hub.connected(room, player);
+        if (!f.phone) hub.connected(room, player); // das Handy am Spielleiter-Platz ändert nichts an der Verbindung des Spielleiters
         room.game.settle();
-        send(res, 'state', pview(room, player.id));
+        send(res, 'state', pview(room, player.id, !!f.phone));
         broadcast(room);
         const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
         req.on('close', () => {
           clearInterval(ping);
           const set = clients.get(token);
-          if (set) { set.delete(res); if (!set.size) { clients.delete(token); hub.disconnected(room, player); broadcast(room); } }
+          if (set) { set.delete(res); if (!set.size) { clients.delete(token); if (!f.phone) hub.disconnected(room, player); broadcast(room); } }
         });
         return;
       }
-      if (req.method === 'POST' && ['/api/join', '/api/watch', '/api/pick', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
+      if (req.method === 'POST' && ['/api/join', '/api/watch', '/api/pick', '/api/handover', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
         const b = await body(req);
         if (url.pathname === '/api/watch') {
           let out;
@@ -144,6 +158,15 @@ function createServer(opts = {}) {
           broadcast(rm);
           return json(res, 200, { ok: true });
         }
+        if (url.pathname === '/api/handover') { // Zuschauer-Handy: Kontrolle über einen Platz am Spieltisch anfragen (vierstellige Nummer)
+          if (!wf) return json(res, 403, { error: 'Nur ein zusehendes Gerät kann Kontrolle anfragen.' });
+          let out;
+          const err = guarded(() => { out = Handover.request(wf.room, b.token, Number(b.pid)); });
+          if (err) return json(res, 400, { error: err.message });
+          if (out.replaced) notify(out.replaced.token, 'handover', { state: 'replaced', pid: out.replaced.pid });
+          scheduleExpire(wf.room, out.ttl); broadcast(wf.room);
+          return json(res, 200, { code: out.req.code, ttl: out.ttl, pid: out.req.pid });
+        }
         if (wf) { // Zuschauer dürfen nichts tun außer das Zuschauen beenden
           if (url.pathname !== '/api/leave') return json(res, 403, { error: 'Zuschauer können nicht mitspielen.' });
           hub.unwatch(wf.room, b.token); dropClients(b.token);
@@ -159,6 +182,11 @@ function createServer(opts = {}) {
         const f = hub.findByToken(b.token);
         if (!f) return json(res, 401, { error: 'Unbekannte Sitzung – bitte neu anmelden.' });
         const { room, player } = f;
+        if (url.pathname === '/api/leave' && player.handover && (f.phone || player.id !== room.game.S.host)) { // Platz, den ein Handy übernommen hat: „Kontrolle an den Spieltisch“ statt Verlassen
+          const tok = f.phone ? player.phone : player.token;
+          Handover.handBack(room, player.id); notify(tok, 'control_end'); dropClients(tok); broadcast(room);
+          return json(res, 200, { ok: true });
+        }
         if (url.pathname === '/api/leave') {
           const tok = player.token;
           room.game.leave(tok);
@@ -189,12 +217,40 @@ function createServer(opts = {}) {
           broadcast(room);
           return json(res, 200, { ok: true });
         }
+        if (b.type === 'handover_answer') { // der Spieltisch beantwortet eine Kontrollanfrage (Nummer vergleichen)
+          let out;
+          const err = guarded(() => {
+            if (f.phone || player.id !== g.S.host || !g.S.settings.table) bad('Nur der Spieltisch kann Kontrollanfragen beantworten.');
+            out = Handover.answer(room, Number(b.pid), b.code, !!b.accept);
+          });
+          if (err) return json(res, 400, { error: err.message });
+          if (out.accepted) notify(out.req.token, 'control', { pid: out.req.pid, host: out.req.pid === g.S.host });
+          else notify(out.req.token, 'handover', { state: 'declined', pid: out.req.pid });
+          broadcast(room);
+          return json(res, 200, { ok: true });
+        }
+        if (b.type === 'handback') { // das Handy – oder der Tisch, falls das Handy weg ist – gibt den Platz an den Spieltisch zurück
+          let tok;
+          const err = guarded(() => {
+            const table = !f.phone && player.id === g.S.host && g.S.settings.table;
+            const pid = table && Number.isInteger(b.pid) ? b.pid : player.id, o = g.S.players[pid];
+            if (!o || !o.handover) bad('Dieser Platz wird nicht von einem Handy gesteuert.');
+            const ctl = pid === g.S.host ? o.phone : o.token;
+            if (b.token !== ctl && !table) bad('Das darfst du nicht.');
+            tok = Handover.handBack(room, pid);
+          });
+          if (err) return json(res, 400, { error: err.message });
+          notify(tok, 'control_end'); dropClients(tok); broadcast(room);
+          return json(res, 200, { ok: true });
+        }
         g.lastKicked = null;
+        if (f.phone && HOST_ACTS.has(b.type)) return json(res, 403, { error: 'Das Handy hat keine Spielleiter-Rechte.' });
         let actor = player.id;
         if (b.as !== undefined && b.as !== null && b.as !== player.id) { // Spieltisch: der Spielleiter handelt für einen Mitspieler
           if (!(g.S.settings.table && player.id === g.S.host && Number.isInteger(b.as) && g.isTablePlayer(b.as))) return json(res, 400, { error: 'Der digitale Spieltisch ist nicht aktiv, oder der Spieler sitzt nicht am Tisch.' });
           actor = b.as;
         }
+        if (actor === player.id && !f.phone && g.S.players[actor].phone && !HOST_ACTS.has(b.type) && b.type !== 'chat') return json(res, 400, { error: 'Dieser Platz wird gerade von einem Handy gesteuert.' });
         const err = guarded(() => g.act(actor, b));
         if (err) return json(res, 400, { error: err.message });
         if (g.lastKicked) dropClients(g.lastKicked, 'kicked');

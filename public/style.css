@@ -522,3 +522,9 @@ body.ctl #score { position: static !important; }
 #armPanel .aw { font-size: 14px; color: var(--muted); }
 #armPanel .aact { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
 #armPanel .aact .btn.big { min-width: 200px; }
+
+/* Zuschauer-Handy: angefragte Kontrolle (Nummer, die der Spieltisch bestätigt) */
+.codebox { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 60; display: grid; gap: 8px; justify-items: center; text-align: center; padding: 22px 26px; border-radius: 22px; max-width: min(92vw, 420px); border: 2px solid var(--gold); }
+.codebox .cq { font: 700 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold2); }
+.codebox .cn { font: 700 64px/1 var(--serif); letter-spacing: .16em; color: #fff2c0; }
+.codebox .ct { font-size: 15px; } .codebox .cs { color: var(--muted); font-size: 13px; }

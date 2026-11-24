@@ -24,4 +24,5 @@ run "Browser Spieltisch"    python3 tests/browser_table.py
 run "Browser Gemischt"      python3 tests/browser_mixed.py
 run "Browser Zuschauer"     python3 tests/browser_watch.py
 run "Browser Controller"    python3 tests/browser_controller.py
+run "Browser Übergabe"      python3 tests/browser_handover.py
 exit $fail

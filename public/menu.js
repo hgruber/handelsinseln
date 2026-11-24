@@ -90,7 +90,7 @@
     closeMenu();
     const v = C.view(); if (!v) return;
     const host = v.host === v.you || !!(C.tableOn && C.tableOn()), running = v.phase === 'main' || v.phase === 'setup';
-    const V = root.Voice, joined = V.isJoined();
+    const V = root.Voice, joined = V.isJoined(), handed = !!(v.players[v.you] && v.players[v.you].handover); // Platz, den dieses Gerät vom Spieltisch übernommen hat
     const item = (id, ic, label, cls) => `<button type="button" role="menuitem" class="mi ${cls || ''}" data-mi="${id}"><span class="mic">${ic}</span>${label}</button>`;
     const I = {
       info: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,11 V17 M12,7.5 V8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
@@ -115,7 +115,7 @@
       item('fit', I.fit, 'Brett zentrieren') +
       (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karten-Ansicht (mit Spielfeld)' : 'Controller-Ansicht') : '') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
-      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
+      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + (handed ? item('leave', I.exit, 'Kontrolle an den Spieltisch', 'danger') : item('leave', I.exit, 'Spiel verlassen', 'danger'));
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
     const below = r.bottom + 8, ph = pop.offsetHeight; // am Tisch sitzt der Knopf unten: dann nach oben öffnen
@@ -141,7 +141,7 @@
   }
   async function leaveGame() {
     const v = C.view(); const lobby = v && v.phase === 'lobby';
-    if (v && v.watch) { C.leave(); return; } // Zuschauer: nichts zu bestätigen
+    if (v && (v.watch || (v.players[v.you] && v.players[v.you].handover))) { C.leave(); return; } // Zuschauer bzw. übernommener Platz: nichts zu bestätigen (Kontrolle geht zurück an den Spieltisch)
     const txt = lobby ? 'Du verlässt die Lobby.' : v && v.phase === 'ended' ? 'Du verlässt das Spiel.' : 'Ein Auto-Spieler übernimmt für dich. Du kannst nicht zurückkehren.';
     if (await confirm('Spiel verlassen?', txt, 'Verlassen', true)) C.leave();
   }

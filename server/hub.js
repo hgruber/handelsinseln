@@ -32,6 +32,8 @@ class Hub {
     for (const room of this.rooms.values()) {
       const p = room.game.S.players.find((x) => x.token === token);
       if (p) return { room, player: p };
+      const q = room.game.S.players.find((x) => x.phone === token); // Handy, das den Spielleiter-Platz steuert
+      if (q) return { room, player: q, phone: true };
     }
     return null;
   }

@@ -105,6 +105,13 @@ Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau
   ihrer Sicht `arm:{pid,mode,moveFrom,step,targets:[{t:'v|e|h|sf',k,kinds:[…]}],pick}` und wählt mit `POST /api/pick {token,t,k,kind}` ein Ziel (Spieler-Token → 403, ohne
   Freigabe → 400). Der Freigeber sieht `arm.pick` samt `label`/`where` zur Rückfrage; erst `confirm_pick` führt die passende Aktion aus (Fehler wie bei jeder Aktion). Die Freigabe
   verfällt, sobald sich Phase, Schritt, Spieler am Zug oder Zugnummer ändern; sie liegt im Raum (`room.arm`), nicht im Spielstand.
+- **Kontrollübergabe (Tisch-Partien im Spiel):** Watch-Sicht enthält `takeable` (übernehmbare Plätze: Tischspieler und Bots). `POST /api/handover {token (Zuschauer), pid}` →
+  `{code:'1234', ttl, pid}`; die Anfrage gilt `HANDOVER_MS` (Standard 15 s), ein Handy hat höchstens eine, ein Platz höchstens eine. Das Ereignis `table` des Spieltischs enthält
+  `requests:[{pid, code, ms}]`. Der Tisch (Token des Spielleiters, nicht das Handy) antwortet mit `act {type:'handover_answer', pid, code, accept}`; falsche Nummer/abgelaufen → Fehler.
+  Bei `accept` bekommt das Handy das Ereignis `control {pid, host}` und verbindet mit demselben Token neu als Spieler: Bei Tischspielern/Bots wird der Platz zum Online-Spieler
+  (`tableGuest:false`, `bot:null`, `token` = Handy-Token); beim Spielleiter-Platz bleibt `token` beim Tisch, das Handy steuert über `phone` (Sicht mit `host:-1`, Spielleiter-Aktionen → 403,
+  der Tisch kann den Platz nicht bedienen). `players[].handover` kennzeichnet übergebene Plätze. `act {type:'handback'}` (Handy: eigener Platz; Tisch: `pid`) bzw. `POST /api/leave` des Handys
+  gibt zurück: Platz wird Tischspieler (`tableGuest:true`, nie wieder Bot), das Handy bekommt `control_end`. Weitere Handy-Ereignisse: `handover {state:'declined|expired|replaced'}`.
 - `GET /api/config` → `{stun: null|'stun:…'}` (für WebRTC; meist null → nur lokale Kandidaten).
 - `POST /api/leave {token}` = Menüpunkt „Spiel verlassen“: In der Lobby wird der Spieler entfernt; im laufenden Spiel übernimmt für ihn
   der Auto-Modus (siehe unten) und sein Token wird ungültig (Client → Anmeldebildschirm). Das Spiel endet vollständig (wird gelöscht),

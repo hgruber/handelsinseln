@@ -212,7 +212,32 @@ class Game {
   // Tischspieler: der Spielleiter (er bedient den Tisch) und die am Tisch angelegten Gäste – sobald der Tisch läuft. Online-Spieler und Bots sind keine Tischspieler.
   isTablePlayer(pid) {
     const S = this.S, p = S.players[pid];
-    return !!p && !!S.settings.table && (pid === S.host || !!p.tableGuest);
+    return !!p && !!S.settings.table && !p.phone && (pid === S.host || !!p.tableGuest);
+  }
+  // Kontrollübergabe (nur Tisch-Partien im Spiel): Plätze, die ein Handy übernehmen kann – Tischspieler und Bots (nicht Online-Spieler, nicht schon übergebene)
+  takeable() {
+    const S = this.S;
+    if (!S.settings.table || (S.phase !== 'setup' && S.phase !== 'main')) return [];
+    return S.players.filter((p) => !p.left && !p.phone && !p.handover && (this.isTablePlayer(p.id) || p.bot)).map((p) => p.id);
+  }
+  // Ein Handy übernimmt den Platz. Der Spielleiter-Platz behält sein Token (der Tisch bleibt Spielleiter), das Handy steuert über `phone`;
+  // jeder andere Platz wird zum Online-Spieler mit dem Token des Handys (aus einem Bot wird ein Mensch – er wird nie wieder zum Bot).
+  handTo(pid, token) {
+    const S = this.S, p = S.players[pid];
+    if (pid === S.host) p.phone = token;
+    else { p.token = token; p.bot = null; p.tableGuest = false; p.auto = false; p.connected = false; }
+    p.handover = true;
+    this.log(`${p.name} wird jetzt von einem Handy gesteuert.`, 'sys', pid);
+    S.v++;
+  }
+  // Das Handy gibt die Kontrolle an den Spieltisch zurück: der Platz ist wieder ein Tischspieler (auch wenn er vorher ein Bot war)
+  handBack(pid) {
+    const S = this.S, p = S.players[pid];
+    if (pid === S.host) p.phone = null;
+    else { p.token = null; p.tableGuest = true; p.connected = true; p.auto = false; }
+    p.handover = false;
+    this.log(`${p.name} wird wieder am Spieltisch gesteuert.`, 'sys', pid);
+    S.v++;
   }
   // Tisch ein, sobald ein Tischspieler existiert; aus, wenn keiner mehr da ist. Die Plätze werden erst beim Spielstart abgefragt.
   syncTable() {
@@ -1418,7 +1443,7 @@ class Game {
       v: S.v, phase: S.phase, you: pid, host: S.host, minPlayers: MIN_P, maxPlayers: MAX_P, winPoints: S.settings.winPoints,
       gameId: this.meta.id, gameName: this.meta.name, settings: S.settings, closed: S.closed, endedBy: S.endedBy, stats: this.statsView(),
       players: S.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, seat: p.seat == null ? null : p.seat, tableGuest: !!p.tableGuest, connected: p.connected, auto: !!p.auto, gone: !!p.left,
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, seat: p.seat == null ? null : p.seat, tableGuest: !!p.tableGuest, connected: p.connected, auto: !!p.auto, gone: !!p.left, handover: !!p.handover,
         vp: S.phase === 'lobby' ? 0 : this.vp(p.id) + (S.phase === 'ended' ? this.hiddenVp(p.id) : 0), svp: p.svp,
         resCount: this.handSize(p.id), devCount: p.dev.length, knightsPlayed: p.knights, longestRoute: lens[p.id] || 0,
         hasLongest: S.longest === p.id, hasLargest: S.largest === p.id,
@@ -1454,7 +1479,7 @@ class Game {
   watchView() {
     const S = this.S;
     const v = this.view(S.players[S.host] ? S.host : 0); // Platzhalter für die Berechnung, alles Persönliche wird unten ersetzt
-    v.watch = true; v.host = -1; v.you = -1;
+    v.watch = true; v.host = -1; v.you = -1; v.takeable = this.takeable();
     v.me = { hand: {}, dev: [], hiddenVp: 0 };
     v.afford = { road: false, ship: false, settlement: false, city: false, dev: false };
     v.legal = this.legal(-1);
