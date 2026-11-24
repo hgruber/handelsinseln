@@ -26,7 +26,7 @@ Es gibt keinen Linter. Einzelne Tests: das jeweilige Skript direkt aufrufen (kei
 
 ## Release
 
-`npm run release -- X.Y.Z [--build]` (= `scripts/release.sh`): nur auf `master`, sauberer Baum, verlangt Eintrag unter „Unveröffentlicht“ in `CHANGELOG.md`, führt `tests/run_all.sh` aus, setzt Version in `package.json`, committet „Release X.Y.Z“ + Tag. Pusht nie. Deploy der eigenen Installation ist betreiberspezifisch und liegt bewusst außerhalb des Repos (keine Hostnamen, IPs oder Netzdetails ins Repo). Neue Funktionen = Minor, Fixes = Patch.
+`npm run release -- X.Y.Z [--build] [--schnell]` (= `scripts/release.sh`): nur auf `master`, sauberer Baum, verlangt Eintrag unter „Unveröffentlicht“ in `CHANGELOG.md`, führt `tests/run_all.sh` aus, setzt Version in `package.json`, committet „Release X.Y.Z“ + Tag (das gepushte Tag wird per `.github/workflows/release.yml` zum GitHub-Release). Pusht nie. Deploy der eigenen Installation ist betreiberspezifisch und liegt bewusst außerhalb des Repos (keine Hostnamen, IPs oder Netzdetails ins Repo). Neue Funktionen = Minor, Fixes = Patch.
 
 ## Architektur
 

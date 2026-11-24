@@ -1,0 +1,25 @@
+# Release: ein gepushtes Tag vX.Y.Z (von scripts/release.sh gesetzt) wird zum GitHub-Release mit dem passenden
+# Abschnitt aus CHANGELOG.md als Beschreibung.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notizen aus CHANGELOG.md
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          awk -v v="$VER" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
+          test -s notes.md || echo "Keine CHANGELOG-Notizen für $VER." > notes.md
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "Die Handelsinseln ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag
