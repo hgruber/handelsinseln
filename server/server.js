@@ -46,6 +46,11 @@ function createServer(opts = {}) {
       const tabs = [...ts].filter((r) => r.tableMode);
       if (tabs.length) { const views = S.players.map((p) => room.game.view(p.id)); for (const res of tabs) send(res, 'table', { views }); }
     }
+    // Zuschauer: nur die öffentliche Sicht
+    if (room.watchers && room.watchers.size) {
+      let wv = null;
+      for (const tok of room.watchers.keys()) { const set = clients.get(tok); if (!set || !set.size) continue; wv = wv || room.game.watchView(); for (const res of set) send(res, 'state', wv); }
+    }
     save();
   };
   const dropClients = (token, event) => {
@@ -54,7 +59,7 @@ function createServer(opts = {}) {
     for (const r of set) { if (event) send(r, event, {}); r.end(); }
     clients.delete(token);
   };
-  const dropRoom = (room) => { for (const p of room.game.S.players) if (p.token) dropClients(p.token); save(); };
+  const dropRoom = (room) => { for (const p of room.game.S.players) if (p.token) dropClients(p.token); if (room.watchers) for (const tok of room.watchers.keys()) dropClients(tok, 'closed'); save(); };
 
   const body = (req) => new Promise((resolve, reject) => {
     let s = '';
@@ -76,8 +81,25 @@ function createServer(opts = {}) {
       if (url.pathname === '/api/config') return json(res, 200, { stun: process.env.STUN_URL || null, httpsPort: opts.httpsPort || null, version: VERSION });
       if (url.pathname === '/api/events') {
         const token = url.searchParams.get('token');
-        const f = hub.findByToken(token);
-        if (!f) { res.writeHead(401); return res.end(); }
+        const f = hub.findByToken(token), wf = !f && hub.findWatcher(token);
+        if (!f && !wf) { res.writeHead(401); return res.end(); }
+        if (wf) { // Zuschauer: nur lesen
+          const { room, watcher } = wf;
+          res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+          res.write('retry: 2000\n\n');
+          if (!clients.has(token)) clients.set(token, new Set());
+          clients.get(token).add(res);
+          hub.watcherConnected(watcher, true);
+          room.game.settle();
+          send(res, 'state', room.game.watchView());
+          const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
+          req.on('close', () => {
+            clearInterval(ping);
+            const set = clients.get(token);
+            if (set) { set.delete(res); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); } }
+          });
+          return;
+        }
         const { room, player } = f;
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 2000\n\n');
@@ -96,8 +118,20 @@ function createServer(opts = {}) {
         });
         return;
       }
-      if (req.method === 'POST' && ['/api/join', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
+      if (req.method === 'POST' && ['/api/join', '/api/watch', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
         const b = await body(req);
+        if (url.pathname === '/api/watch') {
+          let out;
+          const err = guarded(() => { out = hub.watch(b); });
+          if (err) return json(res, 400, { error: err.message });
+          return json(res, 200, { token: out.token, game: out.game, watch: true });
+        }
+        const wf = hub.findWatcher(b.token);
+        if (wf) { // Zuschauer dürfen nichts tun außer das Zuschauen beenden
+          if (url.pathname !== '/api/leave') return json(res, 403, { error: 'Zuschauer können nicht mitspielen.' });
+          hub.unwatch(wf.room, b.token); dropClients(b.token);
+          return json(res, 200, { ok: true });
+        }
         if (url.pathname === '/api/join') {
           let out;
           const err = guarded(() => { out = hub.join(b); });

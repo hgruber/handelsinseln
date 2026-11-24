@@ -93,6 +93,12 @@ Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau
   Ohne `game` und ohne `create`: genau ein joinbares Spiel → beitreten, keins → neues anlegen, mehrere → Fehler
   `{error, games:[…]}` (Client zeigt Auswahl). Mit `create:true` wird immer ein neues Spiel angelegt (Beitretender = Spielleiter).
   Mit `token` (Reconnect) werden die übrigen Felder ignoriert.
+- **Zuschauer:** `GET /api/games` liefert zusätzlich `watchable` (Phase `setup`/`main`). `POST /api/watch {game}` → `{token, game, watch:true}` oder
+  `{error}` (Lobby/beendet/unbekannt, höchstens 8 Zuschauer je Spiel). Mit dem Zuschauer-Token verbindet `GET /api/events?token=T` und liefert Ereignis
+  `state` mit der **öffentlichen Sicht** (`watch:true`, `you:-1`, `host:-1`, `me:{hand:{},dev:[],hiddenVp:0}`, `chat:[]`, `legal` leer, `fx` nur öffentlich,
+  `players[].seat` immer gesetzt: ohne feste Sitzordnung reihum verteilt). `POST /api/act` und `/api/signal` mit Zuschauer-Token → 403; `POST /api/leave` beendet das
+  Zuschauen. Ein getrennter Zuschauer-Token verfällt nach 60 s; ein Zuschauer hält kein Spiel am Leben. Wird das Spiel gelöscht: Ereignis `closed`; kehrt es in die Lobby
+  zurück, beendet der Client das Zuschauen.
 - `GET /api/config` → `{stun: null|'stun:…'}` (für WebRTC; meist null → nur lokale Kandidaten).
 - `POST /api/leave {token}` = Menüpunkt „Spiel verlassen“: In der Lobby wird der Spieler entfernt; im laufenden Spiel übernimmt für ihn
   der Auto-Modus (siehe unten) und sein Token wird ungültig (Client → Anmeldebildschirm). Das Spiel endet vollständig (wird gelöscht),

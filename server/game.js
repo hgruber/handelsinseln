@@ -1444,6 +1444,28 @@ class Game {
     }
     return v;
   }
+  // Öffentliche Sicht für Zuschauer (und den Spieltisch als Anzeige): wie view(), aber ohne Hand, Entwicklungskarten, Chat und ohne Aktionsmöglichkeiten.
+  // `you` und `host` sind -1: niemand ist „ich“, es gibt keine Spielleiter-Funktionen.
+  watchView() {
+    const S = this.S;
+    const v = this.view(S.players[S.host] ? S.host : 0); // Platzhalter für die Berechnung, alles Persönliche wird unten ersetzt
+    v.watch = true; v.host = -1; v.you = -1;
+    v.me = { hand: {}, dev: [], hiddenVp: 0 };
+    v.afford = { road: false, ship: false, settlement: false, city: false, dev: false };
+    v.legal = this.legal(-1);
+    v.rates = this.ratesFor(-1);
+    v.prompt = this.prompt(-1, this.stepOf());
+    v.fx = this.fxFor(-1);
+    v.chat = [];
+    // Plätze am Tisch: ohne feste Sitzordnung (Online-Spiele) reihum im Uhrzeigersinn verteilen
+    const WS = { 2: ['b', 't'], 3: ['b', 'tl', 'tr'], 4: ['b', 'l', 't', 'r'], 5: ['b', 'l', 'tl', 'tr', 'r'], 6: ['bl', 'l', 'tl', 'tr', 'r', 'br'] };
+    const ord = (v.order && v.order.length ? v.order : v.players.map((p) => p.id)).filter((id) => v.players[id] && !v.players[id].gone);
+    if (ord.length && ord.some((id) => !v.players[id].seat)) {
+      const slots = WS[Math.max(2, Math.min(6, ord.length))];
+      ord.forEach((id, i) => { v.players[id].seat = slots[i] || null; });
+    }
+    return v;
+  }
   updateAwardsView() {
     // Längen nur für die Anzeige (ohne Zustandsänderung)
     const key = this.S.v + ':' + Object.keys(this.S.edges).length;

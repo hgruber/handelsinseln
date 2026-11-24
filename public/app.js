@@ -95,8 +95,9 @@
     if (st.es) st.es.close();
     const es = new EventSource('/api/events?token=' + encodeURIComponent(st.token) + (st.tableStream ? '&table=1' : ''));
     st.es = es;
-    es.addEventListener('state', (e) => { setOnline(true); try { const v = JSON.parse(e.data); if (!tableState(v)) applyView(v); } catch (err) { console.error(err); } });
+    es.addEventListener('state', (e) => { setOnline(true); try { const v = JSON.parse(e.data); if (v.watch) watchState(v); else if (!tableState(v)) applyView(v); } catch (err) { console.error(err); } });
     es.addEventListener('table', (e) => { setOnline(true); try { tableViews(JSON.parse(e.data).views); } catch (err) { console.error(err); } });
+    es.addEventListener('closed', () => logout('Das Spiel ist nicht mehr verfügbar.'));
     es.addEventListener('signal', (e) => { try { Voice.onSignal(JSON.parse(e.data)); } catch (err) { console.error(err); } });
     es.addEventListener('kicked', () => { Lobby.setNotice('Du wurdest vom Spielleiter entfernt.'); logout('Du wurdest vom Spielleiter entfernt.'); });
     es.onopen = () => setOnline(true);
@@ -124,10 +125,23 @@
     Table.render(views, focus);
     if (first) { fit(true); setTimeout(() => fit(false), 120); }
   }
+  // ---- Zuschauer ----------------------------------------------------------------------------------------
+  // Wer zusieht, bekommt nur die öffentliche Sicht (Ereignis „state“ mit watch:true) und sieht sie wie am Spieltisch: Plätze rund ums Brett, ohne geheimen Bereich.
+  function watchState(v) {
+    if (v.phase === 'lobby') { logout('Das Spiel wurde beendet.'); return; }
+    const first = !st.tableOn;
+    st.watch = true; st.tableOn = true; st.tableStream = false;
+    document.body.classList.add('watch');
+    Table.activate();
+    const views = v.players.map(() => v);
+    applyView(v);
+    Table.render(views, Table.focusOf(views), true);
+    if (first) { fit(true); setTimeout(() => fit(false), 120); }
+  }
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
-    st.tableStream = false; st.tableOn = false; st.tv = null; Table.deactivate();
+    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; document.body.classList.remove('watch'); Table.deactivate();
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
@@ -171,7 +185,7 @@
   function applyView(v) {
     const old = st.view;
     st.view = v;
-    Sound.onView(old, v);
+    const mute = (x) => (x && x.watch ? Object.assign({}, x, { you: -1 }) : x); Sound.onView(mute(old), mute(v)); // Zuschauer: nie „mein Zug“
     if (!old) Fx.reset(); // neue Sitzung: bisherige Kartenbewegungen nicht nachspielen
     if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
     // Modus-Aufraeumen: nur gueltig im eigenen Hauptschritt
@@ -191,7 +205,8 @@
 
   function renderGame(v, old) {
     holdHand(Fx.play(v), v); // Kartenanimation (Quelle → Ziel); Depotzähler erst nach der Landung hochzählen
-    renderHUD(v);
+    if (v.watch) { $('dicebox').hidden = v.phase === 'setup' && v.step !== 'setup_order'; } // Zuschauer: nur Tisch-Anzeige, keine Bedienelemente
+    else renderHUD(v);
     renderBoard(v);
     // Wuerfel
     const seq = v.diceSeq || 0;
@@ -215,7 +230,7 @@
     o.style.setProperty('--pc', colorOf(d.by));
     o.innerHTML = `<div class="ds-card">${Art.dev(d.type, 140)}<b>${esc(Art.DEV_NAMES[d.type])}</b></div><div class="ds-who">${esc(p ? p.name : '')}</div>`;
     document.body.appendChild(o);
-    if (autoFlow()) setTimeout(() => o.remove(), 2000);
+    if (autoFlow() || st.watch) setTimeout(() => o.remove(), 2000); // Zuschauer-Bildschirm: niemand klickt
     else { o.classList.add('manual'); o.insertAdjacentHTML('beforeend', '<div class="ds-hint">Klicken zum Schließen</div>'); o.addEventListener('click', () => o.remove()); }
   }
 
@@ -230,7 +245,7 @@
     const el = document.createElement('div'); el.className = 'devshow ordshow';
     el.innerHTML = `<div class="ds-card ord"><b>Spielreihenfolge</b><ol>${o.order.map((pid) => `<li style="--pc:${colorOf(pid)}">${avatar(pid, 34)}<span>${esc(v.players[pid] ? v.players[pid].name : '')}</span></li>`).join('')}</ol></div>`;
     document.body.appendChild(el);
-    if (autoFlow()) setTimeout(() => el.remove(), 3500);
+    if (autoFlow() || st.watch) setTimeout(() => el.remove(), 3500);
     else { el.classList.add('manual'); el.insertAdjacentHTML('beforeend', '<div class="ds-hint">Klicken zum Schließen</div>'); el.addEventListener('click', () => el.remove()); }
   }
 

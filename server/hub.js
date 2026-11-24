@@ -15,6 +15,8 @@ class Hub {
     this.maxGames = opts.maxGames ?? Infinity;   // Obergrenze gleichzeitiger Spiele
     this.rnd = opts.rnd;
     this.now = opts.now || Date.now;
+    this.maxWatchers = opts.maxWatchers ?? 8;     // Zuschauer je Spiel
+    this.watchGraceMs = opts.watchGraceMs ?? 60000; // so lange bleibt ein getrennter Zuschauer-Token gültig (Neuladen)
   }
 
   newRoom() {
@@ -43,6 +45,7 @@ class Hub {
       players: S.players.filter((p) => !p.left).map((p) => ({ name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null })),
       table: !!S.settings.table,
       joinable: S.phase === 'lobby' && !S.closed && S.players.length < 6 && !S.settings.table,
+      watchable: S.phase === 'setup' || S.phase === 'main', // läuft: man kann zusehen
     };
   }
   list() { return [...this.rooms.values()].map((r) => this.summary(r)); }
@@ -78,6 +81,26 @@ class Hub {
     }
   }
 
+  // Zuschauer: sehen nur die öffentliche Sicht (watchView), sind keine Spieler und halten kein Spiel am Leben
+  watch(b) {
+    const room = this.rooms.get(String(b.game));
+    if (!room) throw new Game.GameError('Dieses Spiel gibt es nicht mehr.');
+    const ph = room.game.S.phase;
+    if (ph !== 'setup' && ph !== 'main') throw new Game.GameError('Dieses Spiel läuft gerade nicht – zuschauen ist nur bei laufenden Spielen möglich.');
+    const ws = room.watchers || (room.watchers = new Map());
+    if (ws.size >= this.maxWatchers) throw new Game.GameError(`Es sehen schon ${this.maxWatchers} Zuschauer zu.`);
+    const token = crypto.randomBytes(16).toString('hex');
+    ws.set(token, { token, gone: this.now() });
+    return { token, game: room.id, room };
+  }
+  findWatcher(token) {
+    if (!token) return null;
+    for (const room of this.rooms.values()) { const w = room.watchers && room.watchers.get(token); if (w) return { room, watcher: w }; }
+    return null;
+  }
+  unwatch(room, token) { if (room.watchers) room.watchers.delete(token); }
+  watcherConnected(w, on) { w.gone = on ? null : this.now(); }
+
   // Verbindung geöffnet/geschlossen (aus dem SSE-Handler)
   connected(room, player) { room.absent.delete(player.token); room.game.setConnected(player.id, true); room.emptySince = null; }
   disconnected(room, player) {
@@ -90,6 +113,7 @@ class Hub {
   // Regelmäßige Pflege. Gibt die Räume zurück, deren Zustand sich geändert hat, und die gelöschten.
   tick() {
     const t = this.now(), changed = new Set(), removed = [];
+    for (const room of this.rooms.values()) if (room.watchers) for (const [tok, w] of room.watchers) if (w.gone && t - w.gone > this.watchGraceMs) room.watchers.delete(tok);
     for (const room of [...this.rooms.values()]) {
       const g = room.game, S = g.S;
       // Lobby: lange Abwesende verlieren ihren Platz

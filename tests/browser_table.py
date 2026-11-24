@@ -126,8 +126,11 @@ try:
             if pg.locator('.seat.active [data-a="end"]').count(): break
             if pg.locator('.seat.active [data-a="end"]').count() == 0 and pg.locator('.seat.active [data-a="roll"]').count(): pg.locator('.seat.active [data-a="roll"]').click()
             pg.wait_for_timeout(400)
-        if pg.locator('.seat.active [data-a="trade"]:not([aria-disabled="true"])').count():
+        def open_trade():  # bei einer gewürfelten 7 (Räuber) ist kein Handel möglich: das Handelsfenster bleibt zu
+            if not pg.locator('.seat.active [data-a="trade"]:not([aria-disabled="true"])').count(): return False
             pg.locator('.seat.active [data-a="trade"]').click(); pg.wait_for_timeout(400)
+            return pg.locator('#tradeDock .tc').count() > 0
+        if open_trade():
             hand = pg.evaluate("(() => { const o = {}; document.querySelectorAll('.seat.active .secret .rc').forEach(c => { o[c.dataset.res] = Number(c.querySelector('b').textContent) || 0; }); return o; })()")
             give = max(hand, key=lambda k: hand[k])
             want = [r for r in hand if r != give][0]
@@ -156,6 +159,9 @@ try:
                     check(pg.locator('.seat.active .st.cnt2').count() >= 1, 'Gegenangebot vom Platz eines Mitspielers kommt beim Anbieter an')
             else:
                 print('  (Handel übersprungen: Angebot nicht möglich)')
+
+        else:
+            print('  (Handel übersprungen: Handelsfenster nicht verfügbar, z. B. wegen einer gewürfelten 7)')
 
         # Angebot ohne die Karten: der Stapel blinkt rot, die Anbieter-Seite kann nur zurückziehen
         if pg.locator('#tradeDock [data-do="cancel"]').count():

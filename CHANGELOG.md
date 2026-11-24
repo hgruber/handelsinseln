@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Zuschauer (Phase 1 von 3):** Auf der Startseite ist ein laufendes Spiel farblich abgesetzt; wählt man es, wird aus „Beitreten“ der Knopf „Spiel ansehen“ (ohne Namen/Farbe). Der Browser zeigt die öffentliche Tisch-Anzeige – Plätze rund ums Brett, Punkte, Würfel, Handelsangebote und Meldungen – ohne Handkarten, Entwicklungskarten, Chat und Sprachchat und ohne Aktionen (Server liefert eine eigene öffentliche Sicht, Aktionen und Signale werden mit 403 abgelehnt). Bis zu 8 Zuschauer je Spiel, Menü „Zuschauen beenden“, Neuladen behält die Sitzung. Zuschauer-Fenster (Reihenfolge, gespielte Karte) schließen sich von selbst.
+
 ### Geändert
 - **Goldfluss-Felder, Fairness:** Anfangssiedlungen dürfen nicht an ein Goldfluss-Feld grenzen (feste Regel; bei weniger Siedelplätzen als Mitspielern wäre Gold am Start ein unfairer Vorteil), und Goldfluss-Felder tragen nur noch die Zahlen 2, 3, 4, 10, 11 und 12 – auch wenn sie im Nebel entdeckt werden. Die Kartenerzeugung bewertet die Startecken ohne Goldfelder.
 

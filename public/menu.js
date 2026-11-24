@@ -104,7 +104,9 @@
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
     };
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
-    pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') +
+    if (v.watch) { // Zuschauer: kein Sprachchat, kein Chat, keine Spielleiter-Funktionen
+      pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') + item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') + item('fit', I.fit, 'Brett zentrieren') + item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' + item('leave', I.exit, 'Zuschauen beenden', 'danger');
+    } else pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') +
       item('voice', I.mic, joined ? 'Sprachchat verlassen' : 'Sprachchat beitreten') +
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
       (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
@@ -136,6 +138,7 @@
   }
   async function leaveGame() {
     const v = C.view(); const lobby = v && v.phase === 'lobby';
+    if (v && v.watch) { C.leave(); return; } // Zuschauer: nichts zu bestätigen
     const txt = lobby ? 'Du verlässt die Lobby.' : v && v.phase === 'ended' ? 'Du verlässt das Spiel.' : 'Ein Auto-Spieler übernimmt für dich. Du kannst nicht zurückkehren.';
     if (await confirm('Spiel verlassen?', txt, 'Verlassen', true)) C.leave();
   }

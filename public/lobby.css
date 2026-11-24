@@ -18,6 +18,10 @@
 .gd.empty { background: transparent; border: 2px dashed rgba(255, 255, 255, .25); }
 .gcnt { font-weight: 700; color: var(--gold2); }
 .gnames { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gcard.run { border-color: rgba(86, 196, 160, .5); background: rgba(86, 196, 160, .10); }
+.gcard.run:hover { border-color: #56c4a0; background: rgba(86, 196, 160, .18); }
+.gcard.run.on { border-color: #56c4a0; background: rgba(86, 196, 160, .22); box-shadow: 0 0 0 2px rgba(86, 196, 160, .4); }
+.goff.run { color: #8fe3c6; }
 .gcard.off { opacity: .5; filter: grayscale(.8); cursor: not-allowed; }
 .gcard.off:hover { transform: none; border-color: rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); }
 .goff { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); }

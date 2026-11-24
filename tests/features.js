@@ -695,6 +695,43 @@ test('Goldfluss: nur Zahlen 2,3,4,10,11,12 und keine Anfangssiedlung daran', () 
   assert(golds > 0, 'Test hat Gold entdeckt');
 });
 
+test('Zuschauer: watchView zeigt nur Öffentliches (keine Hand, Entwicklungskarten, Chat, Aktionen, Tokens)', () => {
+  const g = lobby(3); g.act(0, { type: 'start' });
+  const S = g.S;
+  S.players[1].hand.holz = 3; S.players[1].dev.push({ id: 'd1', type: 'ritter', bought: 0 });
+  g.act(0, { type: 'chat', text: 'vertraulich' });
+  const v = g.watchView(), me = g.view(1), txt = JSON.stringify(v);
+  assert.equal(v.watch, true); assert.equal(v.you, -1); assert.equal(v.host, -1);
+  assert.deepEqual(v.me, { hand: {}, dev: [], hiddenVp: 0 });
+  assert.deepEqual(v.chat, []); assert(me.chat.length > 0, 'Spieler sehen den Chat');
+  assert.equal(v.players[1].resCount, 3, 'öffentlich: Kartenanzahl'); assert.equal(v.players[1].devCount, 1, 'öffentlich: Anzahl Entwicklungskarten');
+  assert(!txt.includes('vertraulich'), 'Chattext nicht enthalten');
+  for (const p of S.players) assert(!txt.includes(p.token), 'Token nicht enthalten');
+  assert.deepEqual(v.legal.settlement, []); assert.deepEqual(v.legal.road, []);
+  assert(Object.values(v.afford).every((x) => x === false));
+  assert(v.fx.every((e) => !e.c || e.pub), 'nur öffentliche Kartenbewegungen mit Inhalt');
+  assert(v.players.every((p) => p.seat), 'jeder Platz hat eine Tisch-Position');
+  assert.equal(new Set(v.players.map((p) => p.seat)).size, 3, 'Positionen verschieden');
+});
+
+test('Zuschauer: Hub – nur laufende Spiele, Limit, getrennte Zuschauer verfallen nach der Karenzzeit', () => {
+  let t = 1000; const hub = new Hub({ now: () => t, maxWatchers: 2, watchGraceMs: 5000, rnd: rng(3) });
+  const j = hub.join({ name: 'A', color: 'rot', create: true }); hub.join({ game: j.game, name: 'B', color: 'blau' });
+  assert.throws(() => hub.watch({ game: j.game }), /läuft gerade nicht/, 'Lobby: kein Zuschauen');
+  assert.equal(hub.summary(j.room).watchable, false);
+  j.room.game.act(0, { type: 'start' }); j.room.game.S.players.forEach((p) => hub.connected(j.room, p)); // Menschen verbunden: das Spiel lebt weiter
+  assert.equal(hub.summary(j.room).watchable, true);
+  assert.throws(() => hub.watch({ game: 'gibtsnicht' }), /nicht mehr/);
+  const w1 = hub.watch({ game: j.game }), w2 = hub.watch({ game: j.game });
+  assert.throws(() => hub.watch({ game: j.game }), /Zuschauer/, 'Limit 2');
+  assert(hub.findWatcher(w1.token) && !hub.findByToken(w1.token), 'Zuschauer ist kein Spieler');
+  hub.watcherConnected(hub.findWatcher(w1.token).watcher, true);
+  t += 60000; hub.tick();
+  assert(hub.findWatcher(w1.token), 'verbundener Zuschauer bleibt'); assert(!hub.findWatcher(w2.token), 'nie verbundener Zuschauer verfällt');
+  hub.watcherConnected(hub.findWatcher(w1.token).watcher, false); t += 6000; hub.tick();
+  assert(!hub.findWatcher(w1.token), 'getrennter Zuschauer verfällt');
+});
+
 test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Tisch ein/aus', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');

@@ -21,7 +21,7 @@
     const owing = (k) => v.order.find((pid) => v.players[pid][k] > 0);
     if (v.step === 'discard') { const p = owing('discarding'); if (p != null) return p; }
     if (v.step === 'gold') { const p = owing('pickingGold'); if (p != null) return p; }
-    return v.turn != null ? v.turn : v.host;
+    return v.turn != null ? v.turn : v.host >= 0 ? v.host : (v.order && v.order.length ? v.order[0] : 0);
   }
 
   function build() {
@@ -156,11 +156,22 @@
     });
   }
 
-  function render(views, focus) {
+  // Zuschauer: Handel nur zum Ansehen (Angebot und Antworten), keine Knöpfe
+  function watchMenuHTML(v, pid) {
+    const t = v.trade;
+    if (!t || t.from !== pid) return '';
+    const chips = (o) => `<span class="tchips">${RES.filter((x) => o[x] > 0).map((x) => `<span class="tchip" style="--rc:${C.Art.RES_COLORS[x]}">${C.Art.res(x, 24)}<b>${o[x]}</b></span>`).join('')}</span>`;
+    const st = (r) => (r.s === 'accept' ? '<span class="st ok">✓</span>' : r.s === 'decline' ? '<span class="st no">✗</span>' : '<span class="st cnt2">⇄</span>');
+    const res = v.order.filter((p) => p !== pid).map((p) => { const r = t.responses && t.responses[p]; return `<span class="wr">${C.avatar(p, 22)}${r ? st(r) : '<span class="st">…</span>'}</span>`; }).join('');
+    return `<div class="tpanel glass tmenu" style="--pc:${C.Art.COLORS[v.players[pid].color]}"><div class="who">${C.avatar(pid, 30)}<b>${C.esc(v.players[pid].name)} bietet</b></div>` +
+      `<div class="offer-line"><div class="ol">${chips(t.give)}</div><span class="tarrow sm">⇄</span><div class="ol">${chips(t.want)}</div></div><div class="wresp">${res}</div></div>`;
+  }
+
+  function render(views, focus, watch) {
     last = { views, focus };
     const v = views[focus];
     layout(v);
-    seatAsk(v);
+    if (watch) { const el = $('seatAsk'); if (el) el.remove(); } else seatAsk(v);
     messages(v);
     document.body.dataset.tseat = (seats.get(focus) || {}).slot || 'b';
     if (!v.trade) counter.clear();
@@ -175,14 +186,14 @@
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
       const bh = badgeHTML(v, p, pid);
       html(s.badgeTop, bh); html(s.badgeAbove, bh);
-      html(s.secret, secretHTML(v, pv, pid, active));
-      html(s.menu, active ? '' : menuHTML(views, pid, v));
-      if (active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
+      if (!watch) html(s.secret, secretHTML(v, pv, pid, active));
+      html(s.menu, watch ? watchMenuHTML(v, pid) : active ? '' : menuHTML(views, pid, v));
+      if (!watch && active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
       if (pid === ctlSeat) {
         if ($('build').parentNode !== s.ctl) s.ctl.appendChild($('build'));
         if ($('dicebox').parentNode !== s.ctl) s.ctl.appendChild($('dicebox'));
       }
-      if (pid === v.host && $('camBtns').parentNode !== s.hb) s.hb.appendChild($('camBtns')); // Hamburger-Menü rechts vom geheimen Bereich des Spielleiters
+      if (!watch && pid === v.host && $('camBtns').parentNode !== s.hb) s.hb.appendChild($('camBtns')); // Hamburger-Menü rechts vom geheimen Bereich des Spielleiters
     }
     if (ctlSeat === null) { // niemand am Zug: Bedienelemente wegräumen
       const b = $('bottom');

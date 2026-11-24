@@ -23,13 +23,15 @@
   const SEAT_NAMES = { b: 'unten Mitte', bl: 'unten links', br: 'unten rechts', t: 'oben Mitte', tl: 'oben links', tr: 'oben rechts', l: 'links', r: 'rechts' };
   const joinable = () => L.games.filter((g) => g.joinable !== false);
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
+  const watchable = (g) => !!g && g.joinable === false && !!g.watchable; // läuft: nur zuschauen
+  const watchSel = () => watchable(selGame());
   const takenColors = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.color) : []; };
 
   function normalizeSel() {
     const j = joinable();
-    if (L.sel !== 'new' && !j.some((g) => g.id === L.sel)) L.sel = null;
+    if (L.sel !== 'new' && !j.some((g) => g.id === L.sel) && !watchable(selGame())) L.sel = null;
     if (!L.sel && j.length === 1) L.sel = j[0].id;
-    if (!j.length) L.sel = 'new';
+    if (!j.length && !watchSel()) L.sel = 'new';
   }
   const takenAvatars = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.avatar).filter(Boolean) : []; };
   // Avatar: gemerkter oder zufälliger Vorschlag; ist er im gewählten Spiel schon vergeben, wird ein freier zufällig gewählt
@@ -64,23 +66,25 @@
     const names = (g.players || []).map((p) => C.esc(p.name)).join(', ');
     // Nicht beitretbar (läuft, beendet, Plätze geschlossen oder voll): ausgegraut, nicht anwählbar
     const off = g.joinable === false, why = g.table ? 'Spieltisch' : g.phase === 'ended' ? 'Beendet' : g.phase !== 'lobby' ? 'Läuft bereits' : g.closed ? 'Plätze besetzt' : 'Voll';
-    const tag = off ? `<div class="gcard off" role="option" aria-disabled="true" aria-selected="false" title="${why} – Beitritt nicht mehr möglich.">` : `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}">`;
+    const run = watchable(g); // laufendes Spiel: anwählbar zum Zuschauen, farblich abgesetzt
+    const tag = run ? `<button type="button" class="gcard run${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}" title="Läuft bereits – du kannst zusehen.">` : off ? `<div class="gcard off" role="option" aria-disabled="true" aria-selected="false" title="${why} – Beitritt nicht mehr möglich.">` : `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}">`;
     return tag +
       `<span class="gtop"><b class="gname">${C.esc(g.name || 'Spiel')}</b><span class="gvar">${C.esc(VNAME[g.variant] || g.variant || '')}</span></span>` +
       `<span class="ghost-line">Spielleiter: <b>${C.esc(g.host)}</b></span>` +
-      `<span class="gbot"><span class="gdots">${dots}</span>${off ? `<span class="goff">${why}</span>` : `<span class="gcnt">${n}/${plan > n ? plan : max}</span>`}</span>` +
-      (names ? `<span class="gnames">${names}</span>` : '') + (off ? '</div>' : '</button>');
+      `<span class="gbot"><span class="gdots">${dots}</span>${run ? '<span class="goff run">Läuft – ansehen</span>' : off ? `<span class="goff">${why}</span>` : `<span class="gcnt">${n}/${plan > n ? plan : max}</span>`}</span>` +
+      (names ? `<span class="gnames">${names}</span>` : '') + (off && !run ? '</div>' : '</button>');
   }
   function renderGames() {
     normalizeSel(); pickColor(); renderSwatches(); pickAvatar(); renderAvatars();
-    const j = joinable(), rest = L.games.filter((g) => g.joinable === false);
+    const j = joinable(), rest = L.games.filter((g) => g.joinable === false).sort((a, b) => (watchable(b) ? 1 : 0) - (watchable(a) ? 1 : 0));
     const html = (j.length ? '' : '<p class="gempty">Noch kein offenes Spiel – eröffne das erste!</p>') + j.map(gameCard).join('') + rest.map(gameCard).join('');
     C.setHTML($('gameList'), html);
     $('gameList').closest('.fld').hidden = !L.games.length;
-    const jb = $('joinBtn'); jb.hidden = !j.length;
+    const jb = $('joinBtn'), ws = watchSel(); jb.hidden = !j.length && !ws;
+    jb.textContent = ws ? 'Spiel ansehen' : 'Beitreten';
     const needPick = j.length > 1 && !selGame();
     jb.classList.toggle('dis', needPick); jb.setAttribute('aria-disabled', String(needPick)); jb.title = needPick ? 'Wähle zuerst ein Spiel aus der Liste.' : '';
-    $('createBtn').classList.toggle('gold', !j.length); $('createBtn').classList.toggle('ghostb', !!j.length);
+    $('createBtn').classList.toggle('gold', !j.length && !ws); $('createBtn').classList.toggle('ghostb', !!j.length || ws);
     const info = $('loginInfo');
     info.classList.toggle('notice', !!L.notice);
     info.textContent = L.notice || L.err || '';
@@ -97,7 +101,16 @@
     renderGames();
     L.timer = setTimeout(pollGames, 2500);
   }
+  // Laufendes Spiel ansehen: kein Name nötig, kein Spieler, nur die öffentliche Sicht
+  async function doWatch(game) {
+    ['joinBtn', 'createBtn'].forEach((i) => $(i).classList.add('dis'));
+    const r = await C.post('/api/watch', { game });
+    ['joinBtn', 'createBtn'].forEach((i) => $(i).classList.remove('dis'));
+    if (r.error) { C.toast(r.error, 'err'); pollGames(); return; }
+    L.notice = ''; C.joined(r);
+  }
   async function doJoin(forceCreate) {
+    if (!forceCreate && watchSel()) { if (C.mockLogin) { C.toast('Mock-Modus: watch ' + L.sel, 'info'); return; } return doWatch(L.sel); }
     const name = $('nameIn').value.trim();
     if (!name) { $('loginForm').reportValidity(); return; }
     if (!L.color) { C.toast('Bitte wähle eine Farbe.', 'warn'); return; }
