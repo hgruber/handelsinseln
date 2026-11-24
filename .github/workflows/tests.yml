@@ -1,0 +1,62 @@
+# Tests: bei jedem Push und Pull Request erst die schnelle Stufe (Node, ohne Browser), danach die volle Suite mit
+# echten Browsern. Nachts zusätzlich mit langen Spiel-Dauerläufen. Logs und Screenshots liegen bei Fehlern als Artefakt bei.
+name: Tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schnell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: bash tests/run_all.sh schnell
+        env:
+          SHOTS: ${{ runner.temp }}/tests
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-schnell
+          path: ${{ runner.temp }}/tests
+
+  voll:
+    needs: schnell
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Playwright-Browser (zwischengespeichert)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+      - run: python -m playwright install --with-deps chromium
+      - run: bash tests/run_all.sh
+        env:
+          SHOTS: ${{ runner.temp }}/tests
+          PLAY_SECS: ${{ github.event_name == 'schedule' && '120' || '50' }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-voll
+          path: ${{ runner.temp }}/tests

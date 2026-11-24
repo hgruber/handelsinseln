@@ -3,3 +3,4 @@ node_modules/
 data/
 tests/mock/readme_*.json
 __pycache__/
+.claude/worktrees/

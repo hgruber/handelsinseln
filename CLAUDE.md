@@ -20,6 +20,8 @@ bash tests/run_all.sh        # volle Suite parallel (~4 Min auf 4 Kernen, JOBS=n
 npm run test:schnell         # nur Regel-, Funktions- und E2E-Tests ohne Browser (< 1 Min) – nach jeder Änderung
 ```
 
+CI: `.github/workflows/tests.yml` (schnell → voll mit Playwright; nachts `PLAY_SECS=120`).
+
 Es gibt keinen Linter. Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter; `rules.js`/`features.js` zählen intern `✓`/`✗`). Browser-Tests holen sich freie Ports und können parallel laufen.
 
 ## Release
