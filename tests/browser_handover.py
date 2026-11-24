@@ -16,10 +16,10 @@ def vis_hreq(pg, pid, attr='data-hreq'):
     return f"[...document.querySelectorAll('#seats .seat[data-pid=\"{pid}\"] .hreq[{attr}]')].some(e => e.offsetParent !== null)"
 
 def hold(pg, sel):
-    """Langes Drücken (≈ 0,9 s) auf ein Element."""
+    """Langes Drücken (≈ 1,5 s, Schwelle im Spiel 0,7 s – Reserve für verspätete Ereignisse unter Last) auf ein Element."""
     box = pg.locator(sel).first.bounding_box()
     x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
-    pg.mouse.move(x, y); pg.mouse.down(); time.sleep(0.95); pg.mouse.up()
+    pg.mouse.move(x, y); pg.mouse.down(); time.sleep(1.5); pg.mouse.up()
 
 server, BASE = start_server(TICK_MS=300, BOT_MS=150, HANDOVER_MS=15000)  # großzügig: unter Last dauern Prüfung + Screenshot mehrere Sekunden
 post = poster(BASE)
