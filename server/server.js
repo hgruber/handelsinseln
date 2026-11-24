@@ -4,6 +4,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const Game = require('./game');
 const Arm = require('./arm');
 const Handover = require('./handover');
@@ -53,6 +54,18 @@ function createServer(opts = {}) {
     saveTimer = setTimeout(writeState, 300);
   };
   const send = (res, ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
+  // Ereignisstrom öffnen, gzip-komprimiert, wenn der Client es kann: Nach jedem Ereignis wird synchron geleert, das
+  // Wörterbuch bleibt aber über den ganzen Strom erhalten – aufeinanderfolgende, fast gleiche Sichten kosten so nur noch
+  // wenige hundert Bytes statt jeweils ~20 KB. Gibt ein Objekt mit write()/end() zurück (ohne gzip: res selbst).
+  const openStream = (req, res) => {
+    const gz = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no', ...(gz ? { 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' } : {}) });
+    if (!gz) return res;
+    const z = zlib.createGzip({ level: 6, memLevel: 7 });
+    z.on('error', () => res.destroy());
+    z.pipe(res);
+    return { write: (s) => { z.write(s); z.flush(zlib.constants.Z_SYNC_FLUSH); }, end: () => z.end() };
+  };
   // Sichten mit Zusätzen, die nicht zum Spielstand gehören: display = es ist eine Tisch-Anzeige (Zuschauer) verbunden, arm = Standortwahl am Tisch
   // Tisch-Anzeigen: verbundene Zuschauer und – bei laufendem digitalen Spieltisch – der Browser des Spielleiters
   const tableStream = (room) => { const S = room.game.S, tok = S.players[S.host] && S.players[S.host].token, set = tok && clients.get(tok); return !!(S.settings.table && set && [...set].some((r) => r.tableMode)); };
@@ -125,37 +138,37 @@ function createServer(opts = {}) {
         if (!f && !wf) { res.writeHead(401); return res.end(); }
         if (wf) { // Zuschauer: nur lesen
           const { room, watcher } = wf;
-          res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-          res.write('retry: 2000\n\n');
+          const out = openStream(req, res);
+          out.write('retry: 2000\n\n');
           if (!clients.has(token)) clients.set(token, new Set());
-          clients.get(token).add(res);
+          clients.get(token).add(out);
           hub.watcherConnected(watcher, true);
           room.game.settle();
-          send(res, 'state', wview(room));
+          send(out, 'state', wview(room));
           broadcast(room); // die Spieler erfahren, dass eine Tisch-Anzeige da ist
-          const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
+          const ping = setInterval(() => out.write('event: ping\ndata: 1\n\n'), 20000);
           req.on('close', () => {
             clearInterval(ping);
             const set = clients.get(token);
-            if (set) { set.delete(res); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); broadcast(room); } }
+            if (set) { set.delete(out); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); broadcast(room); } }
           });
           return;
         }
         const { room, player } = f;
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-        res.write('retry: 2000\n\n');
+        const out = openStream(req, res);
+        out.write('retry: 2000\n\n');
         if (!clients.has(token)) clients.set(token, new Set());
-        res.tableMode = !f.phone && url.searchParams.get('table') === '1' && player.id === room.game.S.host;
-        clients.get(token).add(res);
+        out.tableMode = !f.phone && url.searchParams.get('table') === '1' && player.id === room.game.S.host;
+        clients.get(token).add(out);
         if (!f.phone) hub.connected(room, player); // das Handy am Spielleiter-Platz ändert nichts an der Verbindung des Spielleiters
         room.game.settle();
-        send(res, 'state', pview(room, player.id, !!f.phone));
+        send(out, 'state', pview(room, player.id, !!f.phone));
         broadcast(room);
-        const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
+        const ping = setInterval(() => out.write('event: ping\ndata: 1\n\n'), 20000);
         req.on('close', () => {
           clearInterval(ping);
           const set = clients.get(token);
-          if (set) { set.delete(res); if (!set.size) { clients.delete(token); if (!f.phone) hub.disconnected(room, player); broadcast(room); } }
+          if (set) { set.delete(out); if (!set.size) { clients.delete(token); if (!f.phone) hub.disconnected(room, player); broadcast(room); } }
         });
         return;
       }

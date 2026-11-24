@@ -8,6 +8,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Lizenz:** Das Projekt steht unter der MIT-Lizenz (`LICENSE`).
 - **Schneller:** Die Hex-Geometrie merkt sich zerlegte Schlüssel und Kanten-Ecken; Spiellogik und Bots rechnen etwa doppelt so schnell (Server und Browser).
 - **Schnelleres Laden:** Bilder, Skripte und Stile kommen mit ETag; bei unveränderten Dateien antwortet der Server nur noch mit „304 Not Modified“, statt bei jedem Aufruf rund 1,4 MB neu zu senden.
+- **Weniger Datenvolumen im Spiel:** Der Ereignisstrom ist gzip-komprimiert; weil aufeinanderfolgende Spielstände fast gleich sind, kostet ein Update statt rund 18 KB nur noch etwa 300 Bytes (gut für Handys im Mobilfunk).
 
 ## [1.6.1] - 2026-11-24
 

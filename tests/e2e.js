@@ -18,7 +18,7 @@ async function boot(seed, opts = {}) {
   const connect = async (token) => {
     const c = { token, view: null, events: [], signals: [], kicked: false, ctrl: new AbortController() };
     const res = await fetch(base + '/api/events?token=' + token, { signal: c.ctrl.signal });
-    c.status = res.status;
+    c.status = res.status; c.encoding = res.headers.get('content-encoding');
     if (res.status !== 200) return c;
     (async () => {
       const dec = new TextDecoder(); let buf = '';
@@ -61,6 +61,7 @@ async function lobbyAndFeatures() {
   const cA1 = await connect(a1.token);
   await sleep(60);
   assert.equal(cA1.view.phase, 'lobby'); assert.equal(cA1.view.host, 0);
+  assert.equal(cA1.encoding, 'gzip', 'Ereignisstrom ist gzip-komprimiert (fetch sendet Accept-Encoding)');
   assert(cA1.view.hexes.length > 20, 'Vorschau-Brett kommt per SSE');
   assert.equal(cA1.view.settings.winPoints, 14);
   // Ben tritt (einziges offenes Spiel) automatisch bei, Farbe belegt → Fehler
