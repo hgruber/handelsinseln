@@ -408,8 +408,8 @@
   const MINI = Object.fromEntries(VARIANTS.map((x) => [x.id, null]));
 
   // Hinweis in der Lobby einer Tisch-Partie: die Plätze werden erst beim Spielstart am Tisch abgefragt
-  function tableHTML(v, host, tblBtn) {
-    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Alle Spieler sitzen am Tisch (keine Bots, keine Online-Spieler). Beim Start wird jeder Spieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – nach seinem Platz am Tisch gefragt. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.</small>${tblBtn}</div>`;
+  function tableHTML() {
+    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Alle Spieler sitzen am Tisch (keine Bots, keine Online-Spieler). Beim Start wird jeder Spieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – nach seinem Platz am Tisch gefragt. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.</small></div>`;
   }
 
   function renderLobby(v) {
@@ -439,12 +439,13 @@
     const avail = Object.entries(AVS.BOTS).filter(([k]) => !here.has(k));
     const tbl = !!s.table, others = v.players.some((p) => p.id !== v.host && !p.tableGuest);
     const tblBtn = host ? `<button type="button" class="btn small gold" data-addtable="1" ${full || v.closed || others ? 'disabled' : ''} title="${others ? 'Am Spieltisch gibt es nur Tischspieler – entferne erst Bots und Online-Spieler' : full ? 'Das Spiel ist voll' : 'Einen Spieler am digitalen Spieltisch anlegen'}">Tischspieler anlegen …</button>` : '';
-    if (tbl) { C.setHTML($('lobbyBots'), tableHTML(v, host, tblBtn)); }
+    C.setHTML($('lbTbl'), tblBtn); // „Tischspieler anlegen“ sitzt rechts neben „Spieler 1/6“
+    if (tbl) { C.setHTML($('lobbyBots'), tableHTML()); }
     else C.setHTML($('lobbyBots'), (host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
       const dis = full || !!v.closed;
       return `<div class="botcard"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
         `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">Hinzufügen</button></div>`;
-    }).join('') + '</div></details>' : '') + (host ? `<div class="tblnote">${tblBtn}</div>` : ''));
+    }).join('') + '</div></details>' : ''));
 
     // Variante, Spielerzahl, Plaetze
     const cur = eff('variant') || 'klassisch';
@@ -481,6 +482,10 @@
 
   function initLobby() {
     onSettingsEvents($('lobbySettings'));
+    if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.documentElement.classList.add('ios'); // iOS: Scroll-Container braucht pointer-events:auto (siehe lobby.css)
+    // Mobil (schmale Ansicht): „Spiel starten“ steht zwischen „Bots hinzufügen“ und „Spielfeld & Variante“, sonst unten an der Spalte
+    const mq = matchMedia('(max-width: 980px)'), placeAct = () => { const a = $('lobbyAct'); if (mq.matches) $('lobbyBots').after(a); else $('lobbyBots').closest('.lb-side').append(a); };
+    mq.addEventListener('change', placeAct); placeAct();
     $('lobby').addEventListener('click', async (e) => {
       const v = C.view(); if (!v) return;
       const start = e.target.closest('#startBtn');

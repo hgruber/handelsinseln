@@ -4,6 +4,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Lobby, „Tischspieler anlegen“** sitzt rechts neben der Überschrift „Spieler 1/6“.
+- **Lobby auf Mobilgeräten:** „Spiel starten“ steht zwischen „Bots hinzufügen“ und „Spielfeld & Variante“ statt unten an der Spalte.
+
+### Behoben
+- **Lobby auf Android (Chromium):** Die Karte lässt sich in der Lobby wieder verschieben und zoomen; das `pointer-events: auto` des Scroll-Containers gilt nur noch auf iOS.
+
 ## [1.5.11] - 2026-11-24
 
 ### Geändert
