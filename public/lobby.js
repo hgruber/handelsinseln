@@ -146,7 +146,7 @@
   // Einstellungs-Schema (Vorgaben + Beschriftungen) – auch fuer die Info-Anzeige im Spiel
   // ======================================================================================
   const DEF = {
-    dense: false, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
+    dense: true, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
     islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5,
     limits: {
       road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
@@ -164,7 +164,7 @@
     const Art = C.Art;
     return [
       { id: 'feld', title: 'Spielfeld', board: true, rows: [
-        { path: 'dense', type: 'seg', label: 'Inseln dichter', tip: 'Verringert die Abstände zwischen den Inseln (nur Heimatinsel und Archipel).', dep: 'variant=inseln|archipel', opts: [[false, 'Normal'], [true, 'Dichter']] },
+        { path: 'dense', type: 'seg', label: 'Inselabstand', tip: 'Normal: dicht beieinanderliegende Inseln. Weiter: größere Abstände zwischen den Inseln (nur Heimatinsel und Archipel).', dep: 'variant=inseln|archipel', opts: [[true, 'Normal'], [false, 'Weiter']] },
       ] },
       { id: 'ablauf', title: 'Ablauf', rows: [
         { path: 'dice', type: 'seg', label: 'Auto Ablauf', tip: 'Auto: Der Server würfelt sofort nach Zugende, Hinweise blenden sich selbst aus, Karten fliegen schnell. Manuell: der Spieler klickt „Würfeln“, Hinweise werden weggeklickt, Karten fliegen langsam. Lässt sich im Spiel über das Menü umschalten.', opts: [['manuell', 'Manuell'], ['auto', 'Auto']] },

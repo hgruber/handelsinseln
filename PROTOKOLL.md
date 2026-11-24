@@ -106,7 +106,7 @@ gameId, gameName,
 closed: bool,                 // Spielleiter hat die Plätze als „fertig besetzt“ erklärt (nur Lobby)
 settings: {                   // gilt in Lobby und im Spiel; änderbar durch den Spielleiter (im Spiel alles außer variant/plannedPlayers/dense)
   variant: 'klassisch'|'nebel'|'inseln',   // klassisch: Hauptinsel + Inseln + Nebel; nebel: kleine Startinsel in dichtem Nebel; inseln: jeder Spieler eigene Heimatinsel
-  dense: false,                // true: Inseln dichter (nur inseln/archipel), ändert das Brett → nur in der Lobby
+  dense: true,                 // true (Standard): Inseln dicht beieinander, false: „Weiter“ größere Abstände (nur inseln/archipel), ändert das Brett → nur in der Lobby
   plannedPlayers: 2..6,        // Spielerzahl, für die das Brett erzeugt wird (wächst automatisch, wenn mehr beitreten)
   dice: 'manuell'|'auto',      // auto: Server würfelt am Zugbeginn selbst
   robber: 'manuell'|'auto',    // auto: Räuber/Pirat und Opfer werden zufällig/sinnvoll vom Server gewählt

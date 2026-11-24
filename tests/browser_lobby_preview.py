@@ -77,6 +77,7 @@ try:
 
         print('Abweichende Regeln / Standard wiederherstellen')
         check(A.locator('#lobbyDev .devnone').count() == 1, 'Anfang: "Alle Regeln wie im Originalspiel"')
+        A.evaluate("document.querySelector('.setpanel').open = true")  # Panel ist standardmaessig zugeklappt
         A.locator('[data-row="winPoints"] [data-s="1"]').click(); A.locator('[data-row="winPoints"] [data-s="1"]').click()
         A.click('[data-var=nebel]'); time.sleep(1.2)
         try: B.wait_for_function("document.querySelectorAll('#lobbyDev .devlist li').length === 2", timeout=6000)

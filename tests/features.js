@@ -235,7 +235,7 @@ test('Spiel ändern: im laufenden Spiel nur vom Spielleiter, alles außer dem Sp
   const g = mainBoard(3);
   g.S.ts.rolled = false;
   throws(() => g.act(1, { type: 'set_settings', settings: { dice: 'auto' } }), /Spielleiter/);
-  throws(() => g.act(0, { type: 'set_settings', settings: { dense: true } }), /Spielfeld/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { dense: false } }), /Spielfeld/);
   throws(() => g.act(0, { type: 'set_settings', settings: { plannedPlayers: 5 } }), /Spielfeld/);
   throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 1 } }), /Siegpunkte|ganze Zahlen/);
   g.act(0, { type: 'set_settings', settings: { winPoints: 20, bankRate: 3, limits: { road: 7, fogChips: { 6: 1 } } } });
