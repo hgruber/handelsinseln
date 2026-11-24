@@ -237,9 +237,10 @@ body[data-screen="ended"] #board { filter: blur(2px) brightness(.6); }
 body[data-screen="ended"]:has(#stats.peek) #board { pointer-events: auto; filter: none; }
 
 @media (max-width: 980px) {
-  .screen.lobby { overflow-y: auto; place-items: start; }
-  .lb-wrap { grid-template-columns: 1fr; grid-template-rows: var(--pv, 42vh) auto; }
-  .lb-side { grid-template-rows: auto auto auto auto; }
+  /* iOS Safari scrollt keinen Container mit pointer-events:none: die Seitenspalte scrollt selbst */
+  .screen.lobby { overflow: hidden; }
+  .lb-wrap { grid-template-columns: 1fr; grid-template-rows: var(--pv, 42vh) minmax(0, 1fr); height: 100%; }
+  .lb-side { grid-template-rows: auto auto auto auto; align-content: start; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .lb-grab { display: block; height: 26px; cursor: ns-resize; touch-action: none; position: relative; }
   .lb-grab::before { content: ''; position: absolute; left: 50%; top: 9px; width: 54px; height: 5px; margin-left: -27px; border-radius: 3px; background: rgba(255, 255, 255, .4); }
   .lb-scroll { overflow: visible; }

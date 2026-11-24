@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Lobby auf iOS (Safari):** Das Menü scrollt wieder; auf schmalen Bildschirmen scrollt jetzt die Seitenspalte selbst (iOS scrollt keinen Container mit `pointer-events: none`).
+
 ## [1.5.9] - 2026-11-24
 
 ### Geändert
