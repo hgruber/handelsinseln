@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gemischte Lobby (Phase 3): Spielleiter (Tisch), ein Tischspieler, ein Online-Spieler (Handy) und ein Bot in einem Spiel.
 Prüft Lobby, Platzwahl (nur Tischspieler fragen, die anderen bekommen automatisch einen Platz), öffentliche Plätze am Tisch ohne geheimen Bereich,
-Datenschutz in der Tisch-Sicht, und den Ablauf „Online-Spieler gibt am Handy frei → der Spieltisch zeigt die Ziele → Bestätigung am Handy“.
+Datenschutz in der Tisch-Sicht, und den Ablauf „Online-Spieler gibt am Handy frei → der Spieltisch zeigt die Ziele → Tipp am Tisch führt aus“.
 Aufruf: python3 tests/browser_mixed.py"""
 import json, os, subprocess, sys, tempfile, time, urllib.request
 from playwright.sync_api import sync_playwright
@@ -115,14 +115,9 @@ try:
                     check(n > 0, f'Spieltisch des Spielleiters zeigt {n} Ziele für den Online-Spieler')
                     ok = False
                     for i in range(n):
-                        H.locator('#world .L-target [data-t]').nth(i).click(force=True)
-                        try: H.wait_for_selector('#world .L-target .picked', timeout=1500); ok = True; break
-                        except Exception: pass
-                    check(ok, 'Tisch: Ziel angetippt und markiert')
-                    P.wait_for_selector('#armPanel .arm.confirm', timeout=4000)
-                    check(len([k for k, x in event(otok, 'state')['verts'].items() if x['p'] == otto]) == 0, 'noch nichts gebaut vor der Bestätigung')
-                    P.click('#armPanel [data-arm="confirm"]'); time.sleep(1.0)
-                    check(len([k for k, x in event(otok, 'state')['verts'].items() if x['p'] == otto]) == 1, 'nach der Bestätigung steht die Siedlung des Online-Spielers')
+                        H.locator('#world .L-target [data-t]').nth(i).click(force=True); time.sleep(1.0)
+                        if len([k for k, x in event(otok, 'state')['verts'].items() if x['p'] == otto]) == 1: ok = True; break
+                    check(ok, 'Tipp am Spieltisch setzt die Siedlung des Online-Spielers sofort (die Freigabe am Handy war die Bestätigung)')
                     continue
                 L = ov['legal']
                 if step == 'setup_settlement' and L['settlement']: post('/api/act', {'token': otok, 'type': 'place_settlement', 'v': L['settlement'][0]})

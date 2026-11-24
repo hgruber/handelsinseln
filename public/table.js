@@ -135,11 +135,11 @@
   function secretHTML(v, pv, pid, active) {
     const A = C.Art, hand = pv.me.hand, t = v.trade;
     const short = t && t.from === pid ? t.give : null; // angebotener Rohstoff, den der Spieler nicht hat: Stapel blinkt rot
-    const res = RES.map((r) => `<div class="rc${hand[r] ? '' : ' zero'}${short && (short[r] || 0) > (hand[r] || 0) ? ' short' : ''}" data-res="${r}" style="--rc:${A.RES_COLORS[r]}" title="${A.RES_NAMES[r]}">${A.res(r, 30)}<b>${hand[r] || 0}</b></div>`).join('');
+    const res = RES.map((r) => `<div class="rc${hand[r] ? '' : ' zero'}${short && (short[r] || 0) > (hand[r] || 0) ? ' short' : ''}" data-res="${r}" style="--rc:${A.RES_COLORS[r]}" title="${A.RES_NAMES[r]}">${A.res(r, 30)}<span class="rn">${A.RES_NAMES[r]}</span><b>${hand[r] || 0}</b></div>`).join('');
     const devs = pv.me.dev || [];
     const dv = devs.slice(0, 4).map((d) => {
       const can = active && d.playable;
-      return `<${can ? 'button type="button"' : 'div'} class="dc${can ? ' play' : ''}${d.fresh ? ' fresh' : ''}" ${can ? `data-a="dev" data-type="${d.type}" data-id="${C.esc(d.id)}"` : ''} title="${A.DEV_NAMES[d.type]}${d.fresh ? ' (neu)' : ''}">${A.dev(d.type, 26)}</${can ? 'button' : 'div'}>`;
+      return `<${can ? 'button type="button"' : 'div'} class="dc${can ? ' play' : ''}${d.fresh ? ' fresh' : ''}" ${can ? `data-a="dev" data-type="${d.type}" data-id="${C.esc(d.id)}"` : ''} title="${A.DEV_NAMES[d.type]}${d.fresh ? ' (neu)' : ''}">${A.dev(d.type, 30)}<span class="dn">${A.DEV_NAMES[d.type]}</span></${can ? 'button' : 'div'}>`;
     }).join('') + (devs.length > 4 ? `<span class="dmore">+${devs.length - 4}</span>` : '');
     return `<span class="rcs">${res}</span><span class="dcs">${dv}</span>`;
   }
@@ -164,6 +164,31 @@
       (state || `<div class="tact"><button type="button" class="btn green" data-tr="accept" data-pid="${pid}">Annehmen</button><button type="button" class="btn red" data-tr="decline" data-pid="${pid}">Ablehnen</button><button type="button" class="btn ghostb" data-tr="open" data-pid="${pid}">Gegenangebot</button></div>`) + '</div>';
   }
 
+  // Freie Stelle für eine Nachricht: nie über Spielfiguren (Straßen, Schiffe, Siedlungen, Städte, Räuber, Pirat), Spielerplätzen und anderen
+  // Nachrichten; Land verdeckt sie nur, wenn es nicht anders geht (Meer und Nebel sind frei). Unter gleich guten Stellen gewinnt die Bildmitte.
+  function place(d) {
+    const W = innerWidth, H = innerHeight, m = 8, r0 = d.getBoundingClientRect(), w = Math.ceil(r0.width), h = Math.ceil(r0.height);
+    const rects = (nodes, shrink) => [...nodes].map((e) => e.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0)
+      .map((q) => ({ l: q.left + q.width * shrink, r: q.right - q.width * shrink, t: q.top + q.height * shrink, b: q.bottom - q.height * shrink }));
+    const hard = rects(document.querySelectorAll('#world .piece'), 0)
+      .concat(rects(seatsEl.querySelectorAll('.badgerow, .pubrow, .secretrow, .seatmenu'), 0))
+      .concat(rects([...msgEl.children].filter((e) => e !== d), 0));
+    const land = rects(document.querySelectorAll('#world .hex:not(.t-meer):not(.fog)'), 0.12);
+    const ov = (a, x, y, ww, hh) => { const dx = Math.min(a.r, x + ww) - Math.max(a.l, x), dy = Math.min(a.b, y + hh) - Math.max(a.t, y); return dx > 0 && dy > 0 ? dx * dy : 0; };
+    let best = null;
+    const step = 28;
+    for (let y = m; y <= Math.max(m, H - h - m); y += step) {
+      for (let x = m; x <= Math.max(m, W - w - m); x += step) {
+        let c = 0;
+        for (const a of hard) c += ov(a, x, y, w, h) * 50;
+        if (c < (best ? best.c : Infinity)) for (const a of land) c += ov(a, x, y, w, h);
+        c += Math.hypot(x + w / 2 - W / 2, y + h / 2 - H / 2) * 0.5; // Bildmitte bevorzugen
+        if (!best || c < best.c) best = { c, x, y };
+      }
+    }
+    if (best) { d.style.left = best.x + 'px'; d.style.top = best.y + 'px'; }
+  }
+
   // Nachrichten an alle: neue Protokolleinträge erscheinen kurz in der Tischmitte (verschwinden selbst oder per Klick)
   function messages(v) {
     const lg = v.log || [], max = lg.length ? lg[lg.length - 1].id : 0;
@@ -177,6 +202,7 @@
       d.className = 'tmsg k-' + l.kind; d.textContent = l.text; d.title = 'Zum Schließen klicken';
       msgEl.appendChild(d);
       while (msgEl.children.length > 4) msgEl.firstChild.remove();
+      place(d);
       setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, 6000);
     });
   }
@@ -187,7 +213,7 @@
   function armHint(v, pid) {
     const a = v.arm;
     if (!a || a.pid !== pid) return '';
-    return a.pick ? '✓ Ziel gewählt – wartet auf die Bestätigung am Handy' : 'Tippe auf den Tisch: ' + (ARM_LABEL[a.mode] || STEP_LABEL[a.step] || '');
+    return 'Tippe auf den Tisch: ' + (ARM_LABEL[a.mode] || STEP_LABEL[a.step] || '');
   }
 
   // Zuschauer: Handel nur zum Ansehen (Angebot und Antworten), keine Knöpfe

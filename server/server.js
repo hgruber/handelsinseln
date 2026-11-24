@@ -156,7 +156,7 @@ function createServer(opts = {}) {
           return json(res, 200, { token: out.token, game: out.game, watch: true });
         }
         const wf = hub.findWatcher(b.token);
-        if (url.pathname === '/api/pick') { // Tisch-Anzeige: ein Ziel antippen (gilt nur, wenn ein Spieler am Handy die Aktion freigegeben hat und dort bestätigt)
+        if (url.pathname === '/api/pick') { // Tisch-Anzeige: ein Ziel antippen (gilt nur, wenn ein Spieler am Handy die Aktion freigegeben hat; führt sie dann sofort aus)
           const hf = !wf && hub.findByToken(b.token), tbl = hf && hf.player.id === hf.room.game.S.host && tableStream(hf.room) ? hf : null; // oder der laufende Spieltisch des Spielleiters
           const rm = wf ? wf.room : tbl && tbl.room;
           if (!rm) return json(res, 403, { error: 'Nur eine Tisch-Anzeige (Zuschauer oder Spieltisch) kann Ziele wählen.' });
@@ -212,13 +212,11 @@ function createServer(opts = {}) {
           return json(res, 200, { ok: true });
         }
         const g = room.game;
-        if (['arm', 'disarm', 'cancel_pick', 'confirm_pick'].includes(b.type)) { // Controller-Ansicht: Aktion am Tisch freigeben / bestätigen
+        if (['arm', 'disarm'].includes(b.type)) { // Controller-Ansicht: Aktion am Tisch freigeben (die Freigabe ist die Bestätigung)
           const me = player.id;
           const err = guarded(() => {
             if (b.type === 'arm') Arm.arm(room, me, b.mode);
-            else if (b.type === 'disarm') Arm.disarm(room, me);
-            else if (b.type === 'cancel_pick') Arm.cancelPick(room, me);
-            else { g.lastKicked = null; Arm.confirm(room, me); }
+            else Arm.disarm(room, me);
           });
           if (err) return json(res, 400, { error: err.message });
           broadcast(room);

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Controller-Ansicht (Phase 2): Ein Handy (Spieler) schaltet in die Controller-Ansicht, sobald eine Tisch-Anzeige (Zuschauer) verbunden ist.
 Aufbau am Tisch: Handy gibt „Siedlung“ frei → die Tisch-Anzeige zeigt die Ziele → jemand tippt eines an → das Handy fragt nach →
-erst die Bestätigung baut. Prüft auch: ohne Freigabe nichts wählbar, Fremde (Spieler-Token) dürfen nicht wählen, „Anderes Ziel“, Straße/Schiff,
+die Freigabe am Handy gilt als Bestätigung, der Tipp am Tisch baut sofort. Prüft auch: ohne Freigabe nichts wählbar, Fremde (Spieler-Token) dürfen nicht wählen, Straße/Schiff,
 Verschwinden der Tisch-Anzeige schaltet die Controller-Ansicht aus. Aufruf: python3 tests/browser_controller.py"""
 import json, os, subprocess, sys, tempfile, time, urllib.request
 from playwright.sync_api import sync_playwright
@@ -34,15 +34,15 @@ def first_event(token):
     r.close()
     return data
 
-def pick_on_tv(T, sel, start=3):
-    """Tippt am Tisch Ziele an, bis eines als „gewählt“ markiert ist (ein Ziel kann unter einer Leiste liegen)."""
+def pick_on_tv(T, sel, done, start=3):
+    """Tippt am Tisch Ziele an, bis `done()` wahr ist (ein Ziel kann unter einer Leiste liegen); die Aktion läuft sofort."""
     n = T.locator(sel).count()
     for i in list(range(start, n)) + list(range(0, start)):
         T.locator(sel).nth(i).click(force=True)
-        try:
-            T.wait_for_selector('#world .L-target .picked', timeout=1500); return True
-        except Exception:
-            if T.locator('#chooser').count(): T.locator('#chooser [data-kind="road"]').click(); T.wait_for_selector('#world .L-target .picked', timeout=1500); return True
+        if T.locator('#chooser').count(): T.locator('#chooser [data-kind="road"]').click()
+        for _ in range(8):
+            time.sleep(0.2)
+            if done(): return True
     return False
 
 def clear(pg):  # „Spielreihenfolge“ u. Ä. schließen sich nur per Klick: für den Test entfernen
@@ -103,7 +103,7 @@ try:
         check('error' in r, 'Tisch: Wählen ohne Freigabe wird abgelehnt')
         check(post('/api/pick', {'token': tok, 't': 'v', 'k': 'x', 'kind': 'settlement'}).get('_status') == 403, 'Spieler-Token darf am Tisch nichts wählen (403)')
 
-        print('Freigeben → Tisch zeigt Ziele → antippen → Handy bestätigt')
+        print('Freigeben → Tisch zeigt Ziele → antippen → gebaut')
         clear(P); P.click('#armPanel [data-arm="start"]'); time.sleep(0.8)
         n = T.locator('#world .L-target [data-t]').count()
         check(n > 0, f'Tisch zeigt {n} Ziele')
@@ -112,17 +112,9 @@ try:
         T.screenshot(path=f'{SHOTS}/tisch-ziele.png'); P.screenshot(path=f'{SHOTS}/controller-wartet.png')
         me = first_event(tok)['you']
         mine = lambda: [k for k, x in first_event(tok)['verts'].items() if x['p'] == me]
-        check(pick_on_tv(T, '#world .L-target [data-t]'), 'Tisch: gewähltes Ziel markiert')
-        P.wait_for_selector('#armPanel .arm.confirm', timeout=4000)
-        check(P.locator('#armPanel .arm.confirm').count() == 1, 'Handy: Rückfrage „Bestätigen?“')
-        check(P.inner_text('#armPanel .al').strip() == 'Siedlung' and len(P.inner_text('#armPanel .aw').strip()) > 0, 'Rückfrage nennt Siedlung und Lage')
-        check(len(mine()) == 0, 'noch nichts gebaut (erst die Bestätigung zählt)')
-        P.screenshot(path=f'{SHOTS}/controller-bestaetigen.png'); T.screenshot(path=f'{SHOTS}/tisch-gewaehlt.png')
-        P.click('#armPanel [data-arm="again"]'); time.sleep(0.6)
-        check(T.locator('#world .L-target .picked').count() == 0 and P.locator('#armPanel .arm.wait').count() == 1, '„Anderes Ziel“: Markierung weg, weiter freigegeben')
-        pick_on_tv(T, '#world .L-target [data-t]', 5); P.wait_for_selector('#armPanel .arm.confirm', timeout=4000)
-        P.click('#armPanel [data-arm="confirm"]'); time.sleep(1.0)
-        check(len(mine()) == 1, 'nach der Bestätigung steht die Siedlung')
+        P.screenshot(path=f'{SHOTS}/controller-wartet2.png')
+        check(pick_on_tv(T, '#world .L-target [data-t]', lambda: len(mine()) == 1), 'Tipp am Tisch führt sofort aus: die Siedlung steht (ohne Bestätigung am Handy)')
+        time.sleep(0.6)
         check(T.locator('#world .L-target [data-t]').count() == 0, 'Tisch: Ziele sind weg')
 
         print('Straße oder Schiff')
@@ -133,11 +125,7 @@ try:
         clear(P); P.click('#armPanel [data-arm="start"]'); time.sleep(0.8)
         check(T.locator('#world .L-target [data-t="e"]').count() > 0, 'Tisch zeigt Kanten für Straße/Schiff')
         mine_e = lambda: [k for k, x in first_event(tok)['edges'].items() if x['p'] == me]
-        check(pick_on_tv(T, '#world .L-target [data-t="e"]', 0), 'Tisch: Kante gewählt (bei Straße/Schiff mit Auswahl am Tisch)')
-        P.wait_for_selector('#armPanel .arm.confirm', timeout=4000)
-        check(P.locator('#armPanel .arm.confirm').count() == 1, 'Handy fragt nach')
-        P.click('#armPanel [data-arm="confirm"]'); time.sleep(1.0)
-        check(len(mine_e()) == 1, 'nach der Bestätigung liegt Straße/Schiff')
+        check(pick_on_tv(T, '#world .L-target [data-t="e"]', lambda: len(mine_e()) == 1, 0), 'Tipp am Tisch legt Straße/Schiff sofort')
 
         print('Tisch-Anzeige verschwindet / kommt zurück')
         T.close(); time.sleep(1.5)

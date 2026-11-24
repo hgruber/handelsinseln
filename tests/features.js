@@ -732,7 +732,7 @@ test('Zuschauer: Hub – nur laufende Spiele, Limit, getrennte Zuschauer verfall
   assert(!hub.findWatcher(w1.token), 'getrennter Zuschauer verfällt');
 });
 
-test('Controller: Aktivieren → Wählen am Tisch → Bestätigen am Handy (Aufbau und Hauptspiel)', () => {
+test('Controller: Freigeben am Handy → Tipp am Tisch führt aus (Aufbau und Hauptspiel)', () => {
   const Arm = require('../server/arm');
   const g = lobby(3, 7); g.act(0, { type: 'start' });
   for (let i = 0; i < 50 && g.stepOf() === 'setup_order'; i++) g.act(g.S.turn, { type: 'roll' });
@@ -748,16 +748,11 @@ test('Controller: Aktivieren → Wählen am Tisch → Bestätigen am Handy (Aufb
   assert.throws(() => Arm.pick(room, 'v', 'a|b|c', 'settlement'), /nicht wählbar/);
   const t = wv.targets[0];
   Arm.pick(room, t.t, t.k, 'settlement');
-  const ov = Arm.viewFor(room, pid);
-  assert.equal(ov.pick.k, t.k); assert.equal(ov.pick.label, 'Siedlung'); assert(ov.pick.where.length > 0, 'Beschreibung der Lage');
-  assert.equal(Object.keys(g.S.verts).length, 0, 'gewählt, aber noch nichts gebaut');
-  assert.throws(() => Arm.confirm(room, other), /nichts zu bestätigen/, 'Mitspieler können nicht bestätigen');
-  Arm.cancelPick(room, pid); assert.equal(Arm.viewFor(room, pid).pick, null, 'Auswahl verwerfen');
-  Arm.pick(room, t.t, t.k, 'settlement'); Arm.confirm(room, pid);
-  assert.equal(g.S.verts[t.k].p, pid, 'erst die Bestätigung baut'); assert.equal(room.arm, null);
+  assert.equal(g.S.verts[t.k].p, pid, 'der Tipp am Tisch baut sofort (die Freigabe ist die Bestätigung)'); assert.equal(room.arm, null);
+  assert.throws(() => Arm.pick(room, t.t, t.k, 'settlement'), /nichts zum Wählen freigegeben/, 'ohne Freigabe nichts wählbar');
   assert.equal(g.stepOf(), 'setup_road');
   Arm.arm(room, pid); const rt = Arm.viewFor(room, 'watch').targets[0];
-  Arm.pick(room, rt.t, rt.k, rt.kinds[0]); Arm.confirm(room, pid);
+  Arm.pick(room, rt.t, rt.k, rt.kinds[0]);
   assert(g.S.edges[rt.k] && g.S.edges[rt.k].p === pid, 'Straße/Schiff gebaut');
   // Verfall: wechselt der Schritt, ist die Freigabe weg
   Arm.arm(room, g.S.turn); const p2 = g.S.turn; g.autoSetup(p2); assert.equal(Arm.viewFor(room, 'watch'), null, 'Freigabe verfällt mit dem Schritt');
@@ -772,7 +767,7 @@ test('Controller: Aktivieren → Wählen am Tisch → Bestätigen am Handy (Aufb
     assert.throws(() => Arm.arm(room, me, 'quatsch'), /Unbekannte Aktion/);
     Arm.arm(room, me, 'road'); const T = Arm.viewFor(room, 'watch').targets;
     assert(T.every((x) => x.t === 'e'), 'Modus Straße: nur Kanten');
-    const e = T.find((x) => x.kinds.includes('road')); Arm.pick(room, e.t, e.k, 'road'); Arm.confirm(room, me);
+    const e = T.find((x) => x.kinds.includes('road')); Arm.pick(room, e.t, e.k, 'road');
     assert(g.S.edges[e.k] && g.S.edges[e.k].p === me, 'Straße im Hauptspiel gebaut');
   }
 });

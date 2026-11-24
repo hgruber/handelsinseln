@@ -1,16 +1,13 @@
 'use strict';
-// Controller-Ansicht (Phase 2): Ein Spieler „schärft“ am Handy eine Aktion am Spielfeld (arm), die Tisch-Anzeige (Zuschauer) zeigt die Ziele,
-// dort tippt jemand ein Ziel (pick), und erst die Bestätigung am Handy (confirm) führt die Aktion aus. So kann niemand sonst – weder Fremde
-// noch Mitspieler – für den Spieler am Zug handeln. Der Zustand gehört zum Raum (room.arm), nicht zum Spielstand, und wird nicht gespeichert.
+// Controller-Ansicht (Phase 2): Ein Spieler „schärft“ am Handy eine Aktion am Spielfeld (arm) – das ist die Freigabe –, die Tisch-Anzeige
+// (Zuschauer) zeigt die Ziele, und ein Tipp auf ein Ziel (pick) führt die Aktion sofort aus. So kann niemand ohne Freigabe des Spielers am Zug
+// – weder Fremde noch Mitspieler – für ihn handeln. Der Zustand gehört zum Raum (room.arm), nicht zum Spielstand, und wird nicht gespeichert.
 const Game = require('./game');
-const G = require('../shared/geom');
 const { GameError } = Game;
 
 const fail = (m) => { throw new GameError(m); };
 const MODES = ['settlement', 'city', 'road', 'ship', 'takeover', 'move']; // freie Bauaktionen im Hauptspiel
 const FORCED = ['setup_settlement', 'setup_road', 'road_building', 'robber']; // Pflichtschritte: Modus ergibt sich aus dem Schritt
-const TERR_DE = { wald: 'Wald', huegel: 'Hügel', weide: 'Weide', acker: 'Acker', gebirge: 'Gebirge', wueste: 'Wüste', gold: 'Goldfluss', meer: 'Meer' };
-const LABEL = { settlement: 'Siedlung', city: 'Stadt', road: 'Straße', ship: 'Schiff', moveto: 'Schiff hierhin versetzen', takeover: 'Übernahme', robber: 'Räuber', pirate: 'Pirat' };
 
 const actorOf = (g) => (g.S.sbp ? g.S.sbp.pid : g.S.turn);
 const sigOf = (g) => `${g.S.phase}:${g.stepOf()}:${actorOf(g)}:${g.S.turnNo}`;
@@ -50,16 +47,6 @@ function actionOf(g, arm, pick) {
   fail('Unbekanntes Ziel.');
 }
 
-// Beschreibung für die Rückfrage am Handy: was wird wo gebaut (angrenzende Felder)
-function describe(g, pick) {
-  const S = g.S, { t, k, kind } = pick;
-  const hexes = t === 'v' ? G.vertHexes(k) : t === 'e' ? [...new Set(G.edgeVerts(k).flatMap((v) => G.vertHexes(v)))] : [k];
-  const where = hexes.map((h) => S.hexes[h]).filter((x) => x && x.t !== 'meer').map((x) => TERR_DE[x.t] + (x.n ? ' ' + x.n : ''));
-  const sea = hexes.some((h) => S.hexes[h] && S.hexes[h].t === 'meer');
-  if (t === 'h') { const x = S.hexes[k]; return { label: LABEL[kind], where: x ? TERR_DE[x.t] + (x.n ? ' ' + x.n : '') : '' }; }
-  return { label: LABEL[kind] || '', where: where.join(' · ') + (sea && where.length ? ' · Küste' : '') };
-}
-
 const current = (room) => {
   const a = room.arm;
   if (!a) return null;
@@ -76,45 +63,33 @@ function arm(room, pid, mode) {
   const step = g.stepOf(), forced = FORCED.includes(step);
   if (!forced && step !== 'main' && step !== 'sbp') fail('Jetzt kannst du nichts auf dem Spielfeld wählen.');
   if (!forced && !MODES.includes(mode)) fail('Unbekannte Aktion.');
-  const a = { pid, mode: forced ? null : mode, moveFrom: null, pick: null, sig: sigOf(g) };
+  const a = { pid, mode: forced ? null : mode, moveFrom: null, sig: sigOf(g) };
   if (!targets(g, pid, a.mode, a.moveFrom).length) fail('Hier ist gerade nichts möglich.');
   room.arm = a;
   return a;
 }
 const disarm = (room, pid) => { const a = current(room); if (a && a.pid === pid) room.arm = null; };
-const cancelPick = (room, pid) => { const a = current(room); if (a && a.pid === pid) a.pick = null; };
 
-// Jemand tippt am Tisch ein Ziel an
+// Jemand tippt am Tisch ein Ziel an: Die Freigabe des Spielers (arm) gilt als Bestätigung, die Aktion läuft sofort
 function pick(room, t, k, kind) {
   const a = current(room);
   if (!a) fail('Am Handy ist gerade nichts zum Wählen freigegeben.');
   const g = room.game, ts = targets(g, a.pid, a.mode, a.moveFrom);
   const x = ts.find((y) => y.t === t && y.k === k && y.kinds.includes(kind));
   if (!x) fail('Dieses Ziel ist nicht wählbar.');
-  if (t === 'sf') { a.moveFrom = a.moveFrom === k ? null : k; a.pick = null; return a; } // Schiff auswählen: noch keine Aktion
-  a.pick = { t, k, kind };
+  if (t === 'sf') { a.moveFrom = a.moveFrom === k ? null : k; return a; } // Schiff auswählen: noch keine Aktion
+  g.act(a.pid, actionOf(g, a, { t, k, kind })); // Fehler (z. B. Rohstoffe fehlen): freigegeben bleibt es
+  room.arm = null;
   return a;
 }
 
-// Der Spieler bestätigt am Handy: erst jetzt wird gehandelt
-function confirm(room, pid) {
-  const a = current(room), g = room.game;
-  if (!a || a.pid !== pid) fail('Es ist nichts zu bestätigen.');
-  if (!a.pick) fail('Am Tisch wurde noch kein Ziel gewählt.');
-  const action = actionOf(g, a, a.pick);
-  try { g.act(pid, action); } catch (e) { a.pick = null; throw e; } // Fehler (z. B. Rohstoffe fehlen): Auswahl verwerfen, geschärft bleibt es
-  room.arm = null;
-}
-
-// Sicht auf den Arm-Zustand: Zuschauer (Tisch) bekommen die Ziele, der Besitzer die Auswahl samt Beschreibung, alle anderen nur, dass gewählt wird
+// Sicht auf den Arm-Zustand: Zuschauer (Tisch) bekommen die Ziele, alle anderen nur, dass gewählt wird
 function viewFor(room, who) { // who: Spieler-Id oder 'watch'
   const a = current(room);
   if (!a) return null;
   const g = room.game;
   const base = { pid: a.pid, mode: a.mode, moveFrom: a.moveFrom, step: g.stepOf() };
-  if (who === 'watch') return { ...base, targets: targets(g, a.pid, a.mode, a.moveFrom), pick: a.pick };
-  if (who === a.pid) return { ...base, pick: a.pick ? { ...a.pick, ...describe(g, a.pick) } : null };
-  return base;
+  return who === 'watch' ? { ...base, targets: targets(g, a.pid, a.mode, a.moveFrom) } : base;
 }
 
-module.exports = { arm, disarm, cancelPick, pick, confirm, viewFor, current, targets, describe, MODES, FORCED };
+module.exports = { arm, disarm, pick, viewFor, current, targets, MODES, FORCED };

@@ -229,6 +229,8 @@
     syncCtl(v);
     if (!st.tableOn || st.watch) chipSeat(null); // Chips wieder aufrecht
     const mute = (x) => (x && x.watch ? Object.assign({}, x, { you: -1 }) : x); Sound.onView(mute(old), mute(v)); // Zuschauer: nie „mein Zug“
+    // Controller-Ansicht: das Handy vibriert, sobald man dran ist (Browser ohne Vibration, z. B. iOS-Safari, tun nichts)
+    if (st.ctl && old && !v.watch && v.phase !== 'ended' && v.turn === v.you && (old.turn !== old.you || old.phase !== v.phase) && navigator.vibrate) { try { navigator.vibrate([220, 110, 220]); } catch (_) { /* egal */ } }
     if (!old) Fx.reset(); // neue Sitzung: bisherige Kartenbewegungen nicht nachspielen
     if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
     // Modus-Aufraeumen: nur gueltig im eigenen Hauptschritt
@@ -260,18 +262,15 @@
   }
   const ARM_NAME = { settlement: 'Siedlung', city: 'Stadt', road: 'Straße', ship: 'Schiff', takeover: 'Übernahme', move: 'Schiff versetzen' };
   const FORCED_NAME = { setup_settlement: 'Siedlung', setup_road: 'Straße oder Schiff', road_building: 'Straße oder Schiff', robber: 'Räuber oder Pirat' };
-  // Freigabe-Fenster: erst wenn der Spieler hier etwas aktiviert, lässt sich am Tisch ein Ziel wählen; gebaut wird erst nach seiner Bestätigung
+  // Freigabe-Fenster: erst wenn der Spieler hier etwas aktiviert, lässt sich am Tisch ein Ziel wählen; die Freigabe gilt als Bestätigung
   function renderArm(v) {
     const el = $('armPanel'); let html = '';
     if (st.ctl && !v.watch) {
       const ar = v.arm, mine = isMe();
-      if (ar && ar.pick) {
-        html = `<div class="arm confirm"><span class="aq">Bestätigen?</span><b class="al">${esc(ar.pick.label || '')}</b><span class="aw">${esc(ar.pick.where || '')}</span>` +
-          '<div class="aact"><button type="button" class="btn green big" data-arm="confirm">Ja, ausführen</button><button type="button" class="btn ghostb" data-arm="again">Anderes Ziel</button></div></div>';
-      } else if (ar) {
+      if (ar) {
         const what = ARM_NAME[ar.mode] || FORCED_NAME[ar.step] || '';
         const second = ar.mode === 'move' && ar.moveFrom ? ' – jetzt das Ziel' : ar.mode === 'move' ? ' – erst das Schiff' : '';
-        html = `<div class="arm wait"><span class="aq">Schau auf den Spieltisch</span><b class="al">${esc(what)}${esc(second)}</b><span class="aw">Tippe dort das Ziel an – danach bestätigst du hier.</span>` +
+        html = `<div class="arm wait"><span class="aq">Schau auf den Spieltisch</span><b class="al">${esc(what)}${esc(second)}</b><span class="aw">Tippe dort das Ziel an – es wird sofort ausgeführt.</span>` +
           '<div class="aact"><button type="button" class="btn ghostb" data-arm="cancel">Abbrechen</button></div></div>';
       } else if (mine && FORCED_NAME[v.step] && !(v.step === 'robber' && autoRobber())) {
         html = `<div class="arm go"><span class="aq">Du bist dran</span><b class="al">${esc(FORCED_NAME[v.step])} setzen</b><span class="aw">Die Auswahl erscheint auf dem Spieltisch.</span>` +
@@ -285,8 +284,6 @@
     const w = b.dataset.arm;
     if (w === 'start') await act('arm', {});
     else if (w === 'cancel') await act('disarm');
-    else if (w === 'again') await act('cancel_pick');
-    else if (w === 'confirm') await act('confirm_pick');
   });
 
   function renderGame(v, old) {
@@ -509,9 +506,8 @@
     const items = computeTargets(v).map((t) => {
       const d = t.t === 'e' && disc.has(t.k);
       const kinds = t.kinds.join(',');
-      const pk = !!(v.watch && v.arm && v.arm.pick && v.arm.pick.t === t.t && v.arm.pick.k === t.k); // gewählt, wartet auf die Bestätigung am Handy
       return {
-        key: t.t + ':' + t.k, sig: kinds + (d ? '|d' : '') + (pk ? '|p' : ''),
+        key: t.t + ':' + t.k, sig: kinds + (d ? '|d' : ''),
         make: () => {
           let g;
           if (t.t === 'v') { const p = vpos(t.k); g = at(el('tgt tv ' + t.kinds[0], '<circle class="halo" r="22"/><circle class="core" r="9"/><circle class="hit" r="26"/>'), p.x, p.y); }
@@ -520,7 +516,6 @@
           else if (t.t === 'h') { const p = hpos(t.k); g = at(el('tgt th ' + t.kinds[0], `<polygon class="hexo" points="${Art.hexPts(.93)}"/><circle class="dotc" r="11"/>`), p.x, p.y); }
           else { const p = epos(t.k); g = at(el('tgt tsf ' + t.kinds[0], '<circle class="ringo" r="29"/><circle class="hit" r="30"/>'), p.x, p.y); }
           g.dataset.t = t.t; g.dataset.k = t.k; g.dataset.kinds = kinds;
-          if (pk) g.classList.add('picked');
           return g;
         },
       };
@@ -535,7 +530,7 @@
   });
   async function onTarget(t, k, kinds, ev) {
     const v = V(); const step = v.step;
-    if (v.watch) { // Tisch-Anzeige: das Ziel nur vormerken – gebaut wird erst, wenn der Spieler am Handy bestätigt
+    if (v.watch) { // Tisch-Anzeige: die Freigabe am Handy gilt als Bestätigung, das Ziel wird sofort ausgeführt
       const pickIt = async (kind) => { const j = await post('/api/pick', { token: st.token, t, k, kind }); if (j.error) toast(j.error, 'err'); };
       if (kinds.length > 1) chooser(ev, k, kinds, pickIt); else await pickIt(kinds[0]);
       return;
