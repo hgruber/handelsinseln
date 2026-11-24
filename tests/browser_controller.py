@@ -95,9 +95,11 @@ try:
         for _ in range(80):
             clear(P)
             if P.locator('[data-a="roll"]').count(): P.locator('[data-a="roll"]').first.click(); time.sleep(0.4)
-            if P.locator('#armPanel [data-arm="start"]').count(): break
+            if P.locator('#armPanel .arm.wait').count(): break
             time.sleep(0.4)
-        check(P.locator('#armPanel [data-arm="start"]').count() == 1, 'Handy: Freigabe-Fenster „Am Spieltisch wählen“')
+        check(P.locator('#armPanel .arm.wait').count() == 1, 'Handy: Pflichtschritt geht von selbst an den Spieltisch („Schau auf den Spieltisch“)')
+        P.click('#armPanel [data-arm="cancel"]'); time.sleep(0.8)
+        check(P.locator('#armPanel [data-arm="start"]').count() == 1, 'Abbrechen: Knopf „Am Spieltisch wählen“ zum erneuten Freigeben')
         check(T.locator('#world .L-target [data-t]').count() == 0, 'Tisch: ohne Freigabe keine Ziele')
         r = post('/api/pick', {'token': wtok, 't': 'v', 'k': 'a|b|c', 'kind': 'settlement'})
         check('error' in r, 'Tisch: Wählen ohne Freigabe wird abgelehnt')
@@ -115,14 +117,14 @@ try:
         P.screenshot(path=f'{SHOTS}/controller-wartet2.png')
         check(pick_on_tv(T, '#world .L-target [data-t]', lambda: len(mine()) == 1), 'Tipp am Tisch führt sofort aus: die Siedlung steht (ohne Bestätigung am Handy)')
         time.sleep(0.6)
-        check(T.locator('#world .L-target [data-t]').count() == 0, 'Tisch: Ziele sind weg')
+        check(T.locator('#world .L-target [data-t="v"]').count() == 0, 'Tisch: Eckenziele sind weg (der Straßenschritt ist schon freigegeben)')
 
         print('Straße oder Schiff')
         for _ in range(40):
             clear(P)
-            if P.locator('#armPanel [data-arm="start"]').count(): break
+            if P.locator('#armPanel .arm.wait').count(): break
             time.sleep(0.4)
-        clear(P); P.click('#armPanel [data-arm="start"]'); time.sleep(0.8)
+        time.sleep(0.8)
         check(T.locator('#world .L-target [data-t="e"]').count() > 0, 'Tisch zeigt Kanten für Straße/Schiff')
         mine_e = lambda: [k for k, x in first_event(tok)['edges'].items() if x['p'] == me]
         check(pick_on_tv(T, '#world .L-target [data-t="e"]', lambda: len(mine_e()) == 1, 0), 'Tipp am Tisch legt Straße/Schiff sofort')

@@ -4,6 +4,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Controller-Ansicht, Pflichtschritte:** Räuber (Ritter, 7), Aufbau und Straßenbau gehen sofort an den Spieltisch, ohne extra „Am Spieltisch wählen“; nach „Abbrechen“ gibt der Knopf wieder frei.
+- **Spieltisch, öffentliche Plätze (Handy-Controller, Online-Spieler, Bots):** Die Würfel stehen mittig vor der Spieleranzeige, zur Tischmitte hin.
+
+### Behoben
+- **Controller-Ansicht, Handel:** Das Handelsfenster überdeckte die Karten und Bauknöpfe; es liegt jetzt darunter und wird beim Öffnen ins Bild gescrollt. Die Entwicklungskarten laufen nicht mehr aus dem Bildschirm.
+
 ## [1.6.0] - 2026-11-24
 
 ### Hinzugefügt

@@ -108,9 +108,9 @@ try:
                     ui_done = True
                     clear(P); clear(H)
                     for _ in range(40):
-                        if P.locator('#armPanel [data-arm="start"]').count(): break
+                        if P.locator('#armPanel .arm.wait').count(): break
                         clear(P); time.sleep(0.3)
-                    P.click('#armPanel [data-arm="start"]'); time.sleep(1.0)
+                    time.sleep(1.0)
                     n = H.locator('#world .L-target [data-t]').count()
                     check(n > 0, f'Spieltisch des Spielleiters zeigt {n} Ziele für den Online-Spieler')
                     ok = False

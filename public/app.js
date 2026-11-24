@@ -246,6 +246,7 @@
     if (old && old.phase === 'lobby') setTimeout(() => fit(false), 60);
     if (v.phase === 'ended' && v.stats) { renderGame(v, old); Menu.renderStats(v); if (!old || old.phase !== 'ended') Voice.leave(false); return; }
     renderGame(v, old);
+    autoArm(v);
   }
 
   // ---- Controller-Ansicht (Handy als Steuerung, das Spielfeld zeigt die Tisch-Anzeige) ----------------
@@ -255,6 +256,15 @@
     if (on === st.ctl) return;
     st.ctl = on; document.body.classList.toggle('ctl', on);
     if (on) { st.mode = null; st.moveFrom = null; } else setTimeout(() => { if (V()) fit(false); }, 80);
+  }
+  // Pflichtschritte am Spielfeld (Ritter/7: Räuber, Aufbau, Straßenbau): Die Auswahl geht sofort an den Spieltisch, ohne extra „Am Spieltisch wählen“.
+  // Je Schritt nur einmal (nach „Abbrechen“ bleibt der Knopf zum erneuten Freigeben).
+  function autoArm(v) {
+    if (!st.ctl || v.watch || v.arm || !isMe() || !FORCED_NAME[v.step] || (v.step === 'robber' && autoRobber())) return;
+    const sig = [v.step, v.turn, v.diceSeq, (v.log || []).length ? v.log[v.log.length - 1].id : 0].join(':');
+    if (st.autoArmSig === sig) return;
+    st.autoArmSig = sig;
+    act('arm', {});
   }
   function toggleCtl() {
     st.ctlPref = !st.ctlPref; localStorage.setItem('handelsinseln.ctl', st.ctlPref ? '1' : '0');
@@ -1077,7 +1087,7 @@
       case 'skip_rb': await act('skip_roadbuilding'); break;
       case 'takeover': if (st.ctl) { await act(v.arm && v.arm.mode === 'takeover' ? 'disarm' : 'arm', { mode: 'takeover' }); break; } st.moveFrom = null; st.mode = st.mode === 'takeover' ? null : 'takeover'; renderHUD(v); renderTargets(v); break;
       case 'cancel': if (st.ctl) { await act('disarm'); break; } st.mode = null; st.moveFrom = null; renderHUD(v); renderTargets(v); break;
-      case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); break;
+      case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); if (st.ctl) setTimeout(() => { if ($('tradeDock').firstChild) $('tradeDock').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); break; // Controller: das Handelsfenster liegt unter den Karten
       case 'move': if (st.ctl) { await act(v.arm && v.arm.mode === 'move' ? 'disarm' : 'arm', { mode: 'move' }); break; } st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
