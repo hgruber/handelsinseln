@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.5.11] - 2026-11-24
+
 ### Geändert
 - **Lobby, Spieleinstellungen:** Das Panel „Spieleinstellungen“ ist standardmäßig zugeklappt.
 
