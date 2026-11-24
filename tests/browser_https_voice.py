@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Mikrofon im LAN: über die echte LAN-Adresse per http (kein sicherer Kontext) erscheint der Hinweis mit Link auf https;
 über das automatisch erzeugte Zertifikat (https, Zertifikatswarnung bestätigt) kommt die Sprachverbindung zustande."""
-import os, socket, subprocess, sys, tempfile, time
+import socket
 from playwright.sync_api import sync_playwright
+from lib import check, finish, free_port, problems, shots, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HP, SP = 8193, 8192
-problems = []
+HP, SP = free_port(), free_port()
+SHOTS = shots('https-voice')
 
 def lan_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -15,14 +15,8 @@ def lan_ip():
     finally:
         s.close()
 
-def check(c, m):
-    print('  ✓' if c else '  ✗', m)
-    if not c: problems.append(m)
-
 ip = lan_ip()
-env = dict(os.environ, PORT=str(HP), HTTPS_PORT=str(SP), DATA_DIR=tempfile.mkdtemp())
-srv = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1.5)
+srv, _ = start_server(port=HP, HTTPS_PORT=SP)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch(args=['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--disable-features=WebRtcHideLocalIpsWithMdns'])
@@ -42,7 +36,7 @@ try:
         check('https' in txt.lower() or link.count() > 0, 'Hinweis auf https im Sprachchat-Block')
         href = link.first.get_attribute('href') if link.count() and link.first.get_attribute('href') else ''
         check(href.startswith(f'https://{ip}:{SP}'), f'Link zeigt auf https://{ip}:{SP} (ist: {href or "per Knopf"})')
-        a.screenshot(path=os.environ.get('SHOTS', '/tmp') + '/mic-unsicher.png')
+        a.screenshot(path=SHOTS + '/mic-unsicher.png')
         # 2) https: zwei Spieler, Sprachverbindung
         h1 = page(f'https://{ip}:{SP}', 'Hanna'); h1.locator('#swatches .sw').first.click(); h1.click('#createBtn')
         h2 = page(f'https://{ip}:{SP}', 'Bernd'); h2.wait_for_selector('#gameList [data-g]'); h2.locator('#gameList [data-g]', has_text='Hanna').first.click()
@@ -60,5 +54,4 @@ try:
         b.close()
 finally:
     srv.terminate()
-print('Probleme:', problems if problems else 'keine')
-sys.exit(1 if problems else 0)
+finish(SHOTS)

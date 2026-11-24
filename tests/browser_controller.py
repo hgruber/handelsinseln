@@ -3,36 +3,11 @@
 Aufbau am Tisch: Handy gibt „Siedlung“ frei → die Tisch-Anzeige zeigt die Ziele → jemand tippt eines an → das Handy fragt nach →
 die Freigabe am Handy gilt als Bestätigung, der Tipp am Tisch baut sofort. Prüft auch: ohne Freigabe nichts wählbar, Fremde (Spieler-Token) dürfen nicht wählen, Straße/Schiff,
 Verschwinden der Tisch-Anzeige schaltet die Controller-Ansicht aus. Aufruf: python3 tests/browser_controller.py"""
-import json, os, subprocess, sys, tempfile, time, urllib.request
+import time
 from playwright.sync_api import sync_playwright
+from lib import check, finish, poster, problems, shots, sse_event, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8198
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-controller-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
-
-def check(cond, msg):
-    if not cond: problems.append('FEHLER: ' + msg)
-    print('  ' + ('✓' if cond else '✗'), msg)
-
-def post(path, body):
-    req = urllib.request.Request(BASE + path, json.dumps(body).encode(), {'Content-Type': 'application/json'})
-    try:
-        return json.load(urllib.request.urlopen(req))
-    except urllib.error.HTTPError as e:
-        j = json.load(e); j['_status'] = e.code; return j
-
-def first_event(token):
-    r = urllib.request.urlopen(BASE + '/api/events?token=' + token, timeout=5)
-    ev = None; data = None
-    while True:
-        line = r.readline().decode()
-        if line.startswith('event:'): ev = line[6:].strip()
-        elif line.startswith('data:') and ev == 'state': data = json.loads(line[5:]); break
-    r.close()
-    return data
+SHOTS = shots('controller')
 
 def pick_on_tv(T, sel, done, start=3):
     """Tippt am Tisch Ziele an, bis `done()` wahr ist (ein Ziel kann unter einer Leiste liegen); die Aktion läuft sofort."""
@@ -48,9 +23,9 @@ def pick_on_tv(T, sel, done, start=3):
 def clear(pg):  # „Spielreihenfolge“ u. Ä. schließen sich nur per Klick: für den Test entfernen
     pg.evaluate("document.querySelectorAll('.devshow').forEach(e => e.remove())")
 
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), HTTPS_PORT='0', TICK_MS='300', BOT_MS='150')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(TICK_MS=300, BOT_MS=150)
+post = poster(BASE)
+first_event = lambda token: sse_event(BASE, token, timeout=5)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -141,6 +116,4 @@ try:
         b.close()
 finally:
     server.terminate()
-print('Screenshots:', SHOTS)
-print('Probleme:', 'keine' if not problems else '\n' + '\n'.join(problems))
-sys.exit(1 if problems else 0)
+finish(SHOTS)

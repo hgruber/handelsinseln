@@ -3,29 +3,17 @@
 Avatar-Auswahl beim Beitritt (zufälliger Vorschlag, vergebene sind gesperrt, nie doppelt, keine Bot-Avatare wählbar),
 Bots hinzufügen (feste Avatare, jede Sorte nur einmal), Spiel starten und prüfen, dass die Bots selbst spielen.
 Aufruf: python3 tests/browser_bots.py"""
-import json, os, subprocess, tempfile, time, urllib.request
+import json, time, urllib.request
 from playwright.sync_api import sync_playwright
+from lib import check, finish, problems, shots, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8198
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-bots-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('bots')
 BOT_AV = {'biber', 'papagei', 'ente'}
 
 def games():
     return json.load(urllib.request.urlopen(BASE + '/api/games'))['games']
 
-def check(cond, msg):
-    if not cond:
-        problems.append('FEHLER: ' + msg); print('  ✗', msg)
-    else:
-        print('  ✓', msg)
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), GRACE_MS='2000', TICK_MS='300', BOT_MS='120', HTTPS_PORT='0')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(GRACE_MS=2000, TICK_MS=300, BOT_MS=120)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -119,7 +107,4 @@ try:
 finally:
     server.terminate()
     server.wait()
-print('Screenshots:', SHOTS)
-if problems:
-    print('\n'.join(problems)); raise SystemExit(1)
-print('Bot- und Avatar-Test bestanden')
+finish(SHOTS, 'Bot- und Avatar-Test bestanden')

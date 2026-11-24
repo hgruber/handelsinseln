@@ -2,30 +2,14 @@
 """Digitaler Spieltisch am echten Server: Spielleiter + 3 weitere Spieler (per API, ohne Browser), Tischmodus per Menü einschalten,
 Sitzplätze/Drehung/Fokus prüfen, Handelsangebot (eigenes Menü je Mitspieler), Zoom springt zurück, Ausschalten stellt die normale Ansicht her.
 Aufruf: python3 tests/browser_table.py"""
-import json, os, subprocess, sys, tempfile, time, urllib.request
+import json, os, time, urllib.request
 from playwright.sync_api import sync_playwright
+from lib import check, finish, poster, problems, shots, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8196
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-table-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('table')
 
-def check(cond, msg):
-    if not cond: problems.append('FEHLER: ' + msg)
-    print('  ' + ('✓' if cond else '✗'), msg)
-
-def post(path, body):
-    req = urllib.request.Request(BASE + path, json.dumps(body).encode(), {'Content-Type': 'application/json'})
-    try:
-        return json.load(urllib.request.urlopen(req))
-    except urllib.error.HTTPError as e:
-        return json.load(e)
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), HTTPS_PORT='0', TICK_MS='300')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(TICK_MS=300)
+post = poster(BASE)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -183,9 +167,6 @@ try:
         pg.wait_for_function("!document.body.classList.contains('table')", timeout=6000); time.sleep(1)
         check(pg.locator('.seat').count() == 0, 'nach Spielende sind die Tischplätze weg und die Statistik zu sehen')
         check(pg.evaluate("document.querySelector('#hud > #bottom') !== null && document.querySelector('#hud > #banner') !== null"), 'Menüleiste und Meldung sind wieder am alten Platz')
-    print('Screenshots:', SHOTS)
 finally:
     server.terminate()
-if problems:
-    print('\n'.join(problems)); sys.exit(1)
-print('Spieltisch-Test bestanden')
+finish(SHOTS, 'Spieltisch-Test bestanden')

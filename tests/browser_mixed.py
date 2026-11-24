@@ -3,42 +3,18 @@
 Prüft Lobby, Platzwahl (nur Tischspieler fragen, die anderen bekommen automatisch einen Platz), öffentliche Plätze am Tisch ohne geheimen Bereich,
 Datenschutz in der Tisch-Sicht, und den Ablauf „Online-Spieler gibt am Handy frei → der Spieltisch zeigt die Ziele → Tipp am Tisch führt aus“.
 Aufruf: python3 tests/browser_mixed.py"""
-import json, os, subprocess, sys, tempfile, time, urllib.request
+import json, time, urllib.request
 from playwright.sync_api import sync_playwright
+from lib import check, finish, poster, problems, shots, sse_event, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8200
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-mixed-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
-
-def check(cond, msg):
-    if not cond: problems.append('FEHLER: ' + msg)
-    print('  ' + ('✓' if cond else '✗'), msg)
-
-def post(path, body):
-    req = urllib.request.Request(BASE + path, json.dumps(body).encode(), {'Content-Type': 'application/json'})
-    try:
-        return json.load(urllib.request.urlopen(req))
-    except urllib.error.HTTPError as e:
-        j = json.load(e); j['_status'] = e.code; return j
-
-def event(token, want, query=''):
-    r = urllib.request.urlopen(BASE + '/api/events?token=' + token + query, timeout=6)
-    ev = None
-    while True:
-        line = r.readline().decode()
-        if line.startswith('event:'): ev = line[6:].strip()
-        elif line.startswith('data:') and ev == want:
-            d = json.loads(line[5:]); r.close(); return d
+SHOTS = shots('mixed')
 
 def clear(pg):
     pg.evaluate("document.querySelectorAll('.devshow').forEach(e => e.remove())")
 
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), HTTPS_PORT='0', TICK_MS='300', BOT_MS='150')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(TICK_MS=300, BOT_MS=150)
+post = poster(BASE)
+event = lambda token, want, query='': sse_event(BASE, token, want, query, timeout=6)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -136,6 +112,4 @@ try:
         b.close()
 finally:
     server.terminate()
-print('Screenshots:', SHOTS)
-print('Probleme:', 'keine' if not problems else '\n' + '\n'.join(problems))
-sys.exit(1 if problems else 0)
+finish(SHOTS)

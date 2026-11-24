@@ -3,28 +3,16 @@
 Spiel eröffnen, beitreten, Variante wählen (alle sehen es), Plätze schließen, Spieler entfernen,
 Spiel starten, mitten im Spiel verlassen (Auto-Modus), Spiel beenden + Statistik, letzter Spieler geht → Spiel weg.
 Aufruf: python3 tests/browser_lobby.py"""
-import json, os, subprocess, sys, tempfile, time, urllib.request
+import json, os, subprocess, time, urllib.request
 from playwright.sync_api import sync_playwright
+from lib import ROOT, check, finish, problems, shots, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8199
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-lobby-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('lobby')
 
 def games():
     return json.load(urllib.request.urlopen(BASE + '/api/games'))['games']
 
-def check(cond, msg):
-    if not cond:
-        problems.append('FEHLER: ' + msg); print('  ✗', msg)
-    else:
-        print('  ✓', msg)
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), GRACE_MS='1500', TICK_MS='300')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(GRACE_MS=1500, TICK_MS=300)
 drv = None
 try:
     with sync_playwright() as p:
@@ -124,6 +112,4 @@ try:
 finally:
     if drv: drv.terminate()
     server.terminate()
-print('Screenshots:', SHOTS)
-print('Probleme:', problems if problems else 'keine')
-sys.exit(1 if problems else 0)
+finish(SHOTS)

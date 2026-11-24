@@ -19,7 +19,7 @@ python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requireme
 bash tests/run_all.sh        # alles nacheinander (~8 Min); Logs in $SHOTS (Standard /tmp/handelsinseln-tests)
 ```
 
-Es gibt keinen Linter. Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter; `rules.js`/`features.js` zählen intern `✓`/`✗`). Nie zwei Testläufe parallel starten – die Browser-Tests nutzen feste Ports (8099/819x).
+Es gibt keinen Linter. Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter; `rules.js`/`features.js` zählen intern `✓`/`✗`). Browser-Tests holen sich freie Ports und können parallel laufen.
 
 ## Release
 
@@ -43,7 +43,7 @@ Spielfeld-Bezeichner: Ressourcen `holz lehm wolle getreide erz`; Gelände `wald 
 
 ## Tests
 
-`tests/mock/` enthält Mock-Zustände (`*.json`) und `serve.js`, mit dem sich Oberfläche ohne laufende Partie ansehen lässt (`?mock=<name>`); `readme.js`/`readme_shots.py` erzeugen die README-Screenshots neu. `tests/drive.js` treibt Spieler eines laufenden Servers per Bot-Logik an (für Browser-Tests).
+`tests/mock/` enthält Mock-Zustände (`*.json`) und `serve.js`, mit dem sich Oberfläche ohne laufende Partie ansehen lässt (`?mock=<name>`); `readme.js`/`readme_shots.py` erzeugen die README-Screenshots neu. `tests/drive.js` treibt Spieler eines laufenden Servers per Bot-Logik an (für Browser-Tests). Gemeinsamer Rahmen der Browser-Tests: `tests/lib.py` (`start_server(**env)` mit freiem Port und eigenem Datenverzeichnis, `poster`, `sse_event`, `check`, `finish`) – neue Browser-Tests darauf aufbauen.
 
 ## Projektregeln
 

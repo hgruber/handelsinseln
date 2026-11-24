@@ -3,23 +3,13 @@
 Prueft: Gast sieht das Brett sofort + nach jedem Wuerfeln/Variantenwechsel, Nebelring liegt im Bild (Kamera),
 vierte Variante 'archipel', Liste 'Abweichende Regeln', "Standard wiederherstellen" ohne Fehler (keine Chip-7),
 https-Hinweis bei unsicherem Kontext.   Aufruf: python3 tests/browser_lobby_preview.py"""
-import os, subprocess, sys, tempfile, time
+import time
 from playwright.sync_api import sync_playwright
+from lib import check, finish, problems, shots, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8197
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-preview-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('preview')
 
-def check(cond, msg):
-    if not cond: problems.append('FEHLER: ' + msg)
-    print('  ' + ('✓' if cond else '✗'), msg)
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), HTTPS_PORT='0')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server()
 
 # Schluessel der Brettfelder + sichtbar?  (Nebelfelder muessen innerhalb der Vorschau-Flaeche liegen)
 JS_BOARD = """() => {
@@ -105,6 +95,4 @@ try:
         b.close()
 finally:
     server.terminate()
-print('Screenshots:', SHOTS)
-print('Probleme:', problems if problems else 'keine')
-sys.exit(1 if problems else 0)
+finish(SHOTS)

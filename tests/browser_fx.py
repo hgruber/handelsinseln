@@ -3,41 +3,15 @@
 wie Rohstoffkarten von den Feldern/der Bank zu den Spielern fliegen. Geprüft: Karten erscheinen, starten leicht versetzt,
 fliegen vom richtigen Feld los, verschwinden nach dem Flug, werden beim erneuten Verbinden nicht nachgespielt.
 Aufruf: python3 tests/browser_fx.py"""
-import json, os, subprocess, tempfile, time, urllib.request
+import time
 from playwright.sync_api import sync_playwright
+from lib import check, finish, poster, problems, shots, sse_event, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8197
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-fx-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('fx')
 
-def check(cond, msg):
-    if not cond:
-        problems.append('FEHLER: ' + msg); print('  ✗', msg)
-    else:
-        print('  ✓', msg)
-
-def post(path, body):
-    req = urllib.request.Request(BASE + path, json.dumps(body).encode(), {'Content-Type': 'application/json'})
-    try:
-        return json.load(urllib.request.urlopen(req))
-    except urllib.error.HTTPError as e:
-        return json.load(e)
-
-def view(token):  # erste „state“-Nachricht des Ereignisstroms
-    r = urllib.request.urlopen(BASE + '/api/events?token=' + token, timeout=10)
-    ev = None
-    while True:
-        line = r.readline().decode().strip()
-        if line.startswith('event:'): ev = line[6:].strip()
-        elif line.startswith('data:') and ev == 'state':
-            r.close(); return json.loads(line[5:])
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), GRACE_MS='3000', TICK_MS='300', BOT_MS='250', HTTPS_PORT='0')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(GRACE_MS=3000, TICK_MS=300, BOT_MS=250)
+post = poster(BASE)
+view = lambda token: sse_event(BASE, token)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -128,7 +102,4 @@ try:
 finally:
     server.terminate()
     server.wait()
-print('Screenshots:', SHOTS)
-if problems:
-    print('\n'.join(problems)); raise SystemExit(1)
-print('Karten-Animationstest bestanden')
+finish(SHOTS, 'Karten-Animationstest bestanden')

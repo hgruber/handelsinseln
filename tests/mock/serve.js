@@ -15,4 +15,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });
-}).listen(8099, () => console.log('Mock-Server auf http://localhost:8099'));
+}).listen(+process.argv[2] || 8099, function () { console.log('Mock-Server auf http://localhost:' + this.address().port); });

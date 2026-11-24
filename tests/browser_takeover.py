@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 """Übernahme der Infrastruktur eines Verlassenen in der echten Oberfläche (vorbereitetes Spiel, tests/takeover_server.js)."""
-import json, os, subprocess, sys, time, urllib.request
+import json, os, subprocess, time
 from playwright.sync_api import sync_playwright
+from lib import ROOT, check, finish, free_port, problems, shots
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8195
+PORT = free_port()
 BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', '/tmp')
-problems = []
+SHOTS = shots('takeover')
 srv = subprocess.Popen(['node', os.path.join(ROOT, 'tests/takeover_server.js'), str(PORT)], stdout=subprocess.PIPE, text=True)
-info = json.loads(srv.stdout.readline())
-def check(c, m):
-    print('  ✓' if c else '  ✗', m)
-    if not c: problems.append(m)
+info = json.loads(srv.stdout.readline())  # erst nach dem Lauschen ausgegeben
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -40,5 +36,4 @@ try:
         b.close()
 finally:
     srv.terminate()
-print('Probleme:', problems if problems else 'keine')
-sys.exit(1 if problems else 0)
+finish(SHOTS)

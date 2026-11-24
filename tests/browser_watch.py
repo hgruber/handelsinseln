@@ -2,41 +2,15 @@
 """Zuschauer (Phase 1): Ein Browser wählt auf der Startseite ein laufendes Spiel (farblich abgesetzt, Knopf „Spiel ansehen“) und sieht die
 öffentliche Tisch-Anzeige – ohne Hand, Entwicklungskarten, Chat, ohne Aktionen. Prüft Server (Sicht, 403, Limit) und Oberfläche.
 Aufruf: python3 tests/browser_watch.py"""
-import json, os, subprocess, sys, tempfile, time, urllib.request
+import json, time, urllib.request
 from playwright.sync_api import sync_playwright
+from lib import check, finish, poster, problems, shots, sse_event, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8197
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-watch-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('watch')
 
-def check(cond, msg):
-    if not cond: problems.append('FEHLER: ' + msg)
-    print('  ' + ('✓' if cond else '✗'), msg)
-
-def post(path, body):
-    req = urllib.request.Request(BASE + path, json.dumps(body).encode(), {'Content-Type': 'application/json'})
-    try:
-        return json.load(urllib.request.urlopen(req))
-    except urllib.error.HTTPError as e:
-        j = json.load(e); j['_status'] = e.code; return j
-
-def first_event(token):
-    """Liest das erste Ereignis des Streams (state) und gibt die JSON-Daten zurück."""
-    r = urllib.request.urlopen(BASE + '/api/events?token=' + token, timeout=5)
-    ev = None; data = None
-    while True:
-        line = r.readline().decode()
-        if line.startswith('event:'): ev = line[6:].strip()
-        elif line.startswith('data:') and ev == 'state': data = json.loads(line[5:]); break
-    r.close()
-    return data
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), HTTPS_PORT='0', TICK_MS='300', ABSENT_MS='800', BOT_MS='120')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+server, BASE = start_server(TICK_MS=300, ABSENT_MS=800, BOT_MS=120)
+post = poster(BASE)
+first_event = lambda token: sse_event(BASE, token, timeout=5)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -140,6 +114,4 @@ try:
         b.close()
 finally:
     server.terminate()
-print('Screenshots:', SHOTS)
-print('Probleme:', 'keine' if not problems else '\n' + '\n'.join(problems))
-sys.exit(1 if problems else 0)
+finish(SHOTS)

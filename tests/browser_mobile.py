@@ -2,25 +2,17 @@
 """Mobile Ansicht und Lobby-Zoom (Handy hoch/quer, Desktop): nur der Hamburger als Knopf, Mitspieler als kleine Logos (Antippen zeigt Werte),
 Karten-/Bauleisten scrollen, Protokoll-Schublade lässt sich ein- UND ausklappen, nichts ragt über den Bildschirm oder überlappt,
 Lobby-Brett zoombar, laufende Spiele ausgegraut in der Anmeldung, Manifest/Icons erreichbar.   Aufruf: python3 tests/browser_mobile.py"""
-import json, os, subprocess, tempfile, time, urllib.request
+import json, os, subprocess, urllib.request
 from playwright.sync_api import sync_playwright
+from lib import ROOT, check, finish, free_port, problems, shots, start_server, wait_port
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8199
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-mobile-'))
-os.makedirs(SHOTS, exist_ok=True)
-problems = []
+SHOTS = shots('mobile')
 
-def check(cond, msg):
-    if not cond: problems.append('FEHLER: ' + msg)
-    print('  ' + ('✓' if cond else '✗'), msg)
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp(), HTTPS_PORT='0')
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-mock = subprocess.Popen(['node', os.path.join(ROOT, 'tests/mock/serve.js')], stdout=subprocess.DEVNULL)  # Port 8099
-time.sleep(1)
-MOCK = 'http://localhost:8099/?mock='
+server, BASE = start_server()
+MOCK_PORT = free_port()
+mock = subprocess.Popen(['node', os.path.join(ROOT, 'tests/mock/serve.js'), str(MOCK_PORT)], stdout=subprocess.DEVNULL)
+wait_port(MOCK_PORT)
+MOCK = f'http://localhost:{MOCK_PORT}/?mock='
 SIZES = {'Handy hoch': (390, 780, True), 'Handy klein': (360, 640, True), 'Handy quer': (844, 390, True), 'Desktop': (1440, 900, False)}
 
 RECTS = """() => { const r = (s) => { const e = document.querySelector(s); if (!e || e.offsetParent === null && getComputedStyle(e).position !== 'fixed') return null; const b = e.getBoundingClientRect(); return b.width ? {l: b.left, t: b.top, r: b.right, b: b.bottom} : null; };
@@ -103,7 +95,4 @@ try:
         b.close()
 finally:
     server.terminate(); mock.terminate()
-print('Screenshots:', SHOTS)
-if problems:
-    print('\n'.join(problems)); raise SystemExit(1)
-print('Mobil-Test bestanden')
+finish(SHOTS, 'Mobil-Test bestanden')

@@ -2,16 +2,11 @@
 """Sprachchat gegen den ECHTEN Server: zwei Browser (Fake-Mikrofon) bauen in der Lobby eine WebRTC-Verbindung auf,
 die Verbindung übersteht den Spielstart, Stummschalten und Verlassen funktionieren, Signale bleiben im Spiel.
 Aufruf: python3 tests/browser_voice.py"""
-import os, subprocess, sys, tempfile, time
 from playwright.sync_api import sync_playwright
+from lib import finish, problems, shots, start_server
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8196
-BASE = f'http://127.0.0.1:{PORT}'
-problems = []
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp())
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
+SHOTS = shots('voice')
+server, BASE = start_server()
 
 def state(pgs):
     return [pg.evaluate('Voice.debug()') for pg in pgs]
@@ -51,7 +46,7 @@ try:
         good = all(x['joined'] and all(v == 'connected' for v in x['peers'].values()) for x in d)
         print('Nach Spielstart noch verbunden:', good)
         if not good: problems.append('Verbindung riss beim Spielstart ab')
-        pages[0].screenshot(path=os.environ.get('SHOT', '/tmp') + '/voice_spiel.png')
+        pages[0].screenshot(path=SHOTS + '/voice_spiel.png')
         # Stummschalten
         pages[0].click('#btnMenu'); pages[0].click('[data-mi=mute]'); pages[0].wait_for_timeout(300)  # Stummschalten über das Spielmenü
         mic = pages[0].evaluate('Voice.micOn()')
@@ -64,5 +59,4 @@ try:
         b.close()
 finally:
     server.terminate()
-print('Probleme:', problems if problems else 'keine')
-sys.exit(1 if problems else 0)
+finish(SHOTS)

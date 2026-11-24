@@ -2,31 +2,20 @@
 """Echte Bedienung: Ein Browser-Spieler klickt sich durch Aufbau, Würfeln, Bauen, Handeln (Bank und Angebot),
 Räuber, Abwerfen, Gold – gegen Testspieler. Prüft, dass die Oberfläche nie festhängt und keine Fehler wirft.
 Aufruf: python3 tests/browser_play.py [Spielerzahl] [Sekunden]"""
-import json, os, random, subprocess, sys, tempfile, time, urllib.request
+import os, random, subprocess, sys, time
 from playwright.sync_api import sync_playwright
+from lib import ROOT, finish, poster, problems, shots, start_server
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 SECS = int(sys.argv[2]) if len(sys.argv) > 2 else 120
 AUTO = len(sys.argv) > 3 and sys.argv[3] == 'auto'  # Würfeln und Räuber automatisch
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8198
-BASE = f'http://127.0.0.1:{PORT}'
-SHOTS = os.environ.get('SHOTS', tempfile.mkdtemp(prefix='handelsinseln-play-'))
-os.makedirs(SHOTS, exist_ok=True)
+SHOTS = shots('play')
 COLORS = ['rot', 'blau', 'orange', 'weiss', 'gruen', 'violett']
 stats = {}
 
-def post(path, body):
-    req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(), method='POST')
-    try:
-        return json.load(urllib.request.urlopen(req))
-    except urllib.error.HTTPError as e:
-        return json.load(e)
-
-env = dict(os.environ, PORT=str(PORT), DATA_DIR=tempfile.mkdtemp())
-server = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=env)
-time.sleep(1)
-problems, toasts = [], []
+server, BASE = start_server()
+post = poster(BASE)
+toasts = []
 drv = None
 try:
     with sync_playwright() as p:
@@ -161,6 +150,4 @@ finally:
     if drv: drv.terminate()
     server.terminate()
 print('Aktionen des Browserspielers:', stats)
-print('Screenshots:', SHOTS)
-print('Probleme:', problems if problems else 'keine')
-sys.exit(1 if problems else 0)
+finish(SHOTS)
