@@ -222,7 +222,7 @@
     return `<div class="srow" data-row="${r.path}"${r.dep ? ` data-dep="${r.dep}"` : ''}><span class="sl" ${r.tip ? `title="${C.esc(r.tip)}"` : ''}>${C.esc(r.label)}<small>Standard: ${C.esc(defHint(r))}</small></span>${ctlHTML(r)}</div>`;
   }
   function panelHTML(game) {
-    return `<details class="setpanel" open><summary><span>Spieleinstellungen</span><small id="setHint"></small></summary><div class="setbody">` +
+    return `<details class="setpanel"><summary><span>Spieleinstellungen</span><small id="setHint"></small></summary><div class="setbody">` +
       schema().filter((g) => !(game && g.board)).map((g) => `<section class="sgroup" data-g="${g.id}"><h4>${g.title}</h4>${g.rows.map(rowHTML).join('')}` +
         (g.subs || []).map((s) => `<details class="subset"><summary>${s.title}</summary><p class="snote">${s.note}</p><div class="sgrid">${s.rows.map(rowHTML).join('')}</div></details>`).join('') + '</section>').join('') +
       (game ? '' : `<div class="setfoot"><button type="button" class="btn small ghostb" id="setReset" title="Alle Regeln und Vorräte auf die Standardwerte zurücksetzen">Standard wiederherstellen</button></div>`) + '</div></details>';

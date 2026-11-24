@@ -4,8 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Lobby, Spieleinstellungen:** Das Panel „Spieleinstellungen“ ist standardmäßig zugeklappt.
+
 ### Behoben
-- **Lobby auf iOS (Safari), Start-Button:** „Spiel starten“ hängt als feste Leiste unten an der scrollenden Lobby-Spalte, statt die Spielfeld-Varianten zu überlagern (die Zeilen der Spalte wurden zusammengedrückt). Geprüft mit WebKitGTK 2.54.
+- **Lobby auf Mobilgeräten (iOS Safari):** Das Menü scrollt über den ganzen Bildschirm und gleitet dabei über die Karte; „Spiel starten“ steht als Leiste am unteren Rand und überlagert die Varianten nicht mehr. Der Scroll-Container hat auf Mobil `pointer-events: auto` (iOS scrollt sonst nicht), die Vorschau ist dort nicht mehr per Touch verschiebbar. Geprüft mit WebKitGTK 2.54.
 
 ## [1.5.10] - 2026-11-24
 
