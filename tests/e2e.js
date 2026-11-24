@@ -44,6 +44,12 @@ async function lobbyAndFeatures() {
   const { post, get, connect, hub } = T;
   // Statische Auslieferung und Sicherheit
   assert.equal((await fetch(T.base + '/shared/geom.js')).status, 200);
+  // Caching: ETag + 304 bei unveränderter Datei
+  const img = await fetch(T.base + '/img/logo.webp'); const etag = img.headers.get('etag'); await img.arrayBuffer();
+  assert(etag && img.status === 200, 'statische Datei mit ETag');
+  const again = await fetch(T.base + '/img/logo.webp', { headers: { 'If-None-Match': etag } });
+  assert.equal(again.status, 304); assert.equal((await again.arrayBuffer()).byteLength, 0);
+  assert.equal((await fetch(T.base + '/nichtda.js')).status, 404);
   assert.equal((await fetch(T.base + '/../server/game.js')).status === 200, false);
   assert.equal((await fetch(T.base + '/%2e%2e/server/game.js')).status === 200, false);
   assert.deepEqual((await get('/api/games')).games, []);

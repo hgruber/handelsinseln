@@ -269,10 +269,14 @@ function createServer(opts = {}) {
       if (rel.startsWith('/shared/')) rel = rel.slice('/shared'.length);
       const file = path.normalize(path.join(base, rel));
       if (!file.startsWith(base + path.sep)) { res.writeHead(403); return res.end(); }
-      fs.readFile(file, (err, data) => {
-        if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Nicht gefunden'); }
-        res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-        res.end(data);
+      // no-cache + ETag: der Browser fragt jedes Mal nach, bekommt bei unveränderter Datei aber nur 304 statt der ganzen Datei
+      fs.stat(file, (err, st) => {
+        if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Nicht gefunden'); }
+        const etag = `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+        const head = { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', ETag: etag, 'Last-Modified': st.mtime.toUTCString() };
+        if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
+        res.writeHead(200, head);
+        fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
       });
     } catch (e) {
       json(res, 400, { error: e.message });
