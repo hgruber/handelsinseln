@@ -62,7 +62,6 @@ try:
         W.screenshot(path=f'{SHOTS}/watch-table.png')
         print('Ansicht ohne Tischspieler: Leisten oben links am Rand, Meldungen in der Mitte')
         lefts = lambda: W.eval_on_selector_all('#seats .seat .badge.top', 'els => els.map(e => Math.round(e.getBoundingClientRect().left))')
-        wait_until(lambda: len(set(lefts())) == 1, timeout=5)  # beim Zugwechsel gleiten die Leisten kurz
         bb = W.locator('#seats .seat .badge.top').first.bounding_box()
         check(bb['x'] <= 1 and bb['y'] <= 1, f'erste Spielerleiste liegt ohne Abstand in der Ecke ({bb["x"]:.0f},{bb["y"]:.0f})')
         xs = lefts()

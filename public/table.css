@@ -129,5 +129,6 @@ body.watch .seat #dice { zoom: .8; }
 body.watch #toasts { top: 58%; transform: translate(-50%, 0); }
 body.watch .tmsg { max-width: min(560px, 80vw); }
 
-/* Öffentliche Plätze (Handy-Controller, Online-Spieler, Bots): die Würfel mittig über der Spieleranzeige, zur Tischmitte hin */
-body.table .seat.pub .seatmenu { order: 1; } body.table .seat.pub .pubrow { order: 2; } body.table .seat.pub .badgerow { order: 3; }
+/* Öffentliche Plätze (Handy-Controller, Online-Spieler, Bots) am Spieltisch: die Würfel mittig über der Spieleranzeige, zur Tischmitte hin.
+   Nicht in der Zuschauer-Ansicht (body.watch): dort steht das Platzmenü rechts neben der Leiste (order: 3 oben). */
+body.table:not(.watch) .seat.pub .seatmenu { order: 1; } body.table:not(.watch) .seat.pub .pubrow { order: 2; } body.table:not(.watch) .seat.pub .badgerow { order: 3; }

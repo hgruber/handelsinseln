@@ -10,6 +10,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Schnelleres Laden:** Bilder, Skripte und Stile kommen mit ETag; bei unveränderten Dateien antwortet der Server nur noch mit „304 Not Modified“, statt bei jedem Aufruf rund 1,4 MB neu zu senden.
 - **Weniger Datenvolumen im Spiel:** Der Ereignisstrom ist gzip-komprimiert; weil aufeinanderfolgende Spielstände fast gleich sind, kostet ein Update statt rund 18 KB nur noch etwa 300 Bytes (gut für Handys im Mobilfunk).
 
+### Behoben
+- **Zuschauer-Ansicht:** Machte der Spieler am Zug ein Handelsangebot, schob sich sein Menü links vor die Leiste und rückte sie aus der linken Spalte (seit 1.6.1). Das Menü steht wieder rechts daneben.
+
 ## [1.6.1] - 2026-11-24
 
 ### Geändert
