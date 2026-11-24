@@ -5,6 +5,8 @@ COPY server ./server
 COPY shared ./shared
 COPY public ./public
 RUN mkdir /data && chown node:node /data
+ARG APP_VERSION=
+ENV APP_VERSION=$APP_VERSION
 ENV PORT=8080 DATA_DIR=/data NODE_ENV=production
 VOLUME /data
 USER node

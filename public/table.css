@@ -80,12 +80,11 @@ body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top:
 
 /* Würfel am Tisch: nach dem Wurf eine flache 2D-Seite (3D-Würfel verschwinden in gedrehten Plätzen, z. B. in Firefox) */
 .die { position: relative; }
-.dflat { display: none; position: absolute; inset: 0; border-radius: 11px; background: linear-gradient(145deg, #fffdf6, #e2d8be); border: 1px solid #b8ab88; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px; box-sizing: border-box; box-shadow: inset 0 0 10px rgba(120, 90, 30, .25); }
-.dflat i { place-self: center; width: 9px; height: 9px; border-radius: 50%; }
-.dflat i.p { background: radial-gradient(circle at 35% 30%, #5a4a38, #1b140d); }
-.dflat.one i.p { background: radial-gradient(circle at 35% 30%, #ff6a5e, #a3141b); width: 12px; height: 12px; }
+.dflat { display: none; position: absolute; inset: 0; border-radius: 22%; background: radial-gradient(130% 130% at 28% 22%, #fffef8 0%, #f7f0dd 48%, #e3d7b6 100%); border: 1px solid #c2b58f; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 14%; box-sizing: border-box; box-shadow: inset 0 2px 3px rgba(255, 255, 255, .95), inset 0 -4px 7px rgba(130, 100, 40, .3); }
+.dflat i { place-self: center; width: 78%; aspect-ratio: 1; border-radius: 50%; }
+.dflat i.p { background: radial-gradient(circle at 38% 30%, #5d4e3e 0%, #1c140d 55%, #0b0704 100%); box-shadow: inset 0 -1px 2px rgba(255, 255, 255, .22), 0 1px 0 rgba(255, 255, 255, .9); }
+.dflat.one i.p { background: radial-gradient(circle at 36% 30%, #ff7a6e 0%, #d3222a 55%, #7d0c12 100%); width: 118%; }
 body.table .die.rest .cube { visibility: hidden; } body.table .die.rest .dflat { display: grid; }
-@media (max-width: 1250px) { .dflat { padding: 5px; } .dflat i { width: 7px; height: 7px; } }
 
 /* Platzabfrage beim Start */
 #seatAsk { position: fixed; inset: 0; display: grid; place-items: center; z-index: 18; background: rgba(3, 8, 18, .55); }
@@ -112,3 +111,17 @@ body.watch .pubrow .seatctl, .seat.pub .pubrow .seatctl { width: auto; margin: 0
 .hask .hcode { font: 700 46px/1 var(--serif); letter-spacing: .14em; color: var(--gold2); }
 .hask small { color: var(--muted); font-size: 12.5px; }
 body.watch .seat .badge { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* Nur-Ansichtsfenster (body.watch, keine Tischspieler): alle Spielerleisten oben links, ohne Abstand zum Rand, Würfel neben dem Spieler am Zug,
+   alle Meldungen in der Spielfeldmitte. Die Plätze rund ums Brett gibt es hier nicht. */
+body.watch #seats { inset: 0 auto auto 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 0; }
+body.watch .seat, body.watch .seat[class] { position: static !important; transform: none !important; margin: 0 !important; width: auto !important; zoom: 1 !important; gap: 3px; flex-direction: row; align-items: center; }
+body.watch .seat .badgerow { display: none !important; }
+body.watch .seat .pubrow { min-height: 0; gap: 6px; align-items: center; justify-content: flex-start; }
+body.watch .seat .pubrow .badge.top { display: flex !important; margin: 0; border-radius: 0 14px 14px 0; border-left-width: 6px; }
+body.watch .seat.ctl .pubrow .seatctl { display: flex; width: auto; margin: 0; padding: 2px 8px; border-radius: 14px; }
+body.watch .seat .seatmenu { order: 3; }
+body.watch .seat .tmenu { width: min(380px, 60vw); }
+body.watch .seat #dice { zoom: .8; }
+body.watch #toasts { top: 58%; transform: translate(-50%, 0); }
+body.watch #tableMsgs { max-width: min(560px, 80vw); }

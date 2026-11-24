@@ -160,7 +160,7 @@
   // ======================================================================================
   const DEF = {
     dense: true, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
-    islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5,
+    islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, goldHome: true, goldStart: false, goldMax: 6, leaver: 'uebernahme', vanishRounds: 5,
     limits: {
       road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
       bank: Object.fromEntries(RES.map((r) => [r, null])),
@@ -178,6 +178,7 @@
     return [
       { id: 'feld', title: 'Spielfeld', board: true, rows: [
         { path: 'dense', type: 'seg', label: 'Inselabstand', tip: 'Normal: dicht beieinanderliegende Inseln. Weiter: größere Abstände zwischen den Inseln (nur Heimatinsel und Archipel).', dep: 'variant=inseln|archipel', opts: [[true, 'Normal'], [false, 'Weiter']] },
+        { path: 'goldHome', type: 'seg', label: 'Goldfluss auf der Startinsel', tip: 'Ob Goldfluss-Felder auch auf der Insel der Anfangssiedlungen liegen dürfen.', opts: [[true, 'Erlaubt'], [false, 'Nein']] },
       ] },
       { id: 'ablauf', title: 'Ablauf', rows: [
         { path: 'dice', type: 'seg', label: 'Auto Ablauf', tip: 'Auto: Der Server würfelt sofort nach Zugende, Hinweise blenden sich selbst aus, Karten fliegen schnell. Manuell: der Spieler klickt „Würfeln“, Hinweise werden weggeklickt, Karten fliegen langsam. Lässt sich im Spiel über das Menü umschalten.', opts: [['manuell', 'Manuell'], ['auto', 'Auto']] },
@@ -192,6 +193,10 @@
         { path: 'islandBonusMax', type: 'num', label: 'Inselbonus für höchstens … Inseln', min: 0, max: 99 },
         { path: 'longestMin', type: 'num', label: 'Längster Handelsweg ab', min: 2, max: 20 },
         { path: 'armyMin', type: 'num', label: 'Stärkste Schutzmacht ab', min: 1, max: 20 },
+      ] },
+      { id: 'gold', title: 'Goldfluss', rows: [
+        { path: 'goldStart', type: 'seg', label: 'Erstsiedlung am Goldfluss', tip: 'Ob Anfangssiedlungen an ein Goldfluss-Feld grenzen dürfen.', dep: 'goldHome=true', opts: [[true, 'Erlaubt'], [false, 'Nein']] },
+        { path: 'goldMax', type: 'num', label: 'Max. Ertrag je Wurf', tip: 'Höchstens so viele freie Rohstoffe vom Goldfluss erhält ein Spieler bei einem Wurf (Siedlung 1, Stadt 2).', min: 1, max: 6 },
       ] },
       { id: 'vorraete', title: 'Vorräte & Limits', rows: [
         { path: 'limits.road', type: 'num', label: 'Straßen', min: 1, max: 99, inf: true },

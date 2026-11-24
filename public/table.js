@@ -223,6 +223,11 @@
     if (watch) { const el = $('seatAsk'); if (el) el.remove(); } else seatAsk(v);
     messages(v);
     document.body.dataset.tseat = (seats.get(focus) || {}).slot || 'b';
+    // Blickrichtung der Zahlenchips: Sicht des bedienten Tischspielers; ist der Spieler am Zug ein Bot oder Online-Spieler, die des nächsten Tischspielers in der Reihenfolge
+    { const o = v.order && v.order.length ? v.order : [focus], i0 = Math.max(0, o.indexOf(focus));
+      let cp = focus;
+      for (let j = 0; j < o.length; j++) { const q = o[(i0 + j) % o.length]; if (seats.has(q) && !(watch || (views[q] && views[q].watch))) { cp = q; break; } }
+      document.body.dataset.cseat = (seats.get(cp) || seats.get(focus) || {}).slot || 'b'; }
     if (!v.trade) counter.clear();
     const isPub = (pid) => !!watch || !!(views[pid] && views[pid].watch); // Zuschauer-Tisch oder Online-Spieler/Bot am Tisch: nur Öffentliches
     const diceSeat = v.turn === focus && v.phase !== 'ended' ? focus : null; // Würfel zeigt auch der öffentliche Platz des Spielers am Zug
@@ -276,7 +281,7 @@
     if ($('seatAsk')) $('seatAsk').remove();
     if (seatsEl) seatsEl.remove(); if (msgEl) msgEl.remove();
     seats.clear(); seatsEl = msgEl = null;
-    document.body.classList.remove('table'); delete document.body.dataset.tseat; delete document.body.dataset.tedges;
+    document.body.classList.remove('table'); delete document.body.dataset.tseat; delete document.body.dataset.cseat; delete document.body.dataset.tedges;
   }
 
   root.Table = {

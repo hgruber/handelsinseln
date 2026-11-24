@@ -13,6 +13,7 @@ function defaults() {
     dice: 'manuell', robber: 'manuell',
     winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
     islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3,
+    goldHome: true, goldStart: false, goldMax: 6,
     leaver: 'uebernahme', vanishRounds: 5,
     limits: {
       road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
@@ -53,6 +54,9 @@ function merge(cur, patch) {
       case 'islandBonusMax': s.islandBonusMax = int(v, 0, 20, 'Max. Inseln'); break;
       case 'longestMin': s.longestMin = int(v, 3, 15, 'Längster Handelsweg ab'); break;
       case 'armyMin': s.armyMin = int(v, 2, 10, 'Stärkste Schutzmacht ab'); break;
+      case 'goldHome': if (typeof v !== 'boolean') bad('Goldfluss auf der Startinsel: ja/nein erwartet.'); s.goldHome = v; break;
+      case 'goldStart': if (typeof v !== 'boolean') bad('Erstsiedlung am Goldfluss: ja/nein erwartet.'); s.goldStart = v; break;
+      case 'goldMax': s.goldMax = int(v, 1, 6, 'Max. Ertrag Goldfluss'); break;
       case 'leaver': s.leaver = oneOf(v, ['uebernahme', 'verschwinden'], 'Verhalten bei Verlassen'); break;
       case 'vanishRounds': s.vanishRounds = int(v, 1, 30, 'Runden bis zum Verschwinden'); break;
       case 'limits': {

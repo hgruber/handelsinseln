@@ -40,7 +40,7 @@ try:
                 pg.goto(MOCK + q); pg.wait_for_timeout(1500)
                 return pg
             pg = page('mittel_frei')
-            check(pg.locator('#camBtns button').count() == 1 and pg.locator('#btnMenu').is_visible(), 'nur der Hamburger-Knopf ist übrig')
+            check(pg.locator('#camBtns button').count() == 3 and pg.locator('#btnMenu').is_visible(), 'nur Hamburger und die zwei Dreh-Knöpfe sind übrig')
             check(all(pg.locator(f'#{i}').count() == 0 for i in ('btnFit', 'btnIn', 'btnOut', 'btnHelp', 'hudMic')), 'Zoom-, Zentrier-, Hilfe- und Mikrofon-Knopf sind entfernt')
             r = pg.evaluate(RECTS)
             check(r['sw'] <= r['W'], 'keine horizontale Seitenverschiebung')
@@ -90,7 +90,7 @@ try:
         box = A.locator('#lobbyPreview').bounding_box()
         A.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2); A.mouse.wheel(0, -500); A.wait_for_timeout(900)
         t1 = A.get_attribute('#world', 'transform')
-        check(t0 != t1 and float(t1.split('scale(')[1].rstrip(')')) > float(t0.split('scale(')[1].rstrip(')')), 'Lobby: Mausrad zoomt das Brett')
+        check(t0 != t1 and float(t1.split('scale(')[1].split(')')[0]) > float(t0.split('scale(')[1].split(')')[0]), 'Lobby: Mausrad zoomt das Brett')
         A.mouse.down(); A.mouse.move(box['x'] + 200, box['y'] + 200, steps=5); A.mouse.up(); A.wait_for_timeout(300)
         check(A.get_attribute('#world', 'transform') != t1, 'Lobby: Ziehen verschiebt das Brett')
         A.set_viewport_size({'width': 390, 'height': 780}); A.wait_for_timeout(600)

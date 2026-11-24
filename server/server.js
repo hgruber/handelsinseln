@@ -14,7 +14,14 @@ const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 8080;
 const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 const STATE_FILE = path.join(DATA, 'state.json');
-const VERSION = (() => { try { return require('../package.json').version; } catch (e) { return null; } })();
+// Version: package.json; liegen seit dem letzten Tag Commits vor, kommt ein Zusatz „+Anzahl.Hash“ dazu (aus git oder APP_VERSION, z. B. beim Container-Bau)
+const VERSION = (() => {
+  let base = null; try { base = require('../package.json').version; } catch (e) { /* ohne package.json */ }
+  let d = process.env.APP_VERSION || '';
+  if (!d) { try { d = require('child_process').execFileSync('git', ['describe', '--tags', '--long', '--dirty'], { cwd: ROOT, timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch (e) { d = ''; } }
+  const m = /^v?(.+?)-(\d+)-g([0-9a-f]+)(-dirty)?$/.exec(d);
+  return m && (+m[2] > 0 || m[4]) ? `${m[1]}${+m[2] > 0 ? '+' + m[2] + '.' + m[3] : ''}${m[4] ? ' (geändert)' : ''}` : (base || (m && m[1]) || null);
+})();
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon',

@@ -297,7 +297,7 @@ class Game {
     let ns;
     try { ns = ST.merge(S.settings, patch); } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
     if (ns.plannedPlayers < S.players.length) ns.plannedPlayers = S.players.length;
-    const boardChanged = ns.variant !== S.settings.variant || ns.plannedPlayers !== S.settings.plannedPlayers || ns.dense !== S.settings.dense || Math.abs((ns.aspect || 0) - (S.settings.aspect || 0)) > 0.12;
+    const boardChanged = ns.variant !== S.settings.variant || ns.plannedPlayers !== S.settings.plannedPlayers || ns.dense !== S.settings.dense || ns.goldHome !== S.settings.goldHome || Math.abs((ns.aspect || 0) - (S.settings.aspect || 0)) > 0.12;
     S.settings = ns;
     if (boardChanged) this.regen();
     S.v++;
@@ -307,7 +307,7 @@ class Game {
     const S = this.S, old = S.settings;
     if (pid !== S.host) fail('Nur der Spielleiter kann die Einstellungen ändern.');
     if (!patch || typeof patch !== 'object') fail('Ungültige Einstellungen.');
-    if (['variant', 'plannedPlayers', 'dense', 'aspect'].some((k) => k in patch)) fail('Das Spielfeld lässt sich im Spiel nicht mehr ändern.');
+    if (['variant', 'plannedPlayers', 'dense', 'aspect', 'goldHome'].some((k) => k in patch)) fail('Das Spielfeld lässt sich im Spiel nicht mehr ändern.');
     let ns;
     try { ns = ST.merge(old, patch); } catch (e) { if (e instanceof ST.SettingsError) fail(e.message); throw e; }
     if (S.phase !== 'ended' && ns.winPoints !== old.winPoints) {
@@ -529,7 +529,7 @@ class Game {
   settlementSpots(pid) {
     const S = this.S, out = new Set();
     if (S.phase === 'setup') {
-      for (const h of S.home) for (const v of G.hexCorners(h)) if (this.distanceOk(v) && this.vertTouchesLand(v) && !B.touchesGold(S, v)) out.add(v);
+      for (const h of S.home) for (const v of G.hexCorners(h)) if (this.distanceOk(v) && this.vertTouchesLand(v) && (S.settings.goldStart || !B.touchesGold(S, v))) out.add(v);
       return [...out];
     }
     for (const e in S.edges) {
@@ -715,7 +715,7 @@ class Game {
     if (pid !== S.turn) fail(`${this.name(S.turn)} ist beim Aufbau an der Reihe.`);
     if (su.stage === 'settlement') {
       if (a.type !== 'place_settlement') fail('Setze zuerst eine Siedlung.');
-      if (!this.settlementSpots(pid).includes(a.v)) fail('Hier darf keine Siedlung stehen (Abstandsregel: mindestens zwei Wege Abstand; Aufbau nur auf der Startinsel und nicht an einem Goldfluss).');
+      if (!this.settlementSpots(pid).includes(a.v)) fail(`Hier darf keine Siedlung stehen (Abstandsregel: mindestens zwei Wege Abstand; Aufbau nur auf der Startinsel${S.settings.goldStart ? '' : ' und nicht an einem Goldfluss'}).`);
       this.placeSettlement(pid, a.v, true);
       su.last = a.v; su.stage = 'road';
       const second = su.i >= S.order.length;
@@ -863,6 +863,15 @@ class Game {
           (entries[b.p] = entries[b.p] || []).push({ res, amt, hex: k, label: `${TERR_DE[h.t]} ${n}${b.k === 'c' ? ', Stadt' : ''}` });
         }
       }
+    }
+    // Ertragsgrenze Goldfluss: je Spieler und Wurf höchstens `goldMax` freie Wahlen
+    const gmax = S.settings.goldMax || 6;
+    for (const p of Object.keys(S.pend.gold)) {
+      if (S.pend.gold[p] <= gmax) continue;
+      const cut = S.pend.gold[p] - gmax;
+      S.pend.gold[p] = gmax;
+      const g = entries[p].filter((e) => e.res === null);
+      if (g.length) g[g.length - 1].desc += ` – begrenzt auf ${gmax} je Wurf (−${cut})`;
     }
     // Bank-Vorrat: reicht er nicht, bekommt ein einzelner Empfänger den Rest, bei mehreren niemand
     for (const r of RES) {

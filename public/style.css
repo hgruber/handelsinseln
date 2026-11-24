@@ -32,8 +32,9 @@ svg { display: block; }
 @keyframes pop { 0% { transform: scale(0) translateY(-34px); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) translateY(0); } }
 .hex.reveal .in { animation: reveal 1s ease-out both; transform-origin: 0 0; }
 @keyframes reveal { 0% { transform: scale(.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-.hex .chip { transform-box: fill-box; transform-origin: center; transition: transform .2s; cursor: pointer; }
-.hex.hl .chip { transform: scale(1.2); }
+.hex .chip { transform-box: fill-box; transform-origin: 29px 28px; transform: rotate(var(--chiprot, 0deg)); transition: transform .2s; cursor: pointer; }
+.hex.hl .chip { transform: rotate(var(--chiprot, 0deg)) scale(1.2); }
+body.moving .hex .chip { transition: none; }
 .hex .ring { fill: none; stroke: #ffd56a; stroke-width: 5; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .hex.hl .ring { opacity: .95; }
 .hex .flash { fill: #fff; opacity: 0; pointer-events: none; }
@@ -165,7 +166,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .vp b { font: 700 28px var(--serif); color: var(--gold2); text-shadow: 0 2px 8px rgba(232, 185, 90, .35); } .vp i { font-style: normal; color: var(--gold); font-size: 12px; margin-top: -1px; }
 .vp small { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-#camBtns { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); display: flex; }
+#camBtns { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); display: flex; gap: 6px; }
 .side-open #camBtns { right: 394px; }
 
 #side { position: fixed; right: 12px; top: 12px; bottom: calc(var(--bh) + 24px); width: 372px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
@@ -224,11 +225,14 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 #dice { display: flex; gap: 14px; perspective: 520px; padding: 10px 6px; }
 #dice.idle { opacity: .35; }
 .die { width: 48px; height: 48px; }
+.die::before { content: ''; position: absolute; left: 8%; right: 8%; bottom: -7px; height: 9px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0, 0, 0, .5), rgba(0, 0, 0, 0) 70%); pointer-events: none; }
 .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
-.dface { position: absolute; inset: 0; border-radius: 11px; background: linear-gradient(145deg, #fffdf6, #e2d8be); border: 1px solid #b8ab88; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px; box-shadow: inset 0 0 10px rgba(120, 90, 30, .25); }
-.dface i { place-self: center; width: 9px; height: 9px; border-radius: 50%; }
-.dface i.p { background: radial-gradient(circle at 35% 30%, #5a4a38, #1b140d); box-shadow: inset 0 -1px 1px rgba(255, 255, 255, .25); }
-.f1 { transform: translateZ(24px); } .f1 i.p { background: radial-gradient(circle at 35% 30%, #ff6a5e, #a3141b); width: 12px; height: 12px; }
+.dface { position: absolute; inset: 0; border-radius: 22%; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 14%; box-sizing: border-box;
+  background: radial-gradient(130% 130% at 28% 22%, #fffef8 0%, #f7f0dd 48%, #e3d7b6 100%); border: 1px solid #c2b58f;
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, .95), inset 0 -4px 7px rgba(130, 100, 40, .3), inset 0 0 0 2px rgba(255, 255, 255, .35); }
+.dface i { place-self: center; width: 78%; aspect-ratio: 1; border-radius: 50%; }
+.dface i.p { background: radial-gradient(circle at 38% 30%, #5d4e3e 0%, #1c140d 55%, #0b0704 100%); box-shadow: inset 0 -1px 2px rgba(255, 255, 255, .22), 0 1px 0 rgba(255, 255, 255, .9); }
+.f1 { transform: translateZ(24px); } .f1 i.p { background: radial-gradient(circle at 36% 30%, #ff7a6e 0%, #d3222a 55%, #7d0c12 100%); width: 118%; box-shadow: inset 0 -1px 2px rgba(255, 255, 255, .25), 0 1px 0 rgba(255, 255, 255, .9); }
 .f6 { transform: rotateY(180deg) translateZ(24px); } .f3 { transform: rotateY(90deg) translateZ(24px); }
 .f4 { transform: rotateY(-90deg) translateZ(24px); } .f2 { transform: rotateX(90deg) translateZ(24px); } .f5 { transform: rotateX(-90deg) translateZ(24px); }
 #primary { min-width: 150px; display: grid; justify-items: stretch; }
@@ -362,7 +366,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
   #players { width: 214px; } .side-open #camBtns { right: 342px; } .pc .stats { gap: 6px; } .rcard { width: 48px; height: 80px; } .rcard .face svg { width: 32px; height: 32px; } .rcard .rn { display: none; }
   .rcard .cnt { min-width: 24px; height: 24px; font-size: 15px; } .bb { width: 62px; height: 90px; } .bb .cost .cc svg { width: 13px; height: 13px; } .bb .ic svg { width: 32px; height: 32px; } .dcard { width: 50px; height: 76px; font-size: 9.5px; }
   .die { width: 44px; height: 44px; } .f1 { transform: translateZ(22px); } .f6 { transform: rotateY(180deg) translateZ(22px); } .f3 { transform: rotateY(90deg) translateZ(22px); } .f4 { transform: rotateY(-90deg) translateZ(22px); } .f2 { transform: rotateX(90deg) translateZ(22px); } .f5 { transform: rotateX(-90deg) translateZ(22px); }
-  .dface { padding: 5px; } .dface i { width: 7px; height: 7px; } #side { width: 320px; } #bottom { grid-template-columns: minmax(0, 1fr) auto; } #dicebox { grid-column: 1 / 3; justify-content: flex-end; }
+  #side { width: 320px; } #bottom { grid-template-columns: minmax(0, 1fr) auto; } #dicebox { grid-column: 1 / 3; justify-content: flex-end; }
 }
 /* Kompakt (Handy, kleines Tablet, Querformat): Hamburger links oben, Mitspieler nur als kleine Logos (Antippen zeigt Werte),
    Karten und Bauknöpfe in schmalen Leisten zum Wischen, Protokoll/Chat als Schublade von rechts. */
@@ -414,7 +418,6 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
   #dice { gap: 10px; padding: 2px; justify-content: center; }
   .die { width: 30px; height: 30px; }
   .f1 { transform: translateZ(15px); } .f6 { transform: rotateY(180deg) translateZ(15px); } .f3 { transform: rotateY(90deg) translateZ(15px); } .f4 { transform: rotateY(-90deg) translateZ(15px); } .f2 { transform: rotateX(90deg) translateZ(15px); } .f5 { transform: rotateX(-90deg) translateZ(15px); }
-  .dface { padding: 4px; border-radius: 7px; } .dface i { width: 5px; height: 5px; } .f1 i.p { width: 8px; height: 8px; }
   #primary { min-width: 0; }
   #primary .btn { padding: 8px 10px; font-size: 14px; border-radius: 11px; white-space: nowrap; }
   #primary .btn.huge { padding: 9px 10px; font-size: 15px; }
@@ -497,19 +500,19 @@ body.ctl #camBtns { position: fixed !important; top: calc(10px + env(safe-area-i
 body.ctl #banner { order: 1; width: auto; padding-right: 54px; justify-content: flex-start; pointer-events: auto; }
 body.ctl #banner .bn { width: 100%; box-sizing: border-box; }
 body.ctl #armPanel { order: 2; }
-body.ctl #players { order: 3; flex-direction: row; flex-wrap: wrap; width: auto; max-width: none; max-height: none; overflow: visible; padding: 0; justify-content: center; }
-body.ctl #bottom { order: 4; left: auto; right: auto; bottom: auto; width: auto; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "dice dice" "hand hand" "build build"; gap: 12px; padding: 12px; }
+body.ctl #players { display: none !important; } /* nur Karten und Aktionen; Spieler, Protokoll und Chat zeigt die Karten-Ansicht */
+body.ctl #bottom { order: 4; flex: 1 1 auto !important; align-content: space-evenly; left: auto; right: auto; bottom: auto; width: auto; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "dice dice" "hand hand" "build build"; gap: 12px; padding: 12px; }
 body.ctl #dicebox { flex-direction: row; justify-content: center; gap: 14px; align-items: center; }
-body.ctl #dice { zoom: 1.3; }
+body.ctl #dice { zoom: 1.3; } body.ctl #btnRotL, body.ctl #btnRotR { display: none; }
 body.ctl #primary .btn { font-size: 17px; padding: 12px 18px; }
 body.ctl #hand { overflow: visible; -webkit-mask-image: none; mask-image: none; flex-wrap: wrap; justify-content: center; padding: 4px 0; }
 body.ctl #resRow, body.ctl #devRow { flex-wrap: wrap; justify-content: center; }
-body.ctl #build .bb { height: 84px; }
+body.ctl #build .bb { height: 96px; } body.ctl #build { gap: 8px; flex-wrap: wrap; justify-content: center; }
 body.ctl #build .bb .lb { font-size: 11.5px; }
 body.ctl #bottom { min-height: 0; }
-body.ctl #resRow .rcard { width: 54px; height: 78px; } body.ctl #resRow .rcard .face svg { width: 34px; height: 34px; }
-body.ctl #side, body.ctl #hud:not(.side-open) #side { order: 5; display: flex; flex-direction: column; width: auto; min-height: 240px; flex: 1 1 240px; pointer-events: auto; right: auto; top: auto; bottom: auto; }
-body.ctl #hud:not(.log-open) #logPanel, body.ctl #logPanel { display: flex; flex: 1 1 auto; min-height: 220px; }
+body.ctl #resRow .rcard { width: 62px; height: 92px; } body.ctl #resRow .rcard .face svg { width: 34px; height: 34px; }
+body.ctl #side, body.ctl #hud:not(.side-open) #side { order: 5; display: flex; flex-direction: column; width: auto; min-height: 0; pointer-events: auto; right: auto; top: auto; bottom: auto; }
+body.ctl #logPanel, body.ctl #hud:not(.log-open) #logPanel { display: none !important; }
 body.ctl #tradeDock { flex: none; }
 body.ctl #score { position: static !important; }
 

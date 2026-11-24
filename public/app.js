@@ -27,7 +27,7 @@
   const st = {
     token: localStorage.getItem('handelsinseln.token') || null, view: null, mode: null, moveFrom: null, mock: null,
     es: null, logOpen: false, tab: 'log', modal: null, modalKey: '', draft: {}, draftKey: '',
-    ctlPref: localStorage.getItem('handelsinseln.ctl') === '1', ctl: false,
+    ctlPref: localStorage.getItem('handelsinseln.ctl') !== '0', ctl: false,
     openPc: null, firstBoard: true, known: new Set(), lastSeq: null, lastHand: null, chatSeen: 0, seenChat: -1, color: null,
   };
 
@@ -127,6 +127,7 @@
     const focus = Table.focusOf(views);
     applyView(views[focus]);
     Table.render(views, focus, false, requests);
+    chipSeat(document.body.dataset.cseat);
     if (first) { fit(true); setTimeout(() => fit(false), 120); }
   }
   // ---- Zuschauer ----------------------------------------------------------------------------------------
@@ -226,6 +227,7 @@
     const old = st.view;
     st.view = v;
     syncCtl(v);
+    if (!st.tableOn || st.watch) chipSeat(null); // Chips wieder aufrecht
     const mute = (x) => (x && x.watch ? Object.assign({}, x, { you: -1 }) : x); Sound.onView(mute(old), mute(v)); // Zuschauer: nie „mein Zug“
     if (!old) Fx.reset(); // neue Sitzung: bisherige Kartenbewegungen nicht nachspielen
     if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
@@ -247,7 +249,7 @@
   // ---- Controller-Ansicht (Handy als Steuerung, das Spielfeld zeigt die Tisch-Anzeige) ----------------
   // Sie gilt nur, solange im Spiel eine Tisch-Anzeige (Zuschauer) verbunden ist; die Wahl des Spielers bleibt gemerkt.
   function syncCtl(v) {
-    const on = !!(st.ctlPref && v && !v.watch && v.display && (v.phase === 'main' || v.phase === 'setup'));
+    const on = !!(st.ctlPref && v && !v.watch && !st.tableOn && v.display && (v.phase === 'main' || v.phase === 'setup'));
     if (on === st.ctl) return;
     st.ctl = on; document.body.classList.toggle('ctl', on);
     if (on) { st.mode = null; st.moveFrom = null; } else setTimeout(() => { if (V()) fit(false); }, 80);
@@ -585,21 +587,27 @@
   }
 
   // ---- Kamera -------------------------------------------------------------------------------------------
-  const cam = { x: 0, y: 0, k: 0.6 }, tgt = { x: 0, y: 0, k: 0.6 };
+  // rot = Drehung der Karte (Grad, im Uhrzeigersinn um die Bildmitte); crot = Blickrichtung der Zahlenchips auf dem Bildschirm (0 = aufrecht)
+  const cam = { x: 0, y: 0, k: 0.6, rot: 0, crot: 0 }, tgt = { x: 0, y: 0, k: 0.6, rot: 0, crot: 0 };
+  const RAD = Math.PI / 180;
+  // Bildschirmvektor (dx, dy) → Weltvektor (Drehung zurücknehmen) und umgekehrt
+  const toWorld = (dx, dy, rot) => { const c = Math.cos(rot * RAD), s = Math.sin(rot * RAD); return { x: dx * c + dy * s, y: -dx * s + dy * c }; };
+  const toScreen = (x, y, rot) => { const c = Math.cos(rot * RAD), s = Math.sin(rot * RAD); return { x: x * c - y * s, y: x * s + y * c }; };
   let animOn = false, lastT = 0;
   const KMIN = 0.12, KMAX = 2.6;
   let movingT = 0;
   function applyCam() {
     document.body.classList.add('moving'); clearTimeout(movingT); movingT = setTimeout(() => document.body.classList.remove('moving'), 220);
     const W = board.clientWidth, H = board.clientHeight;
-    world.setAttribute('transform', `translate(${(W / 2 - cam.x * cam.k).toFixed(2)},${(H / 2 - cam.y * cam.k).toFixed(2)}) scale(${cam.k.toFixed(4)})`);
+    world.setAttribute('transform', `translate(${(W / 2).toFixed(2)},${(H / 2).toFixed(2)}) rotate(${cam.rot.toFixed(2)}) scale(${cam.k.toFixed(4)}) translate(${(-cam.x).toFixed(2)},${(-cam.y).toFixed(2)})`);
+    world.style.setProperty('--chiprot', (cam.crot - cam.rot).toFixed(2) + 'deg'); // Zahlenchips bleiben auf dem Bildschirm in ihrer Blickrichtung
   }
   function loop(t) {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;
     const a = 1 - Math.exp(-dt * 7);
-    cam.x += (tgt.x - cam.x) * a; cam.y += (tgt.y - cam.y) * a; cam.k *= Math.pow(tgt.k / cam.k, a);
+    cam.x += (tgt.x - cam.x) * a; cam.y += (tgt.y - cam.y) * a; cam.k *= Math.pow(tgt.k / cam.k, a); cam.rot += (tgt.rot - cam.rot) * a; cam.crot += (tgt.crot - cam.crot) * a;
     applyCam();
-    if (Math.abs(tgt.x - cam.x) < .2 && Math.abs(tgt.y - cam.y) < .2 && Math.abs(tgt.k / cam.k - 1) < .0007) { Object.assign(cam, tgt); applyCam(); animOn = false; return; }
+    if (Math.abs(tgt.x - cam.x) < .2 && Math.abs(tgt.y - cam.y) < .2 && Math.abs(tgt.k / cam.k - 1) < .0007 && Math.abs(tgt.rot - cam.rot) < .05 && Math.abs(tgt.crot - cam.crot) < .05) { Object.assign(cam, tgt); applyCam(); animOn = false; return; }
     requestAnimationFrame(loop);
   }
   function kick(snap) {
@@ -620,7 +628,7 @@
     return { left, top, right: W - right, bottom: H - bottom, W, H };
   }
   function inView(p) {
-    const a = area(); const sx = a.W / 2 + (p.x - cam.x) * cam.k, sy = a.H / 2 + (p.y - cam.y) * cam.k;
+    const a = area(); const d = toScreen(p.x - cam.x, p.y - cam.y, cam.rot), sx = a.W / 2 + d.x * cam.k, sy = a.H / 2 + d.y * cam.k;
     return sx > a.left && sx < a.right && sy > a.top && sy < a.bottom;
   }
   function fit(snap) {
@@ -630,11 +638,12 @@
     const keys = tbl ? v.hexes.map((h) => h.k) : v.hexes.map((h) => h.k).concat(v.fog || []);
     if (!keys.length) return;
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-    for (const k of keys) { const p = hpos(k); const px = tbl ? 88 : 140, py = tbl ? 101 : 155; x0 = Math.min(x0, p.x - px); x1 = Math.max(x1, p.x + px); y0 = Math.min(y0, p.y - py); y1 = Math.max(y1, p.y + py); }
+    for (const k of keys) { const p = toScreen(hpos(k).x, hpos(k).y, tgt.rot); const px = tbl ? 88 : 140, py = tbl ? 101 : 155; x0 = Math.min(x0, p.x - px); x1 = Math.max(x1, p.x + px); y0 = Math.min(y0, p.y - py); y1 = Math.max(y1, p.y + py); }
     const a = area(); const aw = Math.max(200, a.right - a.left), ah = Math.max(160, a.bottom - a.top);
     const k = Math.max(KMIN, Math.min(tbl ? KMAX : 1.25, Math.min(aw / (x1 - x0), ah / (y1 - y0))));
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, scx = (a.left + a.right) / 2, scy = (a.top + a.bottom) / 2;
-    tgt.k = k; tgt.x = cx - (scx - a.W / 2) / k; tgt.y = cy - (scy - a.H / 2) / k;
+    const c = toWorld(cx * k - (scx - a.W / 2), cy * k - (scy - a.H / 2), tgt.rot); // Mitte des Bretts (gedreht) auf die Mitte des freien Bereichs
+    tgt.k = k; tgt.x = c.x / k; tgt.y = c.y / k;
     kick(snap);
   }
   // Spieltisch: nach Zoomen/Verschieben springt die Ansicht zurück, damit das ganze Spielfeld sichtbar bleibt
@@ -643,8 +652,9 @@
   function zoomAt(f, mx, my) {
     const W = board.clientWidth, H = board.clientHeight;
     const k2 = Math.max(KMIN, Math.min(KMAX, tgt.k * f));
-    const wx = tgt.x + (mx - W / 2) / tgt.k, wy = tgt.y + (my - H / 2) / tgt.k;
-    tgt.k = k2; tgt.x = wx - (mx - W / 2) / k2; tgt.y = wy - (my - H / 2) / k2;
+    const w0 = toWorld(mx - W / 2, my - H / 2, tgt.rot);
+    const wx = tgt.x + w0.x / tgt.k, wy = tgt.y + w0.y / tgt.k;
+    tgt.k = k2; tgt.x = wx - w0.x / k2; tgt.y = wy - w0.y / k2;
     kick(); snapBack();
   }
   let moved = false;
@@ -653,7 +663,7 @@
     closeChooser();
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false;
     if (ptrs.size === 1) drag = { sx: e.clientX, sy: e.clientY, cx: tgt.x, cy: tgt.y, cap: false };
-    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: tgt.k }; drag = null; moved = true; }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: tgt.k, ang: Math.atan2(b.y - a.y, b.x - a.x) / RAD, rot: tgt.rot }; drag = null; moved = true; }
   });
   board.addEventListener('pointermove', (e) => {
     if (!ptrs.has(e.pointerId)) return;
@@ -661,12 +671,13 @@
     if (pinch && ptrs.size === 2) {
       const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
       const f = (pinch.k * d / pinch.d) / tgt.k; if (isFinite(f) && f > 0) zoomAt(f, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      let da = Math.atan2(b.y - a.y, b.x - a.x) / RAD - pinch.ang; da = ((da + 540) % 360) - 180; if (Math.abs(da) > 4 || pinch.turned) { pinch.turned = true; rotateTo(pinch.rot + da, true); } // zwei Finger drehen die Karte
       Object.assign(cam, tgt); applyCam(); return;
     }
     if (!drag) return;
     const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
     if (!moved && Math.hypot(dx, dy) > 5) { moved = true; try { board.setPointerCapture(e.pointerId); } catch (_) { /* egal */ } board.classList.add('drag'); }
-    if (moved) { tgt.x = drag.cx - dx / tgt.k; tgt.y = drag.cy - dy / tgt.k; Object.assign(cam, tgt); applyCam(); }
+    if (moved) { const w = toWorld(dx, dy, tgt.rot); tgt.x = drag.cx - w.x / tgt.k; tgt.y = drag.cy - w.y / tgt.k; Object.assign(cam, tgt); applyCam(); }
   });
   const up = (e) => { snapBack(); ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { drag = null; board.classList.remove('drag'); setTimeout(() => { moved = false; }, 30); } };
   board.addEventListener('pointerup', up); board.addEventListener('pointercancel', up);
@@ -680,6 +691,24 @@
     if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) { lastTap = null; if (!e.target.closest('[data-t]')) fit(false); return; }
     lastTap = { t: now, x: e.clientX, y: e.clientY };
   });
+  // Karte drehen: um die Mitte des freien Bereichs; Chips bleiben (bzw. folgen der Blickrichtung am Tisch)
+  function rotateTo(r, snap) {
+    const a = area(), W = a.W, H = a.H, sx = (a.left + a.right) / 2 - W / 2, sy = (a.top + a.bottom) / 2 - H / 2;
+    const w0 = toWorld(sx, sy, tgt.rot), wx = tgt.x + w0.x / tgt.k, wy = tgt.y + w0.y / tgt.k;
+    tgt.rot = r;
+    const w1 = toWorld(sx, sy, tgt.rot); tgt.x = wx - w1.x / tgt.k; tgt.y = wy - w1.y / tgt.k;
+    kick(snap);
+  }
+  const rotateBy = (d) => rotateTo(tgt.rot + d);
+  $('btnRotL').addEventListener('click', () => rotateBy(-60)); $('btnRotR').addEventListener('click', () => rotateBy(60));
+  // Blickrichtung der Zahlenchips: Tisch = Sicht des Tischspielers am Zug (Bot/Online-Spieler: des folgenden Tischspielers), sonst aufrecht
+  const SEAT_ANG = { b: 0, t: 180, l: 90, r: -90 };
+  function chipSeat(slot) {
+    const want = st.tableOn && !st.watch && slot ? SEAT_ANG[slot[0]] || 0 : 0;
+    const d = ((want - tgt.crot + 540) % 360) - 180; // kürzester Weg
+    if (Math.abs(d) < .01) return;
+    tgt.crot += d; kick();
+  }
   addEventListener('resize', () => { applyCam(); if (st.tableOn) fit(true); if (st.view && st.view.phase === 'lobby') fit(true); });
 
   // ======================================================================================

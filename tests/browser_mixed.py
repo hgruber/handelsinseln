@@ -95,7 +95,7 @@ try:
         print('Aufbau durchspielen; der Online-Spieler gibt am Handy frei, der Spieltisch zeigt die Ziele')
         P.click('#btnMenu')
         check(P.locator('.menu-pop [data-mi="ctl"]').count() == 1, 'Handy: „Controller-Ansicht“ ist da (der Spieltisch ist die Anzeige)')
-        P.click('.menu-pop [data-mi="ctl"]'); time.sleep(0.5)
+        P.keyboard.press('Escape'); P.mouse.click(5, 5); time.sleep(0.5)  # Controller-Ansicht ist mit Tisch-Anzeige schon die Vorgabe
         ui_done = False; end = time.time() + 150
         while time.time() < end:
             v = event(htok, 'state')

@@ -914,3 +914,28 @@ test('Kartenformat: breiter Bildschirm gibt eine breitere Karte', () => {
   g.join('B', 'blau'); g.act(0, { type: 'start' });
   throws(() => g.act(0, { type: 'set_settings', settings: { aspect: 1 } }), /Spielfeld/);
 });
+
+test('Goldfluss-Einstellungen: Startinsel, Erstsiedlung, Ertragsgrenze', () => {
+  // Gold auf der Startinsel abschaltbar
+  for (const variant of ['klassisch', 'archipel']) {
+    for (let seed = 1; seed <= 10; seed++) {
+      const g = lobby(3, seed); g.act(0, { type: 'set_settings', settings: { variant, goldHome: false } }); g.act(0, { type: 'start' });
+      for (const k of g.S.home) assert.notEqual(g.S.hexes[k].t, 'gold', `${variant}/${seed}: Gold auf der Startinsel trotz „Nein“`);
+    }
+  }
+  // Erstsiedlung am Goldfluss nur mit Freigabe
+  const g = lobby(3, 4); g.act(0, { type: 'start' });
+  const S = g.S, h = S.home[0]; S.hexes[h] = { t: 'gold', n: 4 };
+  const near = G.hexCorners(h)[0];
+  assert(!g.settlementSpots(0).includes(near), 'Standard: kein Anfangsplatz am Gold');
+  S.settings.goldStart = true;
+  assert(g.settlementSpots(0).includes(near), 'mit Freigabe: Anfangsplatz am Gold');
+  // Ertragsgrenze: höchstens goldMax freie Wahlen je Spieler und Wurf
+  const m = mainBoard(3); const M = m.S;
+  M.hexes['0,0'] = { t: 'gold', n: 4 };
+  for (const v of G.hexCorners('0,0').slice(0, 3)) M.verts[v] = { p: 1, k: 'c' };
+  m.produce(4); assert.equal(M.pend.gold[1], 6, 'ohne Grenze 3 Städte = 6');
+  M.pend.gold = {}; M.settings.goldMax = 2; m.produce(4); assert.equal(M.pend.gold[1], 2, 'Grenze 2');
+  throws(() => ST.merge(ST.defaults(), { goldMax: 7 }), /Ertrag/);
+  throws(() => ST.merge(ST.defaults(), { goldHome: 'ja' }), /Goldfluss/);
+});

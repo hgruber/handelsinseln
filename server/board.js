@@ -169,12 +169,14 @@ function generateOnce(S, nPlayers, rnd, settings) {
   const desertArr = shuffle([...L.desertIn], rnd);
   const desert = desertArr[0];
   const homeCount = home.size;
-  let goldLeft = variant === 'klassisch' && L.mainCount >= 22 ? 1 : 0;
+  const goldHome = !settings || settings.goldHome !== false;
+  let goldLeft = goldHome && variant === 'klassisch' && L.mainCount >= 22 ? 1 : 0;
   islands.forEach((isl) => {
     const isHome = [...isl].every((k) => home.has(k));
     for (const k of shuffle([...isl], rnd)) {
       if (k === desert) types[k] = 'wueste';
       else if (isHome && goldLeft > 0 && homeCount > 0) { types[k] = 'gold'; goldLeft--; }
+      else if (!goldHome && home.has(k)) types[k] = drawTerrain(S, rnd); // Startinsel ohne Goldfluss
       else if (variant === 'archipel' && rnd() < 0.10) types[k] = 'gold';
       else if (!isHome) types[k] = rnd() < 0.15 ? 'gold' : drawTerrain(S, rnd);
       else types[k] = drawTerrain(S, rnd);
@@ -233,9 +235,9 @@ function cornerInfo(S, v) {
 
 // Simuliert den Aufbau (Schlangenreihenfolge 1..n, n..1, jeder nimmt gierig die beste freie Ecke mit Blick auf neue Rohstoffe)
 // und liefert eine Unausgewogenheit: je kleiner, desto fairer. Spielerzahl n, Heimatfelder S.home.
-function startImbalance(S, n, variant, islands) {
+function startImbalance(S, n, variant, islands, goldStart) {
   const verts = new Map();
-  for (const h of S.home) for (const v of G.hexCorners(h)) if (!verts.has(v) && !touchesGold(S, v)) { const c = cornerInfo(S, v); if (c.pips > 0) verts.set(v, c); }
+  for (const h of S.home) for (const v of G.hexCorners(h)) if (!verts.has(v) && (goldStart || !touchesGold(S, v))) { const c = cornerInfo(S, v); if (c.pips > 0) verts.set(v, c); }
   const taken = new Set(), blocked = new Set();
   const have = Array.from({ length: n }, () => new Set()), total = new Array(n).fill(0);
   const order = [...Array(n).keys(), ...[...Array(n).keys()].reverse()];
@@ -272,7 +274,7 @@ function generate(S, nPlayers, rnd, settings) {
     generateOnce(S, nPlayers, rnd, settings);
     const hs = new Set(S.home);
     const islands = Object.keys(S.hexes).length ? homeIslands(S, hs) : [];
-    const cost = startImbalance(S, nPlayers, variant, islands);
+    const cost = startImbalance(S, nPlayers, variant, islands, !!(settings && settings.goldStart));
     if (cost < bestCost) { bestCost = cost; best = {}; for (const f of BOARD_FIELDS) best[f] = JSON.parse(JSON.stringify(S[f] === undefined ? null : S[f])); }
     if (cost <= (variant === 'inseln' ? 3.5 : 2)) break; // gut genug
   }

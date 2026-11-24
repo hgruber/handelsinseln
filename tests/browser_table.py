@@ -98,10 +98,14 @@ try:
                     except Exception: pass
             pg.wait_for_timeout(350)
             if os.environ.get('TABLE_DEBUG') and time.time() - t0 < 12: print('  dbg', pg.locator('#board [data-t]').count(), pg.locator('#toasts .toast').all_inner_texts(), pg.locator('#banner').inner_text()[:60])
-            if os.environ.get('TABLE_DEBUG') and time.time() - t0 > 12: break
+            if os.environ.get('TABLE_DEBUG') and time.time() - t0 > 12: pg.screenshot(path=f'{SHOTS}/dbg.png'); break
         check(pg.evaluate("document.body.dataset.screen") == 'main', 'Aufbau über den Tisch abgeschlossen (Hauptspiel läuft)')
         check(len([s for s in seen if s]) >= 3, f'Fokus wandert zwischen den Spielern ({sorted(s for s in seen if s)})')
         pg.screenshot(path=f'{SHOTS}/tisch-hauptspiel.png')
+        pg.wait_for_timeout(900)
+        cs = pg.evaluate("document.body.dataset.cseat"); want = {'b': 0, 't': 180, 'l': 90, 'r': -90}[cs[0]]
+        got = pg.evaluate("(() => { const c = document.querySelector('#world .hex .chip'); const w = c.getScreenCTM(); return Math.round(Math.atan2(w.b, w.a) * 180 / Math.PI); })()")
+        check((got - want) % 360 in (0, 359, 1), f'Zahlenchips zeigen in die Blickrichtung des Tischspielers (Platz {cs}: {want}°, gemessen {got}°)')
 
         # Zoom springt zurück
         k0 = pg.evaluate("document.getElementById('world').getAttribute('transform')")

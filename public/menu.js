@@ -107,15 +107,15 @@
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
     if (v.watch) { // Zuschauer: kein Sprachchat, kein Chat, keine Spielleiter-Funktionen
       pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') + item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') + item('fit', I.fit, 'Brett zentrieren') + item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' + item('leave', I.exit, 'Zuschauen beenden', 'danger');
-    } else pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') +
+    } else pop.innerHTML = (handed ? item('leave', I.exit, 'Kontrolle an den Spieltisch', 'danger') + '<hr>' : '') + item('settings', I.info, 'Einstellungen ansehen') +
       item('voice', I.mic, joined ? 'Sprachchat verlassen' : 'Sprachchat beitreten') +
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
       (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') +
-      (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karten-Ansicht (mit Spielfeld)' : 'Controller-Ansicht') : '') +
+      (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karte anzeigen' : 'Nur Karten &amp; Aktionen') : '') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
-      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + (handed ? item('leave', I.exit, 'Kontrolle an den Spieltisch', 'danger') : item('leave', I.exit, 'Spiel verlassen', 'danger'));
+      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + (handed ? '' : item('leave', I.exit, 'Spiel verlassen', 'danger'));
     document.body.appendChild(pop);
     const r = $('btnMenu').getBoundingClientRect();
     const below = r.bottom + 8, ph = pop.offsetHeight; // am Tisch sitzt der Knopf unten: dann nach oben öffnen
