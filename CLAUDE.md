@@ -42,7 +42,7 @@ Linter: `npm run lint` (ESLint, nur Fehlerklassen wie undefinierte/ungenutzte Na
 
 Client (`public/`, klassische Skripte ohne Module, über `window` verbunden): `app.js` ist der Kern (Zustand, SSE, SVG-Brett mit Diff-Rendering, HUD); `lobby.js`, `table.js` (Digitaler Spieltisch/Zuschauer-Anzeige, Sicht aller Spieler über SSE-Event `table`), `trade.js`, `menu.js`, `voice.js` (WebRTC), `fx.js` (Kartenanimation), `art.js` (Grafikbezeichner), `sw.js` (Service Worker/PWA). Die Modi Spieler / Tischspieler / Zuschauer / Controller-Ansicht teilen sich dieselbe View; Verhalten hängt am Server-gelieferten Zustand.
 
-Spielfeld-Bezeichner: Ressourcen `holz lehm wolle getreide erz`; Gelände `wald huegel weide acker gebirge wueste gold meer`; Entwicklungskarten `ritter siegpunkt strassenbau erfindung monopol`; Spieler-ID `pid` = Index in `players`.
+Spielkonstanten (Rohstoffe `holz lehm wolle getreide erz`, Gelände, Wertechips, Farben, Entwicklungskarten, Baukosten) stehen einmal in `shared/rules.js` – Server per `require`, Browser als `window.Rules` (in `index.html` vor den übrigen Skripten). Nicht erneut kopieren. Spieler-ID `pid` = Index in `players`.
 
 ## Tests
 

@@ -6,7 +6,7 @@
 // Ist der Spieler am Zug, rutscht sein Namensfeld links neben den geheimen Bereich. Alle Plätze sind zur Sitzposition gedreht.
 (function (root) {
   'use strict';
-  const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+  const { RES } = window.Rules;
   const EDGE = { b: 'b', bl: 'b', br: 'b', t: 't', tl: 't', tr: 't', l: 'l', r: 'r' };
   const $ = (id) => document.getElementById(id);
   let C = null, on = false, seatsEl = null, msgEl = null, key = '', seenLog = null;

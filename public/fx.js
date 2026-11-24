@@ -4,7 +4,7 @@
 // Abwerfen anderer) als Kartenrücken. Jede Karte startet leicht versetzt, damit man sieht, wer was bekommt.
 (function (root) {
   'use strict';
-  const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+  const { RES } = window.Rules;
   let C = null, seen = null, layer = null;
   const reduced = () => root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const center = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });

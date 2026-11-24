@@ -1,6 +1,6 @@
 'use strict';
 // Autopilot (nur Pflichten, für abwesende Spieler) und Testspieler (baut, handelt, spielt Karten).
-const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+const { RES } = require('../shared/rules');
 const pick = (a, rnd) => a[Math.floor(rnd() * a.length)];
 const total = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 

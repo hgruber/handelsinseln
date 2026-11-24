@@ -6,16 +6,10 @@ const B = require('./board');
 const ST = require('./settings');
 const AV = require('../shared/avatars');
 
-const RES = B.RES;
-const COLORS = ['rot', 'blau', 'orange', 'weiss', 'gruen', 'violett'];
+const { RES, COLORS, COST } = require('../shared/rules');
 const RES_DE = { holz: 'Holz', lehm: 'Lehm', wolle: 'Wolle', getreide: 'Getreide', erz: 'Erz' };
 const TERR_DE = { wald: 'Wald', huegel: 'Hügel', weide: 'Weide', acker: 'Acker', gebirge: 'Gebirge', wueste: 'Wüste', gold: 'Goldfeld', meer: 'Meer' };
 const DEV_DE = { ritter: 'Ritter', siegpunkt: 'Siegpunkt', strassenbau: 'Straßenbau', erfindung: 'Erfindung', monopol: 'Monopol' };
-const COST = {
-  road: { lehm: 1, holz: 1 }, ship: { wolle: 1, holz: 1 },
-  settlement: { lehm: 1, holz: 1, wolle: 1, getreide: 1 },
-  city: { getreide: 2, erz: 3 }, dev: { erz: 1, wolle: 1, getreide: 1 },
-};
 const MIN_P = 2, MAX_P = 6;
 // Digitaler Spieltisch: Plätze am Rand (b/t = unten/oben Mitte, l/r = links/rechts Mitte, Ecken: bl, br, tl, tr) und ihre Reihenfolge im Uhrzeigersinn
 // Spieltisch: acht Plätze – an den langen Bildschirmseiten (unten/oben) je drei, an den kurzen (links/rechts) einer – und ihre Reihenfolge im Uhrzeigersinn.

@@ -2,8 +2,7 @@
 // Kartengenerierung: zufällige Startinseln + unbegrenzt nachwachsende, entdeckbare Felder.
 const G = require('../shared/geom');
 
-const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
-const TERRAIN_RES = { wald: 'holz', huegel: 'lehm', weide: 'wolle', acker: 'getreide', gebirge: 'erz' };
+const { RES, TERRAIN_RES } = require('../shared/rules');
 const LAND_BAG = ['wald', 'wald', 'wald', 'wald', 'weide', 'weide', 'weide', 'weide', 'acker', 'acker', 'acker', 'acker',
   'huegel', 'huegel', 'huegel', 'gebirge', 'gebirge', 'gebirge'];
 const NUM_BAG = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];

@@ -2,12 +2,8 @@
 (function () {
   'use strict';
   const { Geom, Art } = window;
-  const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+  const { RES, COST } = window.Rules;
   const RN = Art.RES_NAMES;
-  const COST = {
-    road: { lehm: 1, holz: 1 }, ship: { wolle: 1, holz: 1 }, settlement: { lehm: 1, holz: 1, wolle: 1, getreide: 1 },
-    city: { erz: 3, getreide: 2 }, dev: { erz: 1, wolle: 1, getreide: 1 },
-  };
   const BUILD_LABEL = { road: 'Straße', ship: 'Schiff', settlement: 'Siedlung', city: 'Stadt', dev: 'Entwicklungskarte' };
   const DEV_HELP = {
     ritter: 'Ritter: Räuber versetzen und eine Karte stehlen. 3 gespielte Ritter = Stärkste Schutzmacht (2 Punkte).',

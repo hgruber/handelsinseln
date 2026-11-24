@@ -2,7 +2,7 @@
 // Haengt sich in #tradeDock ein; alle Daten kommen aus der aktuellen View.
 (function (root) {
   'use strict';
-  const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+  const { RES } = window.Rules;
   let C = null; // Kontext aus app.js: {root, view(), act(), toast(), esc(), Art, avatar(pid,size), pname(pid)}
   const S = { open: false, collapsed: false, give: {}, want: {}, cg: {}, cw: {}, counterOpen: false, tradeId: null, html: '', busy: false };
 

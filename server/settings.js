@@ -1,8 +1,8 @@
 'use strict';
 // Spieleinstellungen: Standardwerte (= bisheriges Verhalten) und Validierung von Teiländerungen.
-const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
-const TERRAINS = ['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer'];
-const CHIPS = ['2', '3', '4', '5', '6', '8', '9', '10', '11', '12']; // (7 gibt es nicht)
+const R = require('../shared/rules');
+const RES = R.RES, TERRAINS = R.TERRAINS;
+const CHIPS = R.CHIPS.map(String); // Schlüssel in den Einstellungen
 const VARIANTS = ['klassisch', 'nebel', 'inseln', 'archipel'];
 
 const nullMap = (keys) => Object.fromEntries(keys.map((k) => [k, null]));

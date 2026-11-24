@@ -5,12 +5,7 @@
 const G = require('../shared/geom');
 const B = require('./board');
 
-const RES = B.RES;
-const COST = {
-  road: { lehm: 1, holz: 1 }, ship: { wolle: 1, holz: 1 },
-  settlement: { lehm: 1, holz: 1, wolle: 1, getreide: 1 },
-  city: { getreide: 2, erz: 3 }, dev: { erz: 1, wolle: 1, getreide: 1 },
-};
+const { RES, COST } = require('../shared/rules');
 const pips = (n) => (n ? 6 - Math.abs(7 - n) : 0);
 const total = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 

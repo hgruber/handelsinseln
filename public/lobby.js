@@ -2,9 +2,7 @@
 // Kontext von app.js: {view(), act(), post(), toast(), esc(), Art, avatar(pid,size), colorOf(pid), setHTML(el,html), joined(j), mock}
 (function (root) {
   'use strict';
-  const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
-  const TER = ['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer'];
-  const CHIPS = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12]; // es gibt keinen Wertechip 7
+  const { RES, TERRAINS: TER, CHIPS } = window.Rules;
   let C = null;
   const $ = (id) => document.getElementById(id);
   const VARIANTS = [

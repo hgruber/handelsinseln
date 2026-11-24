@@ -4,7 +4,7 @@
   'use strict';
   let C = null;
   const $ = (id) => document.getElementById(id);
-  const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
+  const { RES } = window.Rules;
 
   // ======================================================================================
   // Dialoge (eigener Container #dlgRoot, unabhaengig von den Spiel-Modalen)
