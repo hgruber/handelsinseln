@@ -101,7 +101,11 @@
       gear: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       ctl: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="7" y="2.5" width="10" height="19" rx="2.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5,18.5 H13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
+      rotL: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M5,12 A7,7 0 1 0 8,6.2 M8,2.5 V6.5 H4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      rotR: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M19,12 A7,7 0 1 1 16,6.2 M16,2.5 V6.5 H20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     };
+    // Handy: die Dreh-Pfeile liegen im Menü statt neben dem Hinweis oben (dort fehlt der Platz)
+    const rot = matchMedia('(max-width: 900px), (max-height: 520px)').matches ? item('rotL', I.rotL, 'Karte links drehen') + item('rotR', I.rotR, 'Karte rechts drehen') : '';
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
     if (v.watch) { // Zuschauer: kein Sprachchat, kein Chat, keine Spielleiter-Funktionen
       pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') + item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') + item('fit', I.fit, 'Brett zentrieren') + item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' + item('leave', I.exit, 'Zuschauen beenden', 'danger');
@@ -110,7 +114,7 @@
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
       (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
-      item('fit', I.fit, 'Brett zentrieren') +
+      item('fit', I.fit, 'Brett zentrieren') + (C.ctl() ? '' : rot) +
       (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karte anzeigen' : 'Nur Karten &amp; Aktionen') : '') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
       (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + (handed ? '' : item('leave', I.exit, 'Spiel verlassen', 'danger'));
@@ -123,6 +127,7 @@
     const f = pop.querySelector('button'); if (f) f.focus();
   }
   async function onMenuItem(id) {
+    if (id === 'rotL' || id === 'rotR') { C.rotate(id === 'rotL' ? -60 : 60); return; } // Menü bleibt offen: mehrmals drehen
     closeMenu();
     if (id === 'settings') showSettings();
     else if (id === 'voice') { root.Voice.isJoined() ? root.Voice.leave(false) : root.Voice.join(); }

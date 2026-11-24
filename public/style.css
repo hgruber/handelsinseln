@@ -78,6 +78,9 @@ body.moving .hex .chip { transition: none; }
 .th:hover .hexo { fill: rgba(255, 140, 100, .42); stroke-width: 6; }
 .th.pirate:hover .hexo { fill: rgba(140, 200, 255, .45); }
 @keyframes hexp { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+/* Touch: angetipptes Ziel, das auf Bestätigung wartet */
+.tgt.pend .halo, .tgt.pend .bar, .tgt.pend .hexo { animation: none; opacity: 1; fill: rgba(255, 255, 255, .7); stroke: #fff; stroke-width: 4; }
+.tgt.pend .core { fill: #fff; r: 12; }
 .tsf .ringo { fill: rgba(160, 230, 255, .12); stroke: #9fe3ff; stroke-width: 3; stroke-dasharray: 7 6; animation: barp 1.6s ease-in-out infinite; }
 .tsf.sel .ringo { stroke: #fff; stroke-dasharray: none; fill: rgba(160, 230, 255, .3); }
 .tsf:hover .ringo { fill: rgba(160, 230, 255, .35); }
@@ -177,6 +180,7 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .side-open #sideToggle { right: 396px; }
 #tradeDock { display: flex; flex-direction: column; gap: 10px; max-height: 70%; overflow: auto; scrollbar-width: thin; }
 #tradeDock:empty { display: none; }
+#tradeDock > * { flex: none; } /* Panels behalten ihre Höhe, das Dock scrollt (Safari ließ sie sonst schrumpfen und schnitt sie ab) */
 #logPanel { flex: 1; min-height: 120px; display: flex; flex-direction: column; overflow: hidden; }
 #logPanel header { display: flex; border-bottom: 1px solid var(--line); }
 .tabbtn { flex: 1; background: none; border: 0; padding: 10px; font: 700 13px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid transparent; position: relative; }
@@ -373,13 +377,14 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 @media (max-width: 900px), (max-height: 520px) {
   :root { --bh: 146px; --sw: min(340px, calc(100vw - 64px)); }
   #camBtns, .side-open #camBtns { top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); }
+  #btnRotL, #btnRotR { display: none; } /* Drehen über das Menü, damit Hinweis und Würfel die Pfeile nicht verdecken */
   .ibtn { width: 38px; height: 38px; border-radius: 11px; }
   #banner, .side-open #banner { top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); right: calc(54px + env(safe-area-inset-right)); justify-content: flex-start; }
   .bn { font-size: 13.5px; padding: 5px 12px 5px 6px; gap: 8px; border-radius: 20px; min-height: 38px; }
   .bn .av { --sz: 26px !important; }
   .bn .btn.small { padding: 3px 8px; font-size: 12px; }
 
-  #players { top: calc(54px + env(safe-area-inset-top)); left: calc(4px + env(safe-area-inset-left)); width: auto; max-width: calc(100vw - 8px); padding: 4px; gap: 6px; overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - var(--bh) - 70px); pointer-events: none; }
+  #players { top: calc(54px + env(safe-area-inset-top)); left: calc(4px + env(safe-area-inset-left)); width: auto; max-width: calc(100vw - 8px); padding: 4px; gap: 6px; overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - var(--bh) - 70px); max-height: calc(100dvh - var(--bh) - 70px - env(safe-area-inset-bottom)); pointer-events: none; }
   #players > * { pointer-events: auto; }
   .pc { padding: 2px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--pc); gap: 0; cursor: pointer; flex: none; box-shadow: 0 3px 8px rgba(0, 0, 0, .5); }
   .pc .av { --sz: 32px !important; border-width: 1px; }
@@ -390,19 +395,22 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
   .pc.open .vp { display: grid; }
   .pc.open .info { display: block; }
 
-  #side { top: calc(54px + env(safe-area-inset-top)); bottom: calc(var(--bh) + 14px); right: 8px; width: var(--sw); }
+  /* unten: Leiste samt Punkte-Lasche und (iPhone) Home-Balken frei lassen, sonst schiebt sich die Leiste über den Handel */
+  #side { top: calc(54px + env(safe-area-inset-top)); bottom: calc(var(--bh) + 48px + env(safe-area-inset-bottom)); right: 8px; width: var(--sw); }
   #sideToggle { width: 26px; height: 64px; top: 56%; }
-  #side:has(#tradeDock:not(:empty)) #logPanel { display: none; } #tradeDock { max-height: 100%; }
+  #side:has(#tradeDock:not(:empty)) #logPanel { display: none; } #tradeDock { max-height: none; flex: 0 1 auto; min-height: 0; }
   .side-open #sideToggle { right: calc(var(--sw) + 8px); }
 
   #bottom { left: 6px; right: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); min-height: 0; padding: 6px 8px; gap: 4px 8px; border-radius: 16px;
     grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "hand dice" "build build"; align-items: center; }
-  #hand { grid-area: hand; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 6px 18px 4px 2px; scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent); -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x; }
-  #hand::-webkit-scrollbar, #build::-webkit-scrollbar { display: none; }
-  #resRow { gap: 5px; }
-  #devRow { flex: none; overflow: visible; padding: 0; gap: 5px; }
+  /* Rohstoffe immer ganz sichtbar (kein Wischen); nur die Entwicklungskarten daneben sind ein eigener Wischstreifen */
+  #hand { grid-area: hand; gap: 6px; overflow: visible; padding: 6px 0 4px 2px; }
+  #hand::-webkit-scrollbar, #build::-webkit-scrollbar, #devRow::-webkit-scrollbar { display: none; }
+  #resRow { gap: 4px; position: relative; }
+  #resRow .handwarn { position: absolute; right: -4px; top: -15px; z-index: 2; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 8px; background: rgba(14, 26, 48, .92); opacity: 1; }
+  #devRow { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; margin: -6px 0 -4px; padding: 6px 16px 4px 0; gap: 5px; scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent); -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x; }
   #devRow > .muted { display: none; }
-  .rcard { width: 38px; height: 56px; }
+  .rcard { width: 36px; height: 56px; }
   .rcard .face { padding-bottom: 10px; border-width: 1px; border-radius: 8px; }
   .rcard .face svg { width: 26px; height: 26px; } .rcard .rn { display: none; }
   .rcard .cnt { min-width: 20px; height: 20px; font-size: 13px; right: -5px; bottom: -5px; border-width: 1px; border-radius: 10px; }

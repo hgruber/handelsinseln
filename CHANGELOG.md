@@ -4,6 +4,16 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Handy, Karte drehen:** Die Pfeile ↺/↻ liegen im Hamburger-Menü („Karte links/rechts drehen“, das Menü bleibt zum mehrfachen Drehen offen); oben verdeckten Hinweis und Würfel sie. Freies Drehen mit zwei Fingern gibt es nur noch am Spieltisch.
+- **Handy/Tablet, Bestätigung auf der Karte:** Bei Bedienung per Finger führt ein Tipp auf ein Ziel (Bauen, Aufbau, Räuber/Pirat, Schiff versetzen, Übernahme) nicht mehr sofort aus; das Ziel wird markiert und erst „Siedlung bauen“, „Räuber hierher“ usw. bestätigt. Am Spieltisch und mit der Maus bleibt es beim direkten Klick.
+- **Handy, kein automatisches Zentrieren:** Die Karte springt beim Aufdecken neuer Felder und beim Öffnen des Protokolls nicht mehr von selbst in die Mitte; zentriert wird per Doppeltipp oder „Brett zentrieren“ im Menü.
+
+### Behoben
+- **iPhone, Handelsfenster:** Es wurde abgeschnitten und von der unteren Leiste überdeckt (der Home-Balken schiebt die Leiste höher, das wurde nicht eingerechnet), und die Panels schrumpften in Safari, statt zu scrollen. Das Handelsfenster endet jetzt über der Leiste und scrollt, wie unter Android.
+- **Handy, Rohstoffe:** Die Kartenleiste unten musste auf schmalen Handys (iPhone, 375–390 px) gewischt werden, um alle Rohstoffe zu sehen. Die fünf Rohstoffe stehen jetzt immer vollständig da, die Handlimit-Warnung als kleines Etikett darüber; nur die Entwicklungskarten daneben lassen sich wischen.
+- **iPhone, Würfel:** Safari stellte die 3D-Würfel der unteren Leiste an falscher Stelle dar. Auf dem Handy zeigen sie nach dem Wurf jetzt eine flache Seite (wie am Spieltisch).
+
 ## [1.7.0] - 2026-11-24
 
 ### Geändert

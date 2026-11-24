@@ -18,6 +18,7 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const compactMQ = matchMedia('(max-width: 900px), (max-height: 520px)'); // Handy/kleines Tablet: kompaktes HUD (siehe style.css)
   const compact = () => compactMQ.matches;
+  const touchMQ = matchMedia('(pointer: coarse)'); // Bedienung per Finger: Kartenaktionen erst nach Bestätigung
   const S = 100;
 
   const st = {
@@ -472,7 +473,7 @@
       const first = st.firstBoard;
       nk.forEach((k) => st.known.add(k));
       if (first) fit(true);
-      else if (!nk.every((k) => inView(hpos(k)))) fit(false);
+      else if (!compact() && !nk.every((k) => inView(hpos(k)))) fit(false); // Handy: kein automatisches Zentrieren (Doppeltipp oder Menü)
     }
     if (st.firstBoard) { st.firstBoard = false; document.body.dataset.phase = 'ready'; }
   }
@@ -554,19 +555,26 @@
       } else if (t === 'h') j = await act(kind === 'robber' ? 'move_robber' : 'move_pirate', { hex: k });
       if (j && !j.error) { st.mode = null; st.moveFrom = null; renderHUD(V()); renderTargets(V()); }
     };
+    // Touch (Handy/Tablet, nicht am Spieltisch): ein Fehltipp auf der Karte wäre teuer, darum erst nachfragen
+    if (touchMQ.matches && !st.tableOn) { chooser(ev, k, kinds, send, step); return; }
     if (kinds[0] === 'takeover') { await send('takeover'); return; }
     if (kinds.length > 1) { chooser(ev, k, kinds, send); return; }
     await send(kinds[0]);
   }
-  function chooser(ev, k, kinds, send) {
+  const CONFIRM_LABEL = { settlement: 'Siedlung bauen', city: 'Stadt bauen', road: 'Straße bauen', ship: 'Schiff bauen', robber: 'Räuber hierher', pirate: 'Pirat hierher', moveto: 'Schiff hierher', takeover: 'Übernehmen' };
+  function chooser(ev, k, kinds, send, step) {
     closeChooser();
     const d = document.createElement('div'); d.className = 'chooser glass'; d.id = 'chooser';
-    d.innerHTML = kinds.map((x) => `<button type="button" class="btn small" data-kind="${x}">${x === 'road' ? 'Straße' : 'Schiff'}</button>`).join('');
-    d.style.left = Math.min(innerWidth - 190, ev.clientX + 8) + 'px'; d.style.top = Math.min(innerHeight - 70, ev.clientY + 8) + 'px';
+    const lbl = (x) => step == null ? (x === 'road' ? 'Straße' : 'Schiff') : step.startsWith('setup') ? CONFIRM_LABEL[x].replace('bauen', 'setzen') : CONFIRM_LABEL[x];
+    d.innerHTML = kinds.map((x) => `<button type="button" class="btn small${step == null ? '' : ' gold'}" data-kind="${x}">${lbl(x)}</button>`).join('') +
+      (step == null ? '' : '<button type="button" class="btn small ghostb" data-cancel>Abbrechen</button>');
+    if (step != null) d.addEventListener('click', (e) => { if (e.target.closest('[data-cancel]')) closeChooser(); });
     d.addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) { closeChooser(); send(b.dataset.kind); } });
     document.body.appendChild(d);
+    d.style.left = Math.max(8, Math.min(innerWidth - d.offsetWidth - 8, ev.clientX + 8)) + 'px'; d.style.top = Math.max(8, Math.min(innerHeight - d.offsetHeight - 8, ev.clientY + 8)) + 'px';
+    const tg = step != null && ev.target.closest && ev.target.closest('.tgt'); if (tg) tg.classList.add('pend'); // vorgemerktes Ziel hervorheben
   }
-  const closeChooser = () => { const c = $('chooser'); if (c) c.remove(); };
+  const closeChooser = () => { const c = $('chooser'); if (c) c.remove(); document.querySelectorAll('#board .tgt.pend').forEach((g) => g.classList.remove('pend')); };
 
   // ---- Zahlen-Hover / Pulsieren -------------------------------------------------------------------
   function hlNumber(n, on) {
@@ -672,7 +680,7 @@
     if (pinch && ptrs.size === 2) {
       const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
       const f = (pinch.k * d / pinch.d) / tgt.k; if (isFinite(f) && f > 0) zoomAt(f, (a.x + b.x) / 2, (a.y + b.y) / 2);
-      let da = Math.atan2(b.y - a.y, b.x - a.x) / RAD - pinch.ang; da = ((da + 540) % 360) - 180; if (Math.abs(da) > 4 || pinch.turned) { pinch.turned = true; rotateTo(pinch.rot + da, true); } // zwei Finger drehen die Karte
+      let da = Math.atan2(b.y - a.y, b.x - a.x) / RAD - pinch.ang; da = ((da + 540) % 360) - 180; if (st.tableOn && (Math.abs(da) > 4 || pinch.turned)) { pinch.turned = true; rotateTo(pinch.rot + da, true); } // am Spieltisch drehen zwei Finger die Karte, sonst nur die Pfeile
       Object.assign(cam, tgt); applyCam(); return;
     }
     if (!drag) return;
@@ -1116,7 +1124,7 @@
     else if (st.openPc != null) setOpenPc(null);
   });
   compactMQ.addEventListener('change', () => { st.openPc = null; if (V() && V().phase !== 'lobby') { renderPlayers(V()); renderBuild(V()); fit(true); } });
-  $('sideToggle').addEventListener('click', () => { st.logOpen = !st.logOpen; renderHUD(V()); setTimeout(() => { if (V()) fit(false); }, 260); });
+  $('sideToggle').addEventListener('click', () => { st.logOpen = !st.logOpen; renderHUD(V()); if (!compact()) setTimeout(() => { if (V()) fit(false); }, 260); });
   document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; renderLog(V()); const l = $(st.tab === 'log' ? 'logList' : st.tab === 'chat' ? 'chatList' : 'rulesList'); l.scrollTop = l.scrollHeight; }));
   $('chatForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const t = $('chatIn').value.trim(); if (!t) return;
@@ -1137,7 +1145,7 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
+    const ctx = { get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });

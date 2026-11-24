@@ -88,6 +88,8 @@ body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top:
 .dflat i.p { background: radial-gradient(circle at 38% 30%, #5d4e3e 0%, #1c140d 55%, #0b0704 100%); box-shadow: inset 0 -1px 2px rgba(255, 255, 255, .22), 0 1px 0 rgba(255, 255, 255, .9); }
 .dflat.one i.p { background: radial-gradient(circle at 36% 30%, #ff7a6e 0%, #d3222a 55%, #7d0c12 100%); width: 118%; }
 body.table .die.rest .cube { visibility: hidden; } body.table .die.rest .dflat { display: grid; }
+/* Handy (kompakt): ebenfalls flache Ruheseite – iOS-Safari setzt die 3D-Würfel in der unteren Leiste sonst an falsche Stellen */
+@media (max-width: 900px), (max-height: 520px) { .die.rest .cube { visibility: hidden; } .die.rest .dflat { display: grid; } }
 
 /* Platzabfrage beim Start */
 #seatAsk { position: fixed; inset: 0; display: grid; place-items: center; z-index: 18; background: rgba(3, 8, 18, .55); }
