@@ -9,9 +9,15 @@
     "dev": "DATA_DIR=/tmp/handelsinseln-dev PORT=8090 HTTPS_PORT=0 node --watch server/server.js",
     "test": "bash tests/run_all.sh",
     "test:schnell": "bash tests/run_all.sh schnell",
+    "lint": "eslint .",
     "release": "bash scripts/release.sh"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0"
   }
 }

@@ -427,7 +427,7 @@
     const wantShips = new Map(); for (const [e, d] of edges) if (d.k === 's') wantShips.set(e, d);
     const gone = [], came = [];
     for (const [k, c] of L.edge.map) if (c.sig.startsWith('s') && !wantShips.has(k)) gone.push(k);
-    for (const [k, d] of wantShips) if (!L.edge.map.has(k)) came.push(k);
+    for (const [k] of wantShips) if (!L.edge.map.has(k)) came.push(k);
     if (!st.firstBoard && gone.length && came.length) {
       for (const g of gone.slice()) {
         const gp = L.edge.map.get(g).sig.slice(1);
@@ -826,11 +826,9 @@
     const warn = tot > lim ? `<span class="handwarn" title="Du hast ${tot} Karten (Limit ${lim}). Bei einer 7 musst du die Hälfte abwerfen.">⚠ ${tot}/${lim}</span>` : '';
     setHTML($('resRow'), res + warn);
     const cards = v.me.dev.map((d) => {
-      const can = d.playable && isMe() && (v.step === 'main' || v.step === 'roll' || v.step === 'sbp');
       const why = d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
       return `<button class="dcard${d.playable ? ' play' : ''}${d.fresh ? ' fresh' : ''}${d.type === 'siegpunkt' ? ' vpc' : ''}" data-a="dev" data-type="${d.type}" data-id="${esc(d.id)}" title="${esc(Art.DEV_NAMES[d.type] + ' – ' + why)}" ${d.playable ? '' : 'aria-disabled="true"'}>` +
         `${Art.dev(d.type, 34)}<span>${Art.DEV_NAMES[d.type]}</span>${d.fresh ? '<i class="new">neu</i>' : ''}</button>`;
-      void can;
     }).join('');
     setHTML($('devRow'), cards || '<span class="muted small">Keine Entwicklungskarten</span>');
     const mine = v.players[v.you];

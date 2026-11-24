@@ -939,7 +939,7 @@ class Game {
     if (S.ts.movedShip) fail('Du hast in diesem Zug schon ein Schiff versetzt.');
     if (!mv.from.includes(from)) fail('Dieses Schiff kann nicht versetzt werden (es muss ein offenes Ende haben, darf nicht neu gebaut sein und der Pirat darf nicht daneben liegen).');
     if (!(mv.to[from] || []).includes(to)) fail('Dorthin kann das Schiff nicht fahren.');
-    const x = S.edges[from]; delete S.edges[from];
+    delete S.edges[from];
     S.edges[to] = { p: pid, k: 's', t: S.turnNo };
     S.ts.movedShip = true;
     this.log(`${this.name(pid)} versetzt ein Schiff.`, 'build', pid);
@@ -1480,7 +1480,6 @@ class Game {
   // Öffentliche Sicht für Zuschauer (und den Spieltisch als Anzeige): wie view(), aber ohne Hand, Entwicklungskarten, Chat und ohne Aktionsmöglichkeiten.
   // `you` und `host` sind -1: niemand ist „ich“, es gibt keine Spielleiter-Funktionen.
   watchView() {
-    const S = this.S;
     const v = this.view(-1);
     v.watch = true; v.host = -1; v.takeable = this.takeable();
     v.chat = [];

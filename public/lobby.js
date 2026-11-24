@@ -20,7 +20,6 @@
   // ======================================================================================
   const L = { botsOpen: false, games: [], sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
   const AVS = root.Avatars;
-  const SEAT_NAMES = { b: 'unten Mitte', bl: 'unten links', br: 'unten rechts', t: 'oben Mitte', tl: 'oben links', tr: 'oben rechts', l: 'links', r: 'rechts' };
   const joinable = () => L.games.filter((g) => g.joinable !== false);
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
   const watchable = (g) => !!g && g.joinable === false && !!g.watchable; // läuft: nur zuschauen
@@ -146,7 +145,7 @@
       const all = [...$('avatars').querySelectorAll('.avo:not(:disabled)')], i = all.indexOf(document.activeElement);
       (all[(i + k + all.length) % all.length] || all[0]).focus();
     });
-    $('gameList').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (!b) return; L.sel = L.sel === b.dataset.g ? null : b.dataset.g; L.color = L.color; renderGames(); });
+    $('gameList').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (!b) return; L.sel = L.sel === b.dataset.g ? null : b.dataset.g; renderGames(); });
     $('loginForm').addEventListener('submit', (e) => { e.preventDefault(); if ($('joinBtn').getAttribute('aria-disabled') === 'true') { C.toast($('joinBtn').title, 'warn'); return; } doJoin(false); });
     $('createBtn').addEventListener('click', () => doJoin(true));
     L.color = localStorage.getItem('handelsinseln.color') || null;
@@ -171,7 +170,6 @@
   const depOk = (o, dep) => { const [k, v] = dep.split('='); return v.split('|').includes(String(getp(o, k))); };
   const getp = (o, path) => path.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);
   const setp = (o, path, val) => { const ks = path.split('.'); let a = o; ks.slice(0, -1).forEach((k) => { a = a[k] = a[k] || {}; }); a[ks[ks.length - 1]] = val; return o; };
-  const fmtNum = (v) => (v === null ? '∞' : v === 'standard' ? 'Standard' : String(v));
 
   function schema() {
     const Art = C.Art;
@@ -215,7 +213,6 @@
       ] },
     ];
   }
-  const rowsOf = (g) => g.rows.concat(...(g.subs || []).map((s) => s.rows));
 
   function ctlHTML(r) {
     const defv = getp(DEF, r.path);

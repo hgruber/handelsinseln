@@ -55,13 +55,11 @@
     root.Lobby.mountPanel($('chgBox'));
   }
   // Tischspieler anlegen (Lobby): Name, Farbe, Avatar und Platz am Tisch
-  const SEAT_CELLS = [['tl', 'oben links'], ['t', 'oben Mitte'], ['tr', 'oben rechts'], ['l', 'links'], null, ['r', 'rechts'], ['bl', 'unten links'], ['b', 'unten Mitte'], ['br', 'unten rechts']];
   function showTablePlayer() {
     const v = C.view(), A = root.Avatars, taken = {};
     v.players.forEach((p) => { if (p.seat) taken[p.seat] = p.name; });
     const usedC = v.players.map((p) => p.color), usedA = v.players.map((p) => p.avatar);
     const colors = Object.keys(C.Art.COLORS), freeC = colors.find((c) => !usedC.includes(c));
-    const seat0 = ['b', 't', 'l', 'r', 'bl', 'br', 'tl', 'tr'].find((s) => !taken[s]);
     const av = A.HUMAN.filter((a) => !usedA.includes(a.id)), av0 = av[Math.floor(Math.random() * av.length)] || A.HUMAN[0];
     const html = '<h2>Tischspieler anlegen</h2><p class="lead small muted">Der Spieler sitzt am digitalen Spieltisch.</p>' +
       `<div class="tpform"><label class="tpl">Name<input id="tpName" maxlength="16" autocomplete="off" value="Spieler ${v.players.length + 1}" data-focus></label>` +

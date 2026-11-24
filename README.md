@@ -108,7 +108,7 @@ Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-
 
 ## Tests
 
-Die Node-Tests brauchen nur Node ≥ 20. Für die Browser-Tests (Python 3 + Playwright mit Chromium) einmalig:
+Die Node-Tests brauchen nur Node ≥ 20. Statische Prüfung: `npm install` (einmalig, nur Dev-Abhängigkeit ESLint) und `npm run lint`. Für die Browser-Tests (Python 3 + Playwright mit Chromium) einmalig:
 `pip install -r requirements.txt && python3 -m playwright install chromium`.
 Auf GitHub laufen die Tests automatisch (`.github/workflows/tests.yml`): bei jedem Push erst die schnelle Stufe, dann die volle Suite mit Browsern, nachts mit langen Spiel-Dauerläufen; bei Fehlern hängen Logs und Screenshots als Artefakt am Lauf.
 

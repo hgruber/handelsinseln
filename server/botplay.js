@@ -83,7 +83,6 @@ function botPlay(game, pid, opts = {}) {
     }
     return best;
   }
-  const isShip = (e) => L.ship.includes(e);
 
   // ---------- Pflichten ----------
   const goalInfo = () => {

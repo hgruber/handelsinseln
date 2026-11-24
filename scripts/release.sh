@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Release-Skript: ./scripts/release.sh 1.0.0 [--build] [--schnell | --skip-tests]
 #  1. prüft Versionsformat, Branch master, sauberen Arbeitsbaum und einen Eintrag unter „Unveröffentlicht“
-#  2. führt alle Tests aus (tests/run_all.sh; --schnell: nur die Node-Tests, wenn die CI den Commit schon voll geprüft hat)
+#  2. prüft mit ESLint (npm run lint) und führt alle Tests aus (tests/run_all.sh; --schnell: nur die Node-Tests, wenn die CI den Commit schon voll geprüft hat)
 #  3. setzt die Version in package.json und macht aus „Unveröffentlicht“ den Abschnitt „[X.Y.Z] - Datum“ (mit neuem leeren Block)
 #  4. committet „Release X.Y.Z“ und setzt das Tag vX.Y.Z; mit --build wird zusätzlich das Container-Image gebaut (mit APP_VERSION)
 # Gepusht wird NIE automatisch; am Ende stehen die nächsten Befehle auf dem Bildschirm.
@@ -17,6 +17,7 @@ git rev-parse "v$VER" >/dev/null 2>&1 && { echo "Tag v$VER existiert schon." >&2
 node -e '
   const t = require("fs").readFileSync("CHANGELOG.md", "utf8"), m = /## \[Unveröffentlicht\]\n([\s\S]*?)(?=\n## \[|$)/.exec(t);
   if (!m || !/^- /m.test(m[1])) { console.error("CHANGELOG.md: unter „Unveröffentlicht“ steht kein Eintrag."); process.exit(1); }'
+echo "== Lint =="; npm run -s lint || { echo "Lint-Fehler (einmalig nötig: npm install)." >&2; exit 1; }
 if [[ "$TESTS" != keine ]]; then echo "== Tests ($TESTS) =="; bash tests/run_all.sh "$TESTS"; fi
 DATE="$(date +%F)"
 VER="$VER" DATE="$DATE" node -e '

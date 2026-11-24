@@ -193,7 +193,6 @@ test('Siegpunkte, Handlimit, Bankkurs, Minima, Spielerhandel aus Einstellungen',
   g.S.dice = [3, 4];
   // direkt eine 7 simulieren
   g.S.ts.rolled = true; g.S.ts.sub = 'robber';
-  const sz = g.handSize(1);
   assert.equal(g.ratesFor(0).holz, 2);
   throws(() => g.act(0, { type: 'trade_offer', give: { holz: 1 }, want: { erz: 1 } }), /Robber|Räuber|nur der Handel|Zuerst/);
   g.S.ts.sub = null;
@@ -465,7 +464,7 @@ test('Hub: parallele Spiele, Auswahl, Farben pro Spiel, Auto-Anlage, Aufräumen'
 test('Hub: Abwesenheit → Auto-Modus nach Wartezeit; Spiel mit nur Verlassenen wird entfernt', () => {
   let now = 0;
   const hub = new Hub({ rnd: rng(4), now: () => now, graceMs: 20000, absentMs: 60000 });
-  const a = hub.join({ name: 'A', color: 'rot' }), b = hub.join({ name: 'B', color: 'blau' });
+  const a = hub.join({ name: 'A', color: 'rot' }); hub.join({ name: 'B', color: 'blau' });
   const room = hub.rooms.get(a.game);
   hub.connected(room, room.game.S.players[0]); hub.connected(room, room.game.S.players[1]);
   room.game.act(0, { type: 'start' });
@@ -576,7 +575,7 @@ test('Bots: Spielleiter setzt Bots (je Sorte einmal), feste Namen/Avatare, Regel
   assert.strictEqual(new Set(g.S.players.map((p) => p.avatar)).size, 5);
   g.join('H', COL.find((c) => !g.S.players.some((p) => p.color === c))); throws(() => g.act(0, { type: 'add_bot', kind: 'ritter' }));
   const v = g.view(0); assert.strictEqual(v.players[3].bot, 'haendler');
-  const tok = g.act(0, { type: 'kick', pid: 2 }); // Bot entfernen (Token null)
+  g.act(0, { type: 'kick', pid: 2 }); // Bot entfernen (Token null)
   assert.strictEqual(g.S.players.some((p) => p.bot === 'ritter'), false, 'Spielleiter kann Bots entfernen');
   g.act(0, { type: 'close_seats', closed: true });
   throws(() => g.act(0, { type: 'add_bot', kind: 'ritter' }), /besetzt/);

@@ -321,16 +321,6 @@
   const res = (r, size = 32) => `<img class="ri ri-${r}" src="${IMG_DIR}res-${r}.webp" width="${size}" height="${size}" alt="" draggable="false">`;
 
   // ---- Entwicklungskarten-Symbole (48x48) --------------------------------------------------------
-  function devInner(t) {
-    switch (t) {
-      case 'ritter': return `<path d="M10,8 H38 V26 Q38,38 24,44 Q10,38 10,26Z" fill="#8a97ad" stroke="#2a3342" stroke-width="2" stroke-linejoin="round"/><path d="M24,8 H38 V26 Q38,38 24,44Z" fill="#6b788f"/><path d="M24,13 V39 M14,22 H34" stroke="#f1d27a" stroke-width="3.4" stroke-linecap="round"/><path d="M13,12 H20" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/>`;
-      case 'siegpunkt': return `<path d="M24,5 L29.5,17.5 L43,19 L33,28 L36,41.5 L24,34.5 L12,41.5 L15,28 L5,19 L18.5,17.5Z" fill="#f5c542" stroke="#8a5a08" stroke-width="2" stroke-linejoin="round"/><path d="M24,5 L29.5,17.5 L24,22Z M5,19 L18.5,17.5 L20,24Z" fill="#fff" opacity=".35"/>`;
-      case 'strassenbau': return `<path d="M17,6 H31 L42,44 H6Z" fill="#59627a" stroke="#262d3d" stroke-width="2" stroke-linejoin="round"/><path d="M24,10 V16 M24,22 V30 M24,36 V43" stroke="#f1e2a0" stroke-width="3" stroke-linecap="round"/><path d="M17,6 L6,44" stroke="#fff" stroke-opacity=".3" stroke-width="2"/>`;
-      case 'erfindung': return `<path d="M24,5 a13,13 0 0 1 7,24 v5 H17 v-5 a13,13 0 0 1 7,-24Z" fill="#ffe27a" stroke="#8a6a10" stroke-width="2" stroke-linejoin="round"/><rect x="17" y="36" width="14" height="5" rx="2" fill="#8c95a8" stroke="#3a4352" stroke-width="1.4"/><path d="M19,15 a7,7 0 0 1 5,-4" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none" opacity=".8"/><path d="M6,12 l4,3 M42,12 l-4,3 M4,24 h5 M44,24 h-5" stroke="#ffe27a" stroke-width="2" stroke-linecap="round"/>`;
-      case 'monopol': return `<ellipse cx="24" cy="36" rx="16" ry="6" fill="#b07c14"/><path d="M8,30 v6 a16,6 0 0 0 32,0 v-6Z" fill="#d9a21e"/><ellipse cx="24" cy="30" rx="16" ry="6" fill="#f5c542" stroke="#8a5a08" stroke-width="1.6"/><ellipse cx="24" cy="18" rx="16" ry="6" fill="#d9a21e"/><ellipse cx="24" cy="14" rx="16" ry="6" fill="#f8d65c" stroke="#8a5a08" stroke-width="1.6"/><text x="24" y="18" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="11" fill="#8a5a08">$</text>`;
-      default: return '';
-    }
-  }
   // Entwicklungskarten-Bilder: per Forge/Flux erzeugt (public/img/dev-<typ>.webp)
   const dev = (t, size = 32) => `<img class="di" src="${IMG_DIR}dev-${t}.webp" width="${size}" height="${size}" alt="" draggable="false">`;
 

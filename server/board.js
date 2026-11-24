@@ -300,7 +300,6 @@ function tryHarbor(S, e, kind) {
   if (S.harbors[e]) return false;
   const vs = G.edgeVerts(e);
   for (const he in S.harbors) if (G.edgeVerts(he).some((v) => vs.includes(v))) return false;
-  const land = isLand(A.t) ? a : b;
   S.harbors[e] = { kind };
   return true;
 }

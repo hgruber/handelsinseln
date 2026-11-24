@@ -65,11 +65,11 @@ for (let i = 5; ships.length < 3 && i < seaEdges.length; i += 6) if (!edges[seaE
 for (let i = 9; ships.length < 5 && i < seaEdges.length; i += 8) if (!edges[seaEdges[i]]) { edges[seaEdges[i]] = { p: 1, k: 's' }; ships.push(seaEdges[i]); }
 // laengere Strasse fuer Spieler 0
 const myV = sets[0][0];
-let cur = myV, chain = 0;
+let cur = myV;
 for (let step = 0; step < 4; step++) {
   const es = incident(cur).filter((e) => !edges[e]);
   if (!es.length) break;
-  edges[es[0]] = { p: 0, k: 'r' }; cur = G.edgeVerts(es[0]).find((x) => x !== cur); chain++;
+  edges[es[0]] = { p: 0, k: 'r' }; cur = G.edgeVerts(es[0]).find((x) => x !== cur);
 }
 
 const fallbackPlayers = (you) => [
