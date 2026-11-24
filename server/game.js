@@ -1436,6 +1436,7 @@ class Game {
       default: return null;
     }
   }
+  // Sicht eines Spielers; pid = -1 (kein Spieler) ergibt die öffentliche Sicht ohne Hand, Karten und Aktionsmöglichkeiten
   view(pid) {
     const S = this.S, step = this.stepOf();
     const me = this.pl(pid);
@@ -1460,7 +1461,7 @@ class Game {
         return { e, kind: S.harbors[e].kind, land, sea: land === a ? b : a };
       }),
       verts: S.verts, edges: S.edges, robber: S.robber, pirate: S.pirate,
-      me: { hand: me.hand, dev: me.dev.map((d) => ({ id: d.id, type: d.type, playable: d.type !== 'siegpunkt' && d.bought < S.turnNo && !S.ts.devPlayed && S.phase === 'main' && !S.sbp && pid === S.turn, fresh: d.bought >= S.turnNo })), hiddenVp: this.hiddenVp(pid) },
+      me: me ? { hand: me.hand, dev: me.dev.map((d) => ({ id: d.id, type: d.type, playable: d.type !== 'siegpunkt' && d.bought < S.turnNo && !S.ts.devPlayed && S.phase === 'main' && !S.sbp && pid === S.turn, fresh: d.bought >= S.turnNo })), hiddenVp: this.hiddenVp(pid) } : { hand: {}, dev: [], hiddenVp: 0 },
       afford: { road: false, ship: false, settlement: false, city: false, dev: false },
       legal: this.legal(pid),
       rates: this.ratesFor(pid),
@@ -1470,7 +1471,7 @@ class Game {
       log: S.log, chat: S.chat, winner: S.winner, fx: this.fxFor(pid),
       bank: { dev: this.devLeft(), stock: Object.fromEntries(RES.map((r) => [r, this.stock(r) === Infinity ? UNLIMITED : this.stock(r)])) }, longestHolder: S.longest, largestHolder: S.largest, sbp: !!S.sbp,
     };
-    if (S.phase === 'main' || S.phase === 'ended') {
+    if (me && (S.phase === 'main' || S.phase === 'ended')) {
       const L = this.left(pid);
       v.afford = { road: L.road > 0 && this.canPay(pid, COST.road), ship: L.ship > 0 && this.canPay(pid, COST.ship), settlement: L.settlement > 0 && this.canPay(pid, COST.settlement), city: L.city > 0 && this.canPay(pid, COST.city), dev: this.devLeft() > 0 && this.canPay(pid, COST.dev) };
     }
@@ -1480,14 +1481,8 @@ class Game {
   // `you` und `host` sind -1: niemand ist „ich“, es gibt keine Spielleiter-Funktionen.
   watchView() {
     const S = this.S;
-    const v = this.view(S.players[S.host] ? S.host : 0); // Platzhalter für die Berechnung, alles Persönliche wird unten ersetzt
-    v.watch = true; v.host = -1; v.you = -1; v.takeable = this.takeable();
-    v.me = { hand: {}, dev: [], hiddenVp: 0 };
-    v.afford = { road: false, ship: false, settlement: false, city: false, dev: false };
-    v.legal = this.legal(-1);
-    v.rates = this.ratesFor(-1);
-    v.prompt = this.prompt(-1, this.stepOf());
-    v.fx = this.fxFor(-1);
+    const v = this.view(-1);
+    v.watch = true; v.host = -1; v.takeable = this.takeable();
     v.chat = [];
     // Plätze am Tisch: ohne feste Sitzordnung (Online-Spiele) reihum im Uhrzeigersinn verteilen
     const WS = { 2: ['b', 't'], 3: ['b', 'tl', 'tr'], 4: ['b', 'l', 't', 'r'], 5: ['b', 'l', 'tl', 'tr', 'r'], 6: ['bl', 'l', 'tl', 'tr', 'r', 'br'] };
