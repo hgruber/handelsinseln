@@ -355,11 +355,17 @@ function discover(S, k, rnd) {
   return h;
 }
 
-// Unentdeckter Rand
+// Unentdeckter Rand. Wird für jede Sicht gebraucht, ändert sich aber nur, wenn Felder dazukommen (Entdeckung) oder das
+// Brett neu entsteht (neues S.hexes-Objekt): darum je hexes-Objekt und Feldzahl zwischengespeichert (außerhalb von S).
+const FOG = new WeakMap();
 function fog(S) {
-  const out = new Set();
-  for (const k in S.hexes) for (const n of G.neighbors(k)) if (!S.hexes[n]) out.add(n);
-  return [...out];
+  const n = Object.keys(S.hexes).length, c = FOG.get(S.hexes);
+  if (c && c.n === n) return c.out;
+  const set = new Set();
+  for (const k in S.hexes) for (const nb of G.neighbors(k)) if (!S.hexes[nb]) set.add(nb);
+  const out = Object.freeze([...set]);
+  FOG.set(S.hexes, { n, out });
+  return out;
 }
 
 module.exports = { goldNums, touchesGold, RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, generateOnce, startImbalance, homeIslands, discover, fog, drawNumber, tryHarbor };
