@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.7.1] - 2026-11-24
+
 ### Geändert
 - **Handy, Karte drehen:** Die Pfeile ↺/↻ liegen im Hamburger-Menü („Karte links/rechts drehen“, das Menü bleibt zum mehrfachen Drehen offen); oben verdeckten Hinweis und Würfel sie. Freies Drehen mit zwei Fingern gibt es nur noch am Spieltisch.
 - **Handy/Tablet, Bestätigung auf der Karte:** Bei Bedienung per Finger führt ein Tipp auf ein Ziel (Bauen, Aufbau, Räuber/Pirat, Schiff versetzen, Übernahme) nicht mehr sofort aus; das Ziel wird markiert und erst „Siedlung bauen“, „Räuber hierher“ usw. bestätigt. Am Spieltisch und mit der Maus bleibt es beim direkten Klick.
