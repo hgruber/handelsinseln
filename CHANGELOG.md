@@ -6,6 +6,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ### Behoben
 - **Statistik, Siegpunkt-Verlauf:** Der Graph endete mit dem Stand zu Beginn der letzten Runde; der letzte Zug (z. B. der Siegzug) fehlte. Jetzt gibt es einen abschließenden Messpunkt „Spielende“ mit dem Endstand samt aufgedeckter Siegpunktkarten, passend zur Endwertung. Wird das Spiel fortgesetzt, entfällt er wieder.
+- **Hafenschilder:** Sie drehten sich beim Drehen der Karte mit und folgten am Spieltisch nicht der Blickrichtung des Tischspielers am Zug. Jetzt sind sie immer gleich ausgerichtet wie die Zahlenchips.
 
 ## [1.7.1] - 2026-11-24
 

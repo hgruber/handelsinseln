@@ -249,13 +249,14 @@
 
   // ---- Haefen -----------------------------------------------------------------------------------
   // Lokal: Ursprung = Kantenmitte, +x zeigt zum Meer. Gemalter Holzsteg (public/img/steg.webp, Flux) parallel zur Kante,
-  // etwas abgesetzt, ueber zwei kurze Stege mit dem Ufer verbunden; mittig traegt er das Schild (bleibt aufrecht, Gegenrotation).
+  // etwas abgesetzt, ueber zwei kurze Stege mit dem Ufer verbunden; mittig traegt er das Schild (Gegenrotation, dazu wie die
+  // Zahlenchips per --chiprot in deren Blickrichtung gedreht).
   function harbor(kind, ang) {
     const any = kind === 'any';
-    const sign = `<g transform="translate(42,0) rotate(${f(-ang)}) scale(.94)"><circle r="22" cy="3" fill="#000" opacity=".35"/>` +
+    const sign = `<g transform="translate(42,0) rotate(${f(-ang)}) scale(.94)"><g class="hsign"><circle r="22" cy="3" fill="#000" opacity=".35"/>` +
       `<circle r="21" fill="url(#signw)" stroke="#5a3a1c" stroke-width="2"/><circle r="17" fill="#f6ecd0" stroke="#b49560" stroke-width=".8"/>` +
       (any ? `<text y="3" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="14" fill="#3a2a16">3:1</text><text y="13" text-anchor="middle" font-size="6.5" fill="#6b5330" font-family="system-ui,sans-serif">ALLE</text>`
-        : `<g transform="translate(-9,-14) scale(.37)">${resInner(kind)}</g><text y="13.5" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="11" fill="#3a2a16">2:1</text>`) + `</g>`;
+        : `<g transform="translate(-9,-14) scale(.37)">${resInner(kind)}</g><text y="13.5" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="11" fill="#3a2a16">2:1</text>`) + `</g></g>`;
     const img = `<image href="${IMG_DIR}steg.webp" x="-42" y="-25" width="84" height="50" preserveAspectRatio="none"/>`;
     const stub = (y) => `<svg x="0" y="${y - 4}" width="17" height="8" viewBox="-8 -4 17 8" overflow="hidden">${img}</svg>`;
     return `<g style="filter:drop-shadow(2px 4px 3px rgba(0,0,0,.45))"><g transform="rotate(${f(ang)})">${stub(-23)}${stub(23)}` +

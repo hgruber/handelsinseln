@@ -35,6 +35,8 @@ svg { display: block; }
 .hex .chip { transform-box: fill-box; transform-origin: 29px 28px; transform: rotate(var(--chiprot, 0deg)); transition: transform .2s; cursor: pointer; }
 .hex.hl .chip { transform: rotate(var(--chiprot, 0deg)) scale(1.2); }
 body.moving .hex .chip { transition: none; }
+.hsign { transform: rotate(var(--chiprot, 0deg)); transition: transform .2s; } /* Hafenschild dreht wie die Zahlenchips (um seine Mitte = lokaler Ursprung) */
+body.moving .hsign { transition: none; }
 .hex .ring { fill: none; stroke: #ffd56a; stroke-width: 5; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .hex.hl .ring { opacity: .95; }
 .hex .flash { fill: #fff; opacity: 0; pointer-events: none; }
