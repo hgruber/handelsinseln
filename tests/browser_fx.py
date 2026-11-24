@@ -95,9 +95,12 @@ try:
         # --- Zweite Seite (wie Reconnect): bereits geschehene Kartenbewegungen werden nicht nachgespielt
         pg2 = ctx.new_page()
         pg2.add_init_script("window.__fx = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('fxc')) window.__fx.push(1); }).observe(document, { childList: true, subtree: true });")
+        max_fx = lambda: max([e['id'] for e in view(token)['fx']] or [0])
+        before = max_fx()
         pg2.goto(BASE); pg2.wait_for_selector('#board .hex', timeout=8000)
         time.sleep(0.9)
-        check(len(pg2.evaluate('window.__fx')) == 0, 'beim Verbinden werden alte Kartenbewegungen nicht nachgespielt')
+        # die Bots spielen weiter: Animationen sind nur dann ein Fehler, wenn seit dem Verbinden nichts Neues geschah
+        check(len(pg2.evaluate('window.__fx')) == 0 or max_fx() > before, 'beim Verbinden werden alte Kartenbewegungen nicht nachgespielt')
         b.close()
 finally:
     server.terminate()
