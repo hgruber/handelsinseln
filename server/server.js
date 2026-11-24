@@ -31,14 +31,26 @@ function createServer(opts = {}) {
   const hub = opts.hub || new Hub({ graceMs: opts.graceMs ?? (+process.env.GRACE_MS || undefined), absentMs: opts.absentMs ?? (+process.env.ABSENT_MS || undefined), rnd: opts.rnd });
   const clients = new Map(); // token -> Set(res)
   const rate = new Map();    // token -> {n, t} für den Signalweg
-  let saveTimer = null;
+  let saveTimer = null, saving = false, saveAgain = false;
 
+  // Spielstand asynchron schreiben (blockiert die Ereignisschleife nicht); nie zwei Schreibvorgänge gleichzeitig –
+  // kommt währenddessen eine Änderung, wird danach noch einmal geschrieben. Beim Beenden schreibt bye() synchron.
+  const writeState = async () => {
+    if (saving) { saveAgain = true; return; }
+    saving = true;
+    try {
+      const data = JSON.stringify(hub.toJSON());
+      await fs.promises.mkdir(DATA, { recursive: true });
+      await fs.promises.writeFile(STATE_FILE + '.tmp', data);
+      await fs.promises.rename(STATE_FILE + '.tmp', STATE_FILE);
+    } catch (e) { console.error('Speichern fehlgeschlagen:', e.message); }
+    saving = false;
+    if (saveAgain) { saveAgain = false; writeState(); }
+  };
   const save = () => {
     if (opts.noSave) return;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE + '.tmp', JSON.stringify(hub.toJSON())); fs.renameSync(STATE_FILE + '.tmp', STATE_FILE); } catch (e) { console.error('Speichern fehlgeschlagen:', e.message); }
-    }, 300);
+    saveTimer = setTimeout(writeState, 300);
   };
   const send = (res, ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
   // Sichten mit Zusätzen, die nicht zum Spielstand gehören: display = es ist eine Tisch-Anzeige (Zuschauer) verbunden, arm = Standortwahl am Tisch
