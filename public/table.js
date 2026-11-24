@@ -156,6 +156,15 @@
     });
   }
 
+  // Standortwahl am Tisch: wer am Handy eine Aktion freigegeben hat, steht im Hinweis seines Platzes
+  const ARM_LABEL = { settlement: 'Siedlung', city: 'Stadt', road: 'Straße', ship: 'Schiff', takeover: 'Übernahme', move: 'Schiff versetzen' };
+  const STEP_LABEL = { setup_settlement: 'Siedlung', setup_road: 'Straße oder Schiff', road_building: 'Straße oder Schiff', robber: 'Räuber oder Pirat' };
+  function armHint(v, pid) {
+    const a = v.arm;
+    if (!a || a.pid !== pid) return '';
+    return a.pick ? '✓ Ziel gewählt – wartet auf die Bestätigung am Handy' : 'Tippe auf den Tisch: ' + (ARM_LABEL[a.mode] || STEP_LABEL[a.step] || '');
+  }
+
   // Zuschauer: Handel nur zum Ansehen (Angebot und Antworten), keine Knöpfe
   function watchMenuHTML(v, pid) {
     const t = v.trade;
@@ -182,7 +191,7 @@
       s.el.classList.toggle('turn', turn);
       s.el.classList.toggle('ctl', pid === ctlSeat);
       // Aufbau: der Spieler am Zug sieht in seiner Zeile, was er tun soll (Siedlung bzw. Straße/Schiff setzen)
-      html(s.hint, pid === ctlSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
+      html(s.hint, armHint(v, pid) ? C.esc(armHint(v, pid)) : pid === ctlSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
       const bh = badgeHTML(v, p, pid);
       html(s.badgeTop, bh); html(s.badgeAbove, bh);

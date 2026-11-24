@@ -732,6 +732,51 @@ test('Zuschauer: Hub – nur laufende Spiele, Limit, getrennte Zuschauer verfall
   assert(!hub.findWatcher(w1.token), 'getrennter Zuschauer verfällt');
 });
 
+test('Controller: Aktivieren → Wählen am Tisch → Bestätigen am Handy (Aufbau und Hauptspiel)', () => {
+  const Arm = require('../server/arm');
+  const g = lobby(3, 7); g.act(0, { type: 'start' });
+  for (let i = 0; i < 50 && g.stepOf() === 'setup_order'; i++) g.act(g.S.turn, { type: 'roll' });
+  assert.equal(g.stepOf(), 'setup_settlement');
+  const room = { game: g, arm: null };
+  const pid = g.S.turn, other = (pid + 1) % 3;
+  assert.throws(() => Arm.arm(room, other), /nicht am Zug/, 'nur der Spieler am Zug kann freigeben');
+  assert.equal(Arm.viewFor(room, 'watch'), null, 'ohne Freigabe: keine Ziele');
+  Arm.arm(room, pid);
+  const wv = Arm.viewFor(room, 'watch');
+  assert(wv.targets.length > 0 && wv.pid === pid, 'Tisch bekommt die Ziele');
+  assert.equal(Arm.viewFor(room, other).targets, undefined, 'Mitspieler sehen keine Ziele');
+  assert.throws(() => Arm.pick(room, 'v', 'a|b|c', 'settlement'), /nicht wählbar/);
+  const t = wv.targets[0];
+  Arm.pick(room, t.t, t.k, 'settlement');
+  const ov = Arm.viewFor(room, pid);
+  assert.equal(ov.pick.k, t.k); assert.equal(ov.pick.label, 'Siedlung'); assert(ov.pick.where.length > 0, 'Beschreibung der Lage');
+  assert.equal(Object.keys(g.S.verts).length, 0, 'gewählt, aber noch nichts gebaut');
+  assert.throws(() => Arm.confirm(room, other), /nichts zu bestätigen/, 'Mitspieler können nicht bestätigen');
+  Arm.cancelPick(room, pid); assert.equal(Arm.viewFor(room, pid).pick, null, 'Auswahl verwerfen');
+  Arm.pick(room, t.t, t.k, 'settlement'); Arm.confirm(room, pid);
+  assert.equal(g.S.verts[t.k].p, pid, 'erst die Bestätigung baut'); assert.equal(room.arm, null);
+  assert.equal(g.stepOf(), 'setup_road');
+  Arm.arm(room, pid); const rt = Arm.viewFor(room, 'watch').targets[0];
+  Arm.pick(room, rt.t, rt.k, rt.kinds[0]); Arm.confirm(room, pid);
+  assert(g.S.edges[rt.k] && g.S.edges[rt.k].p === pid, 'Straße/Schiff gebaut');
+  // Verfall: wechselt der Schritt, ist die Freigabe weg
+  Arm.arm(room, g.S.turn); const p2 = g.S.turn; g.autoSetup(p2); assert.equal(Arm.viewFor(room, 'watch'), null, 'Freigabe verfällt mit dem Schritt');
+  // Aufbau fertig, Hauptspiel: Straße bauen nur mit Modus
+  for (let i = 0; i < 40 && g.S.phase === 'setup'; i++) g.autoSetup(g.S.turn);
+  assert.equal(g.S.phase, 'main');
+  while (g.stepOf() === 'roll') g.act(g.S.turn, { type: 'roll' });
+  while (g.stepOf() !== 'main') { const me = g.S.turn; if (g.stepOf() === 'robber') { g.act(me, { type: 'move_robber', hex: g.legal(me).robber[0] }); } else if (g.stepOf() === 'steal') g.act(me, { type: 'steal', target: g.S.ts.victims ? g.S.ts.victims[0] : 0 }); else break; }
+  assert.equal(g.stepOf(), 'main', 'Hauptspiel erreicht');
+  {
+    const me = g.S.turn; Object.assign(g.S.players[me].hand, { holz: 5, lehm: 5, wolle: 5, getreide: 5, erz: 5 });
+    assert.throws(() => Arm.arm(room, me, 'quatsch'), /Unbekannte Aktion/);
+    Arm.arm(room, me, 'road'); const T = Arm.viewFor(room, 'watch').targets;
+    assert(T.every((x) => x.t === 'e'), 'Modus Straße: nur Kanten');
+    const e = T.find((x) => x.kinds.includes('road')); Arm.pick(room, e.t, e.k, 'road'); Arm.confirm(room, me);
+    assert(g.S.edges[e.k] && g.S.edges[e.k].p === me, 'Straße im Hauptspiel gebaut');
+  }
+});
+
 test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Tisch ein/aus', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');

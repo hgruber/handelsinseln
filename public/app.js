@@ -27,6 +27,7 @@
   const st = {
     token: localStorage.getItem('handelsinseln.token') || null, view: null, mode: null, moveFrom: null, mock: null,
     es: null, logOpen: false, tab: 'log', modal: null, modalKey: '', draft: {}, draftKey: '',
+    ctlPref: localStorage.getItem('handelsinseln.ctl') === '1', ctl: false,
     openPc: null, firstBoard: true, known: new Set(), lastSeq: null, lastHand: null, chatSeen: 0, seenChat: -1, color: null,
   };
 
@@ -141,7 +142,7 @@
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
-    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; document.body.classList.remove('watch'); Table.deactivate();
+    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate();
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
@@ -185,6 +186,7 @@
   function applyView(v) {
     const old = st.view;
     st.view = v;
+    syncCtl(v);
     const mute = (x) => (x && x.watch ? Object.assign({}, x, { you: -1 }) : x); Sound.onView(mute(old), mute(v)); // Zuschauer: nie „mein Zug“
     if (!old) Fx.reset(); // neue Sitzung: bisherige Kartenbewegungen nicht nachspielen
     if (old && old.phase !== v.phase && v.phase === 'lobby') { st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lobbySig = ''; st.lastSeq = null; boardClear(); }
@@ -202,6 +204,49 @@
     if (v.phase === 'ended' && v.stats) { renderGame(v, old); Menu.renderStats(v); if (!old || old.phase !== 'ended') Voice.leave(false); return; }
     renderGame(v, old);
   }
+
+  // ---- Controller-Ansicht (Handy als Steuerung, das Spielfeld zeigt die Tisch-Anzeige) ----------------
+  // Sie gilt nur, solange im Spiel eine Tisch-Anzeige (Zuschauer) verbunden ist; die Wahl des Spielers bleibt gemerkt.
+  function syncCtl(v) {
+    const on = !!(st.ctlPref && v && !v.watch && v.display && (v.phase === 'main' || v.phase === 'setup'));
+    if (on === st.ctl) return;
+    st.ctl = on; document.body.classList.toggle('ctl', on);
+    if (on) { st.mode = null; st.moveFrom = null; } else setTimeout(() => { if (V()) fit(false); }, 80);
+  }
+  function toggleCtl() {
+    st.ctlPref = !st.ctlPref; localStorage.setItem('handelsinseln.ctl', st.ctlPref ? '1' : '0');
+    const v = V(); syncCtl(v); if (v) { renderHUD(v); renderTargets(v); }
+  }
+  const ARM_NAME = { settlement: 'Siedlung', city: 'Stadt', road: 'Straße', ship: 'Schiff', takeover: 'Übernahme', move: 'Schiff versetzen' };
+  const FORCED_NAME = { setup_settlement: 'Siedlung', setup_road: 'Straße oder Schiff', road_building: 'Straße oder Schiff', robber: 'Räuber oder Pirat' };
+  // Freigabe-Fenster: erst wenn der Spieler hier etwas aktiviert, lässt sich am Tisch ein Ziel wählen; gebaut wird erst nach seiner Bestätigung
+  function renderArm(v) {
+    const el = $('armPanel'); let html = '';
+    if (st.ctl && !v.watch) {
+      const ar = v.arm, mine = isMe();
+      if (ar && ar.pick) {
+        html = `<div class="arm confirm"><span class="aq">Bestätigen?</span><b class="al">${esc(ar.pick.label || '')}</b><span class="aw">${esc(ar.pick.where || '')}</span>` +
+          '<div class="aact"><button type="button" class="btn green big" data-arm="confirm">Ja, ausführen</button><button type="button" class="btn ghostb" data-arm="again">Anderes Ziel</button></div></div>';
+      } else if (ar) {
+        const what = ARM_NAME[ar.mode] || FORCED_NAME[ar.step] || '';
+        const second = ar.mode === 'move' && ar.moveFrom ? ' – jetzt das Ziel' : ar.mode === 'move' ? ' – erst das Schiff' : '';
+        html = `<div class="arm wait"><span class="aq">Schau auf den Spieltisch</span><b class="al">${esc(what)}${esc(second)}</b><span class="aw">Tippe dort das Ziel an – danach bestätigst du hier.</span>` +
+          '<div class="aact"><button type="button" class="btn ghostb" data-arm="cancel">Abbrechen</button></div></div>';
+      } else if (mine && FORCED_NAME[v.step] && !(v.step === 'robber' && autoRobber())) {
+        html = `<div class="arm go"><span class="aq">Du bist dran</span><b class="al">${esc(FORCED_NAME[v.step])} setzen</b><span class="aw">Die Auswahl erscheint auf dem Spieltisch.</span>` +
+          '<div class="aact"><button type="button" class="btn gold big" data-arm="start">Am Spieltisch wählen</button>' + (v.step === 'road_building' ? '<button type="button" class="btn ghostb" data-a="skip_rb">Überspringen</button>' : '') + '</div></div>';
+      }
+    }
+    el.hidden = !html; setHTML(el, html);
+  }
+  $('armPanel').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-arm]'); if (!b) return;
+    const w = b.dataset.arm;
+    if (w === 'start') await act('arm', {});
+    else if (w === 'cancel') await act('disarm');
+    else if (w === 'again') await act('cancel_pick');
+    else if (w === 'confirm') await act('confirm_pick');
+  });
 
   function renderGame(v, old) {
     holdHand(Fx.play(v), v); // Kartenanimation (Quelle → Ziel); Depotzähler erst nach der Landung hochzählen
@@ -392,6 +437,7 @@
   function computeTargets(v) {
     const T = new Map();
     const add = (t, k, kind) => { const id = t + ':' + k; const x = T.get(id) || { t, k, kinds: [] }; if (!x.kinds.includes(kind)) x.kinds.push(kind); T.set(id, x); };
+    if (v.watch) return (v.arm && v.arm.targets) || []; // Tisch-Anzeige: Ziele, die ein Spieler am Handy freigegeben hat
     if (v.turn !== v.you || !v.legal) return [];
     const Lg = v.legal;
     const step = v.step;
@@ -422,8 +468,9 @@
     const items = computeTargets(v).map((t) => {
       const d = t.t === 'e' && disc.has(t.k);
       const kinds = t.kinds.join(',');
+      const pk = !!(v.watch && v.arm && v.arm.pick && v.arm.pick.t === t.t && v.arm.pick.k === t.k); // gewählt, wartet auf die Bestätigung am Handy
       return {
-        key: t.t + ':' + t.k, sig: kinds + (d ? '|d' : ''),
+        key: t.t + ':' + t.k, sig: kinds + (d ? '|d' : '') + (pk ? '|p' : ''),
         make: () => {
           let g;
           if (t.t === 'v') { const p = vpos(t.k); g = at(el('tgt tv ' + t.kinds[0], '<circle class="halo" r="22"/><circle class="core" r="9"/><circle class="hit" r="26"/>'), p.x, p.y); }
@@ -432,6 +479,7 @@
           else if (t.t === 'h') { const p = hpos(t.k); g = at(el('tgt th ' + t.kinds[0], `<polygon class="hexo" points="${Art.hexPts(.93)}"/><circle class="dotc" r="11"/>`), p.x, p.y); }
           else { const p = epos(t.k); g = at(el('tgt tsf ' + t.kinds[0], '<circle class="ringo" r="29"/><circle class="hit" r="30"/>'), p.x, p.y); }
           g.dataset.t = t.t; g.dataset.k = t.k; g.dataset.kinds = kinds;
+          if (pk) g.classList.add('picked');
           return g;
         },
       };
@@ -446,6 +494,11 @@
   });
   async function onTarget(t, k, kinds, ev) {
     const v = V(); const step = v.step;
+    if (v.watch) { // Tisch-Anzeige: das Ziel nur vormerken – gebaut wird erst, wenn der Spieler am Handy bestätigt
+      const pickIt = async (kind) => { const j = await post('/api/pick', { token: st.token, t, k, kind }); if (j.error) toast(j.error, 'err'); };
+      if (kinds.length > 1) chooser(ev, k, kinds, pickIt); else await pickIt(kinds[0]);
+      return;
+    }
     if (t === 'sf') { st.moveFrom = st.moveFrom === k ? null : k; renderTargets(v); return; }
     const setup = step === 'setup_road';
     let j;
@@ -648,7 +701,7 @@
     hud.classList.toggle('side-open', st.logOpen || tradeHas);
     hud.classList.toggle('log-open', st.logOpen);
     $('build').hidden = v.phase === 'setup'; $('dicebox').hidden = v.phase === 'setup' && v.step !== 'setup_order';
-    renderBanner(v); renderPlayers(v); renderHand(v); renderBuild(v); renderPrimary(v); renderLog(v);
+    renderArm(v); renderBanner(v); renderPlayers(v); renderHand(v); renderBuild(v); renderPrimary(v); renderLog(v);
     Trade.render();
     renderModal(v);
     renderVoiceUI();
@@ -743,6 +796,7 @@
     if (kind !== 'dev' && v.step !== 'roll' && !(lg[kind] || []).length) return kind === 'city' ? 'Du hast keine Siedlung, die zur Stadt werden kann.' : 'Gerade gibt es keinen freien Bauplatz (Abstandsregel / Anschluss an eigene Wege nötig).';
     return '';
   }
+  const curMode = () => (st.ctl ? (V() && V().arm && V().arm.mode) || null : st.mode);
   function renderBuild(v) {
     const lg = v.legal || {};
     const html = ['road', 'ship', 'settlement', 'city', 'dev'].map((k) => {
@@ -751,10 +805,10 @@
       const plan = !why && missingOf(v.me.hand, COST[k]).length ? bankPlan(v, k) : null;
       const tip = (plan ? `Tauscht vorher automatisch mit der Bank: ${planText(plan)}. ` : '') + (why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : ''));
       const icon = k === 'dev' ? Art.dev('ritter', 38) : Art.pieceIcon(k, v.players[v.you].color, 38);
-      return `<button class="bb${st.mode === k ? ' on' : ''}${why ? ' dis' : ''}" data-a="build" data-k="${k}" ${why ? 'aria-disabled="true"' : ''} title="${esc(tip)}"><span class="ic">${icon}</span><span class="lb">${BUILD_LABEL[k] === 'Entwicklungskarte' ? (compact() ? 'Karte' : 'Entw.-Karte') : BUILD_LABEL[k]}</span><span class="cost">${costChips(k)}</span>${k === 'dev' && v.bank ? `<i class="stk" title="Karten im Stapel">${fmtLeft(v.bank.dev)}</i>` : ''}${lf != null ? `<i class="lf${lf === 0 ? ' zero' : ''}" title="Figuren übrig">${fmtLeft(lf)}</i>` : ''}</button>`;
+      return `<button class="bb${curMode() === k ? ' on' : ''}${why ? ' dis' : ''}" data-a="build" data-k="${k}" ${why ? 'aria-disabled="true"' : ''} title="${esc(tip)}"><span class="ic">${icon}</span><span class="lb">${BUILD_LABEL[k] === 'Entwicklungskarte' ? (compact() ? 'Karte' : 'Entw.-Karte') : BUILD_LABEL[k]}</span><span class="cost">${costChips(k)}</span>${k === 'dev' && v.bank ? `<i class="stk" title="Karten im Stapel">${fmtLeft(v.bank.dev)}</i>` : ''}${lf != null ? `<i class="lf${lf === 0 ? ' zero' : ''}" title="Figuren übrig">${fmtLeft(lf)}</i>` : ''}</button>`;
     }).join('') +
-      ((lg.shipFrom && lg.shipFrom.length && isMe()) ? `<button class="bb${st.moveFrom ? ' on' : ''}" data-a="move" title="Ein Schiff versetzen: klicke ein markiertes Schiff, dann das Ziel."><span class="ic">${Art.pieceIcon('ship', v.players[v.you].color, 38)}</span><span class="lb">${compact() ? 'Fahren' : 'Versetzen'}</span><span class="cost"><span class="cc">⇄</span></span></button>` : '') +
-      ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${st.mode === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
+      ((lg.shipFrom && lg.shipFrom.length && isMe()) ? `<button class="bb${(st.ctl ? curMode() === 'move' : st.moveFrom) ? ' on' : ''}" data-a="move" title="Ein Schiff versetzen: klicke ein markiertes Schiff, dann das Ziel."><span class="ic">${Art.pieceIcon('ship', v.players[v.you].color, 38)}</span><span class="lb">${compact() ? 'Fahren' : 'Versetzen'}</span><span class="cost"><span class="cc">⇄</span></span></button>` : '') +
+      ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${curMode() === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
       (() => {
         const canT = st.tableOn || (isMe() && (v.step === 'main' || v.step === 'sbp'));
         const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: nur Handel mit der Bank.' : 'Handeln: mit der Bank oder den Mitspielern') : (v.phase !== 'main' ? 'Erst nach dem Aufbau.' : v.turn !== v.you ? 'Nur im eigenen Zug.' : 'Jetzt nicht möglich.');
@@ -958,10 +1012,10 @@
       case 'end': st.mode = null; await act('end_turn'); break;
       case 'sbp_done': await act('sbp_done'); break;
       case 'skip_rb': await act('skip_roadbuilding'); break;
-      case 'takeover': st.moveFrom = null; st.mode = st.mode === 'takeover' ? null : 'takeover'; renderHUD(v); renderTargets(v); break;
-      case 'cancel': st.mode = null; st.moveFrom = null; renderHUD(v); renderTargets(v); break;
+      case 'takeover': if (st.ctl) { await act(v.arm && v.arm.mode === 'takeover' ? 'disarm' : 'arm', { mode: 'takeover' }); break; } st.moveFrom = null; st.mode = st.mode === 'takeover' ? null : 'takeover'; renderHUD(v); renderTargets(v); break;
+      case 'cancel': if (st.ctl) { await act('disarm'); break; } st.mode = null; st.moveFrom = null; renderHUD(v); renderTargets(v); break;
       case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); break;
-      case 'move': st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
+      case 'move': if (st.ctl) { await act(v.arm && v.arm.mode === 'move' ? 'disarm' : 'arm', { mode: 'move' }); break; } st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
         if (!st.tableOn && missingOf(v.me.hand, COST[k]).length) { // fehlende Rohstoffe vorher per Bank tauschen
@@ -970,6 +1024,7 @@
           if (!ok) break;
         }
         if (k === 'dev') { st.mode = null; await act('buy_dev'); break; }
+        if (st.ctl) { await act(v.arm && v.arm.mode === k ? 'disarm' : 'arm', { mode: k }); break; }
         st.moveFrom = null; st.mode = st.mode === k ? null : k;
         renderHUD(V()); renderTargets(V()); break; // V(): nach dem Tausch kann die View neuer sein
       }
@@ -1015,7 +1070,7 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
+    const ctx = { get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });

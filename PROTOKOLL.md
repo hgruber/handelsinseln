@@ -99,6 +99,12 @@ Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau
   `players[].seat` immer gesetzt: ohne feste Sitzordnung reihum verteilt). `POST /api/act` und `/api/signal` mit Zuschauer-Token → 403; `POST /api/leave` beendet das
   Zuschauen. Ein getrennter Zuschauer-Token verfällt nach 60 s; ein Zuschauer hält kein Spiel am Leben. Wird das Spiel gelöscht: Ereignis `closed`; kehrt es in die Lobby
   zurück, beendet der Client das Zuschauen.
+- **Controller-Ansicht (Standortwahl am Tisch):** Spieler-Sichten enthalten `display` (true, solange mindestens eine Tisch-Anzeige verbunden ist) und `arm`
+  (nur für den freigebenden Spieler bzw. die Tisch-Anzeige). `POST /api/act` mit `type` `arm {mode}` (`settlement|city|road|ship|takeover|move`; in Pflichtschritten
+  – Aufbau, Straßenbau, Räuber – ohne `mode`), `disarm`, `cancel_pick`, `confirm_pick` (nur der Spieler am Zug; Rechte wie bei jeder Aktion). Die Tisch-Anzeige (Zuschauer-Token) bekommt in
+  ihrer Sicht `arm:{pid,mode,moveFrom,step,targets:[{t:'v|e|h|sf',k,kinds:[…]}],pick}` und wählt mit `POST /api/pick {token,t,k,kind}` ein Ziel (Spieler-Token → 403, ohne
+  Freigabe → 400). Der Freigeber sieht `arm.pick` samt `label`/`where` zur Rückfrage; erst `confirm_pick` führt die passende Aktion aus (Fehler wie bei jeder Aktion). Die Freigabe
+  verfällt, sobald sich Phase, Schritt, Spieler am Zug oder Zugnummer ändern; sie liegt im Raum (`room.arm`), nicht im Spielstand.
 - `GET /api/config` → `{stun: null|'stun:…'}` (für WebRTC; meist null → nur lokale Kandidaten).
 - `POST /api/leave {token}` = Menüpunkt „Spiel verlassen“: In der Lobby wird der Spieler entfernt; im laufenden Spiel übernimmt für ihn
   der Auto-Modus (siehe unten) und sein Token wird ungültig (Client → Anmeldebildschirm). Das Spiel endet vollständig (wird gelöscht),

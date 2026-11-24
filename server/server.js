@@ -5,6 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const Game = require('./game');
+const Arm = require('./arm');
 const { Hub } = require('./hub');
 const selfsigned = require('./selfsigned');
 
@@ -32,24 +33,28 @@ function createServer(opts = {}) {
     }, 300);
   };
   const send = (res, ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
+  // Sichten mit Zusätzen, die nicht zum Spielstand gehören: display = es ist eine Tisch-Anzeige (Zuschauer) verbunden, arm = Standortwahl am Tisch
+  const displays = (room) => (room.watchers ? [...room.watchers.keys()].filter((t) => clients.has(t)).length : 0);
+  const pview = (room, pid) => { const v = room.game.view(pid); v.display = displays(room) > 0; v.arm = Arm.viewFor(room, pid); return v; };
+  const wview = (room) => { const v = room.game.watchView(); v.arm = Arm.viewFor(room, 'watch'); return v; };
   const broadcast = (room) => {
     if (!hub.rooms.has(room.id)) return;
     for (const p of room.game.S.players) {
       const set = p.token && clients.get(p.token);
       if (!set || !set.size) continue;
-      const v = room.game.view(p.id);
+      const v = pview(room, p.id);
       for (const res of set) send(res, 'state', v);
     }
     // Digitaler Spieltisch: die Tisch-Verbindung des Spielleiters bekommt zusätzlich die Sicht aller Spieler
     const S = room.game.S, hostTok = S.players[S.host] && S.players[S.host].token, ts = hostTok && clients.get(hostTok);
     if (ts && S.settings.table && (S.phase === 'main' || S.phase === 'setup')) {
       const tabs = [...ts].filter((r) => r.tableMode);
-      if (tabs.length) { const views = S.players.map((p) => room.game.view(p.id)); for (const res of tabs) send(res, 'table', { views }); }
+      if (tabs.length) { const views = S.players.map((p) => pview(room, p.id)); for (const res of tabs) send(res, 'table', { views }); }
     }
     // Zuschauer: nur die öffentliche Sicht
     if (room.watchers && room.watchers.size) {
       let wv = null;
-      for (const tok of room.watchers.keys()) { const set = clients.get(tok); if (!set || !set.size) continue; wv = wv || room.game.watchView(); for (const res of set) send(res, 'state', wv); }
+      for (const tok of room.watchers.keys()) { const set = clients.get(tok); if (!set || !set.size) continue; wv = wv || wview(room); for (const res of set) send(res, 'state', wv); }
     }
     save();
   };
@@ -91,12 +96,13 @@ function createServer(opts = {}) {
           clients.get(token).add(res);
           hub.watcherConnected(watcher, true);
           room.game.settle();
-          send(res, 'state', room.game.watchView());
+          send(res, 'state', wview(room));
+          broadcast(room); // die Spieler erfahren, dass eine Tisch-Anzeige da ist
           const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
           req.on('close', () => {
             clearInterval(ping);
             const set = clients.get(token);
-            if (set) { set.delete(res); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); } }
+            if (set) { set.delete(res); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); broadcast(room); } }
           });
           return;
         }
@@ -108,7 +114,7 @@ function createServer(opts = {}) {
         clients.get(token).add(res);
         hub.connected(room, player);
         room.game.settle();
-        send(res, 'state', room.game.view(player.id));
+        send(res, 'state', pview(room, player.id));
         broadcast(room);
         const ping = setInterval(() => res.write('event: ping\ndata: 1\n\n'), 20000);
         req.on('close', () => {
@@ -118,7 +124,7 @@ function createServer(opts = {}) {
         });
         return;
       }
-      if (req.method === 'POST' && ['/api/join', '/api/watch', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
+      if (req.method === 'POST' && ['/api/join', '/api/watch', '/api/pick', '/api/act', '/api/leave', '/api/signal'].includes(url.pathname)) {
         const b = await body(req);
         if (url.pathname === '/api/watch') {
           let out;
@@ -127,6 +133,13 @@ function createServer(opts = {}) {
           return json(res, 200, { token: out.token, game: out.game, watch: true });
         }
         const wf = hub.findWatcher(b.token);
+        if (url.pathname === '/api/pick') { // Tisch-Anzeige: ein Ziel antippen (gilt nur, wenn ein Spieler am Handy die Aktion freigegeben hat und dort bestätigt)
+          if (!wf) return json(res, 403, { error: 'Nur eine Tisch-Anzeige (Zuschauer) kann Ziele wählen.' });
+          const err = guarded(() => Arm.pick(wf.room, String(b.t), String(b.k), String(b.kind)));
+          if (err) return json(res, 400, { error: err.message });
+          broadcast(wf.room);
+          return json(res, 200, { ok: true });
+        }
         if (wf) { // Zuschauer dürfen nichts tun außer das Zuschauen beenden
           if (url.pathname !== '/api/leave') return json(res, 403, { error: 'Zuschauer können nicht mitspielen.' });
           hub.unwatch(wf.room, b.token); dropClients(b.token);
@@ -160,6 +173,18 @@ function createServer(opts = {}) {
           return json(res, 200, { ok: true });
         }
         const g = room.game;
+        if (['arm', 'disarm', 'cancel_pick', 'confirm_pick'].includes(b.type)) { // Controller-Ansicht: Aktion am Tisch freigeben / bestätigen
+          const me = player.id;
+          const err = guarded(() => {
+            if (b.type === 'arm') Arm.arm(room, me, b.mode);
+            else if (b.type === 'disarm') Arm.disarm(room, me);
+            else if (b.type === 'cancel_pick') Arm.cancelPick(room, me);
+            else { g.lastKicked = null; Arm.confirm(room, me); }
+          });
+          if (err) return json(res, 400, { error: err.message });
+          broadcast(room);
+          return json(res, 200, { ok: true });
+        }
         g.lastKicked = null;
         let actor = player.id;
         if (b.as !== undefined && b.as !== null && b.as !== player.id) { // Spieltisch: der Spielleiter handelt für einen Mitspieler

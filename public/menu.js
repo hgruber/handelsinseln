@@ -101,6 +101,7 @@
       exit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M10,4 H5 V20 H10 M14,8 L19,12 L14,16 M19,12 H9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       flow: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7,5 L19,12 L7,19z" fill="currentColor"/></svg>',
       gear: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      ctl: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="7" y="2.5" width="10" height="19" rx="2.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5,18.5 H13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
     };
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
@@ -112,6 +113,7 @@
       (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') +
+      (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karten-Ansicht (mit Spielfeld)' : 'Controller-Ansicht') : '') +
       item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
       (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     document.body.appendChild(pop);
@@ -131,6 +133,7 @@
     else if (id === 'help') C.help();
     else if (id === 'sound') root.Sound.toggle();
     else if (id === 'fit') C.fit();
+    else if (id === 'ctl') C.toggleCtl();
     else if (id === 'flow') { const v = C.view(); await C.act('set_settings', { settings: { dice: v.settings.dice === 'auto' ? 'manuell' : 'auto' } }); }
     else if (id === 'change') showChange();
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
