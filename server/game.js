@@ -43,13 +43,14 @@ function cleanCards(c, what) {
 }
 
 class Game {
-  constructor(opts = {}) {
+  constructor(opts = {}, state = null) {
     this.rnd = opts.rnd || Math.random;
     this.meta = opts.meta || { id: 'lokal', name: 'Spiel' };
-    this.S = null;
-    this.reset();
+    this.S = state;
+    if (!state) this.reset();
   }
-  static fromJSON(json, opts) { const g = new Game(opts); g.S = json; return g; }
+  // Wiederherstellen ohne reset(): sonst würde jedes Mal ein Vorschau-Brett erzeugt und gleich verworfen
+  static fromJSON(json, opts) { return new Game(opts, json); }
   toJSON() { return this.S; }
 
   reset(keepPlayers) {
