@@ -1,0 +1,3 @@
+# Python-Abhängigkeiten der Browser-Tests (tests/browser_*.py, tests/mock/*.py)
+# pip install -r requirements.txt && python3 -m playwright install chromium
+playwright>=1.40

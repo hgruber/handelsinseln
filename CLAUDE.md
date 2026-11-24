@@ -15,7 +15,7 @@ node tests/rules.js          # Regeltests (handgebautes Brett, schnell) – eine
 node tests/features.js       # Einstellungen, Varianten, Auto-Modi, Übernahme, Statistik
 node tests/sim.js 6          # Bot-Partien mit Invarianten-Prüfung
 node tests/e2e.js            # echtes HTTP/SSE
-python3 tests/browser_*.py   # echte Browser (Playwright + Chromium nötig), jeweils eigenes Skript
+python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requirements.txt && python3 -m playwright install chromium
 bash tests/run_all.sh        # alles nacheinander (~8 Min); Logs in $SHOTS (Standard /tmp/handelsinseln-tests)
 ```
 
