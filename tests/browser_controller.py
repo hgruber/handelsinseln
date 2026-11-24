@@ -98,7 +98,8 @@ try:
             if P.locator('#armPanel .arm.wait').count(): break
             time.sleep(0.4)
         check(P.locator('#armPanel .arm.wait').count() == 1, 'Handy: Pflichtschritt geht von selbst an den Spieltisch („Schau auf den Spieltisch“)')
-        P.click('#armPanel [data-arm="cancel"]'); time.sleep(0.8)
+        clear(P); P.click('#armPanel [data-arm="cancel"]')
+        time.sleep(0.8)
         check(P.locator('#armPanel [data-arm="start"]').count() == 1, 'Abbrechen: Knopf „Am Spieltisch wählen“ zum erneuten Freigeben')
         check(T.locator('#world .L-target [data-t]').count() == 0, 'Tisch: ohne Freigabe keine Ziele')
         r = post('/api/pick', {'token': wtok, 't': 'v', 'k': 'a|b|c', 'kind': 'settlement'})
