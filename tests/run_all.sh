@@ -1,28 +1,49 @@
 #!/usr/bin/env bash
-# Führt alle Tests nacheinander aus und fasst das Ergebnis zusammen (Browser-Tests brauchen Playwright + Chromium).
+# Führt alle Tests parallel aus und fasst das Ergebnis zusammen (Browser-Tests brauchen Playwright + Chromium).
+# JOBS=n begrenzt die Parallelität (Standard: Zahl der CPU-Kerne). Logs und Screenshots je Test unter $SHOTS/<test>/.
 cd "$(dirname "$0")/.." || exit 1
-export SHOTS="${SHOTS:-/tmp/handelsinseln-tests}"; mkdir -p "$SHOTS"
-fail=0
-run() { local name="$1"; shift; if "$@" >"$SHOTS/$(echo "$name" | tr ' /' '__').log" 2>&1; then echo "OK      $name"; else echo "FEHLER  $name  (Log: $SHOTS/$(echo "$name" | tr ' /' '__').log)"; fail=1; fi; }
-run "Regeltests"            node tests/rules.js
-run "Funktionstests"        node tests/features.js
-run "Simulation 2"          node tests/sim.js "${SIM_SEEDS:-2}"
-run "E2E HTTP"              node tests/e2e.js
-run "Browser Lobby"         python3 tests/browser_lobby.py
-run "Browser Vorschau"      python3 tests/browser_lobby_preview.py
-run "Browser Mobil+Lobbyzoom" python3 tests/browser_mobile.py
-run "Browser Spielen"       python3 tests/browser_play.py 4 90
-run "Browser Spielen auto"  python3 tests/browser_play.py 3 90 auto
-run "Browser Dauerlauf 6"   python3 tests/browser_soak.py 6 80
-run "Browser Sprachchat"    python3 tests/browser_voice.py
-run "Browser https+Mikro"   python3 tests/browser_https_voice.py
-run "Browser Kartenanimation" python3 tests/browser_fx.py
-run "Browser Bots+Avatare" python3 tests/browser_bots.py
-run "Bot-Turnier 3"        node tests/bots.js 3
-run "Browser Übernahme"     python3 tests/browser_takeover.py
-run "Browser Spieltisch"    python3 tests/browser_table.py
-run "Browser Gemischt"      python3 tests/browser_mixed.py
-run "Browser Zuschauer"     python3 tests/browser_watch.py
-run "Browser Controller"    python3 tests/browser_controller.py
-run "Browser Übergabe"      python3 tests/browser_handover.py
-exit $fail
+export SHOTS_ROOT="${SHOTS:-/tmp/handelsinseln-tests}"; mkdir -p "$SHOTS_ROOT"
+JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
+
+# Name|Befehl – die längsten zuerst, damit sich die Jobs gut verteilen
+TESTS=(
+  "Browser Spielen|python3 tests/browser_play.py 4 90"
+  "Browser Spielen auto|python3 tests/browser_play.py 3 90 auto"
+  "Browser Dauerlauf 6|python3 tests/browser_soak.py 6 80"
+  "Simulation 2|node tests/sim.js ${SIM_SEEDS:-2}"
+  "Browser Lobby|python3 tests/browser_lobby.py"
+  "Browser Spieltisch|python3 tests/browser_table.py"
+  "Browser Übergabe|python3 tests/browser_handover.py"
+  "Browser Vorschau|python3 tests/browser_lobby_preview.py"
+  "Browser Zuschauer|python3 tests/browser_watch.py"
+  "Browser Mobil+Lobbyzoom|python3 tests/browser_mobile.py"
+  "E2E HTTP|node tests/e2e.js"
+  "Bot-Turnier 3|node tests/bots.js 3"
+  "Funktionstests|node tests/features.js"
+  "Browser Controller|python3 tests/browser_controller.py"
+  "Browser Gemischt|python3 tests/browser_mixed.py"
+  "Browser Sprachchat|python3 tests/browser_voice.py"
+  "Browser Bots+Avatare|python3 tests/browser_bots.py"
+  "Browser Kartenanimation|python3 tests/browser_fx.py"
+  "Browser https+Mikro|python3 tests/browser_https_voice.py"
+  "Browser Übernahme|python3 tests/browser_takeover.py"
+  "Regeltests|node tests/rules.js"
+)
+
+run() {
+  local name="${1%%|*}" cmd="${1#*|}" slug t0=$SECONDS
+  slug=$(echo "$name" | tr ' /+' '___')
+  mkdir -p "$SHOTS_ROOT/$slug"
+  if SHOTS="$SHOTS_ROOT/$slug" bash -c "$cmd" >"$SHOTS_ROOT/$slug.log" 2>&1; then
+    printf 'OK      %-26s %4ss\n' "$name" $((SECONDS - t0))
+  else
+    printf 'FEHLER  %-26s %4ss  (Log: %s)\n' "$name" $((SECONDS - t0)) "$SHOTS_ROOT/$slug.log"
+  fi
+}
+export -f run
+
+T0=$SECONDS
+res="$SHOTS_ROOT/ergebnis.txt"
+printf '%s\n' "${TESTS[@]}" | xargs -d '\n' -P "$JOBS" -I{} bash -c 'run "$1"' _ {} | tee "$res"
+echo "Gesamt $((SECONDS - T0)) s mit $JOBS parallelen Jobs"
+! grep -q '^FEHLER' "$res"

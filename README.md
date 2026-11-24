@@ -131,7 +131,7 @@ python3 tests/browser_table.py          # Spieltisch: Tischspieler, Platzwahl, P
 python3 tests/browser_watch.py          # Zuschauer: „Spiel ansehen“, öffentliche Sicht, keine Rechte, Limit, Neuladen
 python3 tests/browser_handover.py       # Kontrollübergabe: lange drücken, Nummer, Hamburger am Tisch, Bestätigung, Rückgabe, Bot, Spielleiter-Platz
 python3 tests/browser_controller.py     # Controller-Ansicht: Handy gibt frei, Tisch zeigt Ziele, Auswahl, Bestätigung am Handy
-tests/run_all.sh                        # alles nacheinander
+tests/run_all.sh                        # alles parallel (JOBS=n begrenzt, Standard = Kerne); Logs je Test in $SHOTS
 ```
 
 ## Regeln (Quellen: offizielle Regel 2015, 5-6-Spieler-Erweiterung)
