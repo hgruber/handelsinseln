@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Projekt
 
-„Die Handelsinseln“ – Mehrspieler-Brettspiel im Browser (brettspielartig, Schiffe/Nebel/Gold). Node ≥ 20, **keine npm-Abhängigkeiten**, Vanilla-JS im Client (kein Build-Schritt, kein Framework). Alle Texte, Bezeichner im Spiel und Commit-Messages sind deutsch. Details zu Funktionen/Einstellungen: `README.md`; Wire-Protokoll: `PROTOKOLL.md`; Änderungshistorie: `CHANGELOG.md`; offene Ideen: `BACKLOG.md`.
+„Die Handelsinseln“ – Mehrspieler-Brettspiel im Browser (brettspielartig, Schiffe/Nebel/Gold). Node ≥ 20, **keine Laufzeit-Abhängigkeiten** (nur ESLint als Dev-Abhängigkeit), Vanilla-JS im Client (kein Build-Schritt, kein Framework). Alle Texte, Bezeichner im Spiel und Commit-Messages sind deutsch. Details zu Funktionen/Einstellungen: `README.md`; Wire-Protokoll: `PROTOKOLL.md`; Änderungshistorie: `CHANGELOG.md`; offene Ideen: `BACKLOG.md`.
 
 ## Befehle
 

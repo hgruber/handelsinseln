@@ -1,15 +1,18 @@
 # Protokoll Client ⇄ Server
 
-Server: `node server/server.js` (Port 8080, keine npm-Abhängigkeiten). Statische Dateien aus `public/`
-(`/shared/geom.js` wird ebenfalls ausgeliefert). Ein einziges Spiel pro Server.
+Server: `node server/server.js` (Port 8080, keine Laufzeit-Abhängigkeiten). Statische Dateien aus `public/`, dazu `shared/` unter `/shared/`
+(`geom.js`, `rules.js`, `avatars.js`); alle mit `ETag`/`Last-Modified` und `Cache-Control: no-cache` (unverändert → `304`).
+Der Server führt beliebig viele Spiele parallel (siehe „Erweiterung v2“); dieser erste Teil beschreibt das Grundprotokoll.
 
 ## Transport
-- `GET  /api/lobby` → `{phase, players:[{name,color}], takenColors:[..], maxPlayers:6}` (ohne Anmeldung)
-- `POST /api/join` `{name, color, token?}` → `{token, pid}` oder `{error}` (HTTP 400). Mit bekanntem `token`
+- `GET  /api/games` (Alias `/api/lobby`) → Liste der Spiele (ohne Anmeldung), Felder siehe „Mehrere parallele Spiele“.
+- `POST /api/join` `{name, color, game?, create?, token?}` → `{token, pid, game}` oder `{error}` (HTTP 400), Details siehe v2. Mit bekanntem `token`
   wird die Sitzung wieder aufgenommen (Reconnect). Token im `localStorage` speichern.
 - `GET  /api/events?token=T[&table=1]` → Server-Sent-Events (mit `table=1` und `settings.table`, nur Spielleiter: zusätzlich Event `table` {views:[View je Spieler]}; `act` darf dann `as:<Spieler>` mitsenden = Handeln im Namen eines Mitspielers). Event `state` (JSON = View, siehe unten) bei jeder Änderung,
   sofort nach Verbindungsaufbau einmal. Event `ping` alle 20 s. `EventSource` verbindet selbst neu.
-  Ist der Token unbekannt (Server neu gestartet), antwortet der Server mit HTTP 401 → Client zurück zum Anmeldebildschirm.
+  Ist der Token unbekannt (Spiel beendet o. Ä.), antwortet der Server mit HTTP 401 → Client zurück zum Anmeldebildschirm.
+  Sendet der Client `Accept-Encoding: gzip` (Browser, `fetch`), ist der Strom gzip-komprimiert (`Content-Encoding: gzip`), mit Flush nach jedem
+  Ereignis; das Wörterbuch gilt für den ganzen Strom, aufeinanderfolgende Sichten kosten daher nur wenige hundert Bytes.
 - `POST /api/act` `{token, type, ...params}` → `{ok:true}` oder `{error:"deutscher Text"}` (HTTP 400, als Toast zeigen).
 - `POST /api/leave` `{token}` → Spieler verlässt die Lobby (im laufenden Spiel nur "getrennt").
 
@@ -112,7 +115,8 @@ Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau
   (`tableGuest:false`, `bot:null`, `token` = Handy-Token); beim Spielleiter-Platz bleibt `token` beim Tisch, das Handy steuert über `phone` (Sicht mit `host:-1`, Spielleiter-Aktionen → 403,
   der Tisch kann den Platz nicht bedienen). `players[].handover` kennzeichnet übergebene Plätze. `act {type:'handback'}` (Handy: eigener Platz; Tisch: `pid`) bzw. `POST /api/leave` des Handys
   gibt zurück: Platz wird Tischspieler (`tableGuest:true`, nie wieder Bot), das Handy bekommt `control_end`. Weitere Handy-Ereignisse: `handover {state:'declined|expired|replaced'}`.
-- `GET /api/config` → `{stun: null|'stun:…'}` (für WebRTC; meist null → nur lokale Kandidaten).
+- `GET /api/config` → `{stun: null|'stun:…', httpsPort: null|Zahl, version}` (`stun` für WebRTC, meist null → nur lokale Kandidaten; `httpsPort` für den
+  Hinweis auf https beim Mikrofon; `version` wie im Menü angezeigt).
 - `POST /api/leave {token}` = Menüpunkt „Spiel verlassen“: In der Lobby wird der Spieler entfernt; im laufenden Spiel übernimmt für ihn
   der Auto-Modus (siehe unten) und sein Token wird ungültig (Client → Anmeldebildschirm). Das Spiel endet vollständig (wird gelöscht),
   sobald der letzte Mensch es verlässt oder seinen Tab schließt (≈ 20 s Kulanz für Neuladen). Das Schließen des Tabs allein macht den Spieler
