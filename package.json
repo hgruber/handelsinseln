@@ -8,6 +8,7 @@
     "start": "node server/server.js",
     "dev": "DATA_DIR=/tmp/handelsinseln-dev PORT=8090 HTTPS_PORT=0 node --watch server/server.js",
     "test": "bash tests/run_all.sh",
+    "test:schnell": "bash tests/run_all.sh schnell",
     "release": "bash scripts/release.sh"
   },
   "engines": {

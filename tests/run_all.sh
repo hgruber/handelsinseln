@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Führt alle Tests parallel aus und fasst das Ergebnis zusammen (Browser-Tests brauchen Playwright + Chromium).
+# Führt die Tests parallel aus und fasst das Ergebnis zusammen.
+#   tests/run_all.sh          volle Suite (Node + Browser; Browser-Tests brauchen Playwright + Chromium), für Release/CI
+#   tests/run_all.sh schnell  nur Regel-, Funktions- und E2E-Tests (keine Browser, unter einer Minute), für jeden Commit
 # JOBS=n begrenzt die Parallelität (Standard: Zahl der CPU-Kerne), PLAY_SECS die Dauer der Spiel-Dauerläufe (Standard 50 s).
 # Logs und Screenshots je Test unter $SHOTS/<test>/.
 cd "$(dirname "$0")/.." || exit 1
 export SHOTS_ROOT="${SHOTS:-/tmp/handelsinseln-tests}"; mkdir -p "$SHOTS_ROOT"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
+STUFE="${1:-voll}"
+case "$STUFE" in schnell|voll) ;; *) echo "Aufruf: $0 [schnell|voll]" >&2; exit 2 ;; esac
 
 # Name|Befehl – die längsten zuerst, damit sich die Jobs gut verteilen
-TESTS=(
+ALLE=(
   "Browser Spielen|python3 tests/browser_play.py 4 ${PLAY_SECS:-50}"
   "Browser Spielen auto|python3 tests/browser_play.py 3 $(( ${PLAY_SECS:-50} * 4 / 5 )) auto"
   "Browser Dauerlauf 6|python3 tests/browser_soak.py 6 $(( ${PLAY_SECS:-50} * 9 / 10 ))"
@@ -30,6 +34,9 @@ TESTS=(
   "Browser Übernahme|python3 tests/browser_takeover.py"
   "Regeltests|node tests/rules.js"
 )
+SCHNELL='^(E2E HTTP|Funktionstests|Regeltests)\|'
+TESTS=()
+for t in "${ALLE[@]}"; do [[ "$STUFE" == voll || "$t" =~ $SCHNELL ]] && TESTS+=("$t"); done
 
 run() {
   local name="${1%%|*}" cmd="${1#*|}" slug t0=$SECONDS
@@ -46,5 +53,5 @@ export -f run
 T0=$SECONDS
 res="$SHOTS_ROOT/ergebnis.txt"
 printf '%s\n' "${TESTS[@]}" | xargs -d '\n' -P "$JOBS" -I{} bash -c 'run "$1"' _ {} | tee "$res"
-echo "Gesamt $((SECONDS - T0)) s mit $JOBS parallelen Jobs"
+echo "Gesamt ($STUFE) $((SECONDS - T0)) s mit $JOBS parallelen Jobs"
 ! grep -q '^FEHLER' "$res"

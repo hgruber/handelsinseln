@@ -16,7 +16,8 @@ node tests/features.js       # Einstellungen, Varianten, Auto-Modi, Übernahme, 
 node tests/sim.js 6          # Bot-Partien mit Invarianten-Prüfung
 node tests/e2e.js            # echtes HTTP/SSE
 python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requirements.txt && python3 -m playwright install chromium
-bash tests/run_all.sh        # alles parallel (~4 Min auf 4 Kernen, JOBS=n); Logs/Screenshots je Test in $SHOTS (Standard /tmp/handelsinseln-tests)
+bash tests/run_all.sh        # volle Suite parallel (~4 Min auf 4 Kernen, JOBS=n, PLAY_SECS=n); Logs/Screenshots je Test in $SHOTS
+npm run test:schnell         # nur Regel-, Funktions- und E2E-Tests ohne Browser (< 1 Min) – nach jeder Änderung
 ```
 
 Es gibt keinen Linter. Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter; `rules.js`/`features.js` zählen intern `✓`/`✗`). Browser-Tests holen sich freie Ports und können parallel laufen.
