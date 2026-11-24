@@ -5,7 +5,7 @@ Danach steuert das Handy den Platz (Bot: wird ein Mensch), „Kontrolle an den S
 Prüft auch Ablehnen, Verfall, falsche Nummer, Spielleiter-Platz (Spielleiter-Rechte bleiben am Tisch). Aufruf: python3 tests/browser_handover.py"""
 import time
 from playwright.sync_api import sync_playwright
-from lib import check, finish, poster, problems, shots, sse_event, start_server
+from lib import check, finish, poster, problems, shots, sse_event, start_server, wait_until
 
 SHOTS = shots('handover')
 
@@ -21,7 +21,7 @@ def hold(pg, sel):
     x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
     pg.mouse.move(x, y); pg.mouse.down(); time.sleep(0.95); pg.mouse.up()
 
-server, BASE = start_server(TICK_MS=300, BOT_MS=150, HANDOVER_MS=4000)
+server, BASE = start_server(TICK_MS=300, BOT_MS=150, HANDOVER_MS=15000)  # großzügig: unter Last dauern Prüfung + Screenshot mehrere Sekunden
 post = poster(BASE)
 event = lambda token, want, query='': sse_event(BASE, token, want, query, timeout=6)
 try:
@@ -65,11 +65,13 @@ try:
         H.wait_for_function(vis_hreq(H, bernd), timeout=4000)
         check(True, 'Tisch: Hamburger in der Leiste von Bernd')
         check(H.locator(f'#seats .seat[data-pid="{host}"] .hreq').count() == 0, 'andere Leisten haben keinen')
-        H.locator(f'#seats .seat[data-pid="{bernd}"] .hreq:visible').first.click(force=True); time.sleep(0.5)
+        H.locator(f'#seats .seat[data-pid="{bernd}"] .hreq:visible').first.click(force=True)
+        H.wait_for_selector(f'#seats .seat[data-pid="{bernd}"] [data-hq="no"]', timeout=4000)
         check(code in H.inner_text(f'#seats .seat[data-pid="{bernd}"] .hask'), 'Rückfrage am Tisch nennt dieselbe Nummer')
         H.screenshot(path=f'{SHOTS}/tisch-rueckfrage.png')
         print('Ablehnen')
-        H.locator(f'#seats .seat[data-pid="{bernd}"] [data-hq="no"]').click(); time.sleep(0.8)
+        H.locator(f'#seats .seat[data-pid="{bernd}"] [data-hq="no"]').click()
+        wait_until(lambda: H.locator(f'#seats .seat[data-pid="{bernd}"] .hreq').count() == 0 and P.locator('#codeBox').count() == 0, timeout=5)
         check(H.locator(f'#seats .seat[data-pid="{bernd}"] .hreq').count() == 0, 'Hamburger ist weg')
         check(P.locator('.toast').count() >= 1 and 'abgelehnt' in P.inner_text('#toasts'), 'Handy: „abgelehnt“')
         check(P.locator('#codeBox').count() == 0, 'Handy: Nummernfenster geschlossen')
@@ -77,7 +79,7 @@ try:
         print('Verfall nach HANDOVER_MS')
         hold(P, sel); P.click('#dlgRoot [data-d="yes"]'); P.wait_for_selector('#codeBox', timeout=4000)
         H.wait_for_function(vis_hreq(H, bernd), timeout=4000)
-        H.wait_for_function('!(' + vis_hreq(H, bernd) + ')', timeout=8000)
+        H.wait_for_function('!(' + vis_hreq(H, bernd) + ')', timeout=25000)
         check(True, 'Hamburger verschwindet nach Ablauf')
         check('abgelaufen' in P.inner_text('#toasts'), 'Handy: „abgelaufen“')
 
@@ -88,7 +90,8 @@ try:
         check(post('/api/act', {'token': wtok, 'type': 'handover_answer', 'pid': bernd, 'code': code, 'accept': True}).get('_status') == 403, 'das Handy kann sich nicht selbst bestätigen')
         H.wait_for_function(vis_hreq(H, bernd), timeout=4000)
         H.locator(f'#seats .seat[data-pid="{bernd}"] .hreq:visible').first.click(force=True); time.sleep(0.4)
-        H.locator(f'#seats .seat[data-pid="{bernd}"] [data-hq="yes"]').click(); time.sleep(1.5)
+        H.locator(f'#seats .seat[data-pid="{bernd}"] [data-hq="yes"]').click()
+        wait_until(lambda: H.locator(f'#seats .seat[data-pid="{bernd}"]').evaluate("e => e.classList.contains('pub')"), timeout=6)
         check(H.locator(f'#seats .seat[data-pid="{bernd}"]').evaluate("e => e.classList.contains('pub')"), 'Tisch: Bernds Leiste ist jetzt öffentlich (nur Statistik)')
         check(H.locator(f'#seats .seat[data-pid="{bernd}"] .secret').count() == 0 or H.locator(f'#seats .seat[data-pid="{bernd}"] .secretrow').is_hidden(), 'Tisch: Kontroll-Leisten und geheimer Bereich verschwunden')
         P.wait_for_function("!document.body.classList.contains('watch')", timeout=8000); time.sleep(1.0)
@@ -104,7 +107,7 @@ try:
         P.click('#btnMenu'); P.click('.menu-pop [data-mi="leave"]')
         P.wait_for_selector('#login:not([hidden])', timeout=6000)
         check(P.evaluate("localStorage.getItem('handelsinseln.token')") is None, 'Handy: Sitzung beendet')
-        time.sleep(1.0)
+        wait_until(lambda: not H.locator(f'#seats .seat[data-pid="{bernd}"]').evaluate("e => e.classList.contains('pub')"), timeout=6)
         check(not H.locator(f'#seats .seat[data-pid="{bernd}"]').evaluate("e => e.classList.contains('pub')"), 'Tisch: Bernd ist wieder Tischspieler (volle Leiste)')
         check(post('/api/act', {'token': wtok, 'type': 'chat', 'text': 'x'}).get('_status') == 401, 'altes Handy-Token ist ungültig')
 

@@ -5,7 +5,7 @@ fliegen vom richtigen Feld los, verschwinden nach dem Flug, werden beim erneuten
 Aufruf: python3 tests/browser_fx.py"""
 import time
 from playwright.sync_api import sync_playwright
-from lib import check, finish, poster, problems, shots, sse_event, start_server
+from lib import check, finish, poster, problems, shots, sse_event, start_server, wait_until
 
 SHOTS = shots('fx')
 
@@ -90,7 +90,7 @@ try:
         mine = [f for f in flights if f['mine']]
         if mine: check(all(f['w'] >= 44 for f in mine), 'eigene Karten sind größer als fremde')
         check(all(f['w'] < 44 for f in flights if not f['mine']), 'fremde Karten sind klein')
-        time.sleep(4)
+        wait_until(lambda: pg.locator('#fxLayer .fxc').count() <= 8, timeout=8)
         check(pg.locator('#fxLayer .fxc').count() <= 8, 'Animationskarten verschwinden nach dem Flug')
         # --- Zweite Seite (wie Reconnect): bereits geschehene Kartenbewegungen werden nicht nachgespielt
         pg2 = ctx.new_page()

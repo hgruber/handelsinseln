@@ -34,6 +34,18 @@ def wait_port(port, timeout=20):
     raise RuntimeError(f'Port {port} antwortet nicht')
 
 
+def wait_until(cond, timeout=10, step=0.1):
+    """Wartet, bis cond() wahr ist (statt fester Pausen); gibt das letzte Ergebnis zurück."""
+    t0 = time.time()
+    while True:
+        try:
+            ok = cond()
+        except Exception:
+            ok = False
+        if ok or time.time() - t0 > timeout: return ok
+        time.sleep(step)
+
+
 def start_server(port=None, **env):
     """Startet server/server.js mit eigenem Port und Datenverzeichnis (https aus, falls nicht anders gesetzt).
     Kehrt zurück, sobald der Server antwortet: (Prozess, Basis-URL)."""

@@ -5,7 +5,7 @@ Spiel starten, mitten im Spiel verlassen (Auto-Modus), Spiel beenden + Statistik
 Aufruf: python3 tests/browser_lobby.py"""
 import json, os, subprocess, time, urllib.request
 from playwright.sync_api import sync_playwright
-from lib import ROOT, check, finish, problems, shots, start_server
+from lib import ROOT, check, finish, problems, shots, start_server, wait_until
 
 SHOTS = shots('lobby')
 
@@ -70,9 +70,10 @@ try:
 
         # --- Spiel starten, Testspieler steuern die beiden Menschen kurz
         tok = lambda pg: pg.evaluate("localStorage.getItem('handelsinseln.token')")
-        A.click('#startBtn'); time.sleep(1)
+        A.click('#startBtn'); A.wait_for_selector('#hud:not([hidden])', timeout=8000)
         drv = subprocess.Popen(['node', os.path.join(ROOT, 'tests/drive.js'), BASE, '120', tok(A), tok(B)])
-        time.sleep(12)
+        mine = lambda: [x for x in games() if any(p['name'] == 'Hanna' for p in x['players'])]
+        wait_until(lambda: mine()[0]['phase'] == 'main', timeout=30)  # Testspieler bringen den Aufbau hinter sich
         A.screenshot(path=f'{SHOTS}/04-spiel-host.png')
         check(A.locator('#hud:not([hidden])').count() == 1, 'Spiel läuft im Browser des Hosts')
 
@@ -87,11 +88,11 @@ try:
         B.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); clear(B); B.click('#dlgRoot [data-d=yes]')
         B.wait_for_selector('#login:not([hidden])', timeout=5000)
         check(True, 'Gast hat das Spiel verlassen')
-        time.sleep(1.5)
+        wait_until(lambda: len(mine()[0]['players']) == 1, timeout=6)
         g = [x for x in games() if any(p['name'] == 'Hanna' for p in x['players'])][0]
         check(len(g['players']) == 1 and g['phase'] in ('setup', 'main'), 'Spiel läuft ohne ihn weiter')
         A.screenshot(path=f'{SHOTS}/05-nach-verlassen.png')
-        time.sleep(8)  # Auto-Modus spielt für den Gast
+        time.sleep(2)  # Auto-Modus spielt kurz für den Gast
 
         # --- Host beendet das Spiel → Statistik
         clear(A); A.click('#btnMenu'); clear(A); A.click('[data-mi=end]')
@@ -104,9 +105,9 @@ try:
         # --- Letzter Mensch verlässt → Spiel verschwindet (Tab schließen gleicht das aus)
         if drv: drv.terminate(); drv = None
         A.close()
-        time.sleep(3)
+        wait_until(lambda: not mine(), timeout=8)
         check(not any(any(p['name'] == 'Hanna' for p in x['players']) for x in games()), 'letzter Spieler weg → Spiel beendet')
-        D.close(); time.sleep(3)
+        D.close(); wait_until(lambda: not games(), timeout=8)
         check(len(games()) == 0, 'alle Tabs zu → keine Spiele mehr')
         b.close()
 finally:

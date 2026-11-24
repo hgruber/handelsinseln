@@ -5,7 +5,7 @@ vierte Variante 'archipel', Liste 'Abweichende Regeln', "Standard wiederherstell
 https-Hinweis bei unsicherem Kontext.   Aufruf: python3 tests/browser_lobby_preview.py"""
 import time
 from playwright.sync_api import sync_playwright
-from lib import check, finish, problems, shots, start_server
+from lib import check, finish, problems, shots, start_server, wait_until
 
 SHOTS = shots('preview')
 
@@ -39,7 +39,7 @@ try:
         B.fill('#nameIn', 'Bernd'); B.wait_for_selector('#gameList [data-g]', timeout=6000)
         B.locator('#gameList [data-g]').first.click(); B.locator('#swatches .sw:not([disabled])').nth(1).click(); B.click('#joinBtn')
         B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
-        time.sleep(1.5)
+        wait_until(lambda: B.evaluate(JS_BOARD)['total'] > 10 and B.evaluate(JS_BOARD)['fogOutside'] == 0, timeout=8)
 
         print('Vorschau fuer den Gast')
         ba, bb = A.evaluate(JS_BOARD), B.evaluate(JS_BOARD)
@@ -53,7 +53,10 @@ try:
         for step in ('regen', 'nebel', 'inseln', 'archipel', 'klassisch'):
             if step == 'regen': A.click('[data-regen]')
             else: A.click(f'[data-var={step}]')
-            time.sleep(4.5)
+            def settled():
+                x, y = A.evaluate(JS_BOARD), B.evaluate(JS_BOARD)
+                return y['sig'] != last and x['sig'] == y['sig'] and y['fogOutside'] == 0 and y['fog'] > 0
+            wait_until(settled, timeout=10); time.sleep(0.3)
             ba, bb = A.evaluate(JS_BOARD), B.evaluate(JS_BOARD)
             check(bb['sig'] != last, f'{step}: Vorschau beim Gast hat sich geaendert')
             check(ba['sig'] == bb['sig'], f'{step}: Host und Gast sehen dasselbe')

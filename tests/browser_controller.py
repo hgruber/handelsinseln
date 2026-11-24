@@ -5,7 +5,7 @@ die Freigabe am Handy gilt als Bestätigung, der Tipp am Tisch baut sofort. Prü
 Verschwinden der Tisch-Anzeige schaltet die Controller-Ansicht aus. Aufruf: python3 tests/browser_controller.py"""
 import time
 from playwright.sync_api import sync_playwright
-from lib import check, finish, poster, problems, shots, sse_event, start_server
+from lib import check, finish, poster, problems, shots, sse_event, start_server, wait_until
 
 SHOTS = shots('controller')
 
@@ -106,12 +106,12 @@ try:
         check(pick_on_tv(T, '#world .L-target [data-t="e"]', lambda: len(mine_e()) == 1, 0), 'Tipp am Tisch legt Straße/Schiff sofort')
 
         print('Tisch-Anzeige verschwindet / kommt zurück')
-        T.close(); time.sleep(1.5)
+        T.close(); wait_until(lambda: not P.evaluate("document.body.classList.contains('ctl')"), timeout=8)
         check(not P.evaluate("document.body.classList.contains('ctl')"), 'ohne Tisch-Anzeige: normale Ansicht mit Spielfeld')
         check(P.locator('#board').is_visible(), 'Spielfeld wieder da')
         T2 = b.new_context(viewport={'width': 1280, 'height': 720}).new_page()
         T2.goto(BASE); T2.wait_for_selector('#gameList .gcard.run', timeout=6000); T2.click('#gameList .gcard.run'); T2.click('#joinBtn')
-        T2.wait_for_selector('body.watch #seats .seat', timeout=8000); time.sleep(1.0)
+        T2.wait_for_selector('body.watch #seats .seat', timeout=8000); wait_until(lambda: P.evaluate("document.body.classList.contains('ctl')"), timeout=8)
         check(P.evaluate("document.body.classList.contains('ctl')"), 'Tisch-Anzeige wieder da: Controller-Ansicht kehrt zurück (gemerkte Wahl)')
         b.close()
 finally:
