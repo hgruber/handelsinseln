@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Goldfluss-Felder, Fairness:** Anfangssiedlungen dürfen nicht an ein Goldfluss-Feld grenzen (feste Regel; bei weniger Siedelplätzen als Mitspielern wäre Gold am Start ein unfairer Vorteil), und Goldfluss-Felder tragen nur noch die Zahlen 2, 3, 4, 10, 11 und 12 – auch wenn sie im Nebel entdeckt werden. Die Kartenerzeugung bewertet die Startecken ohne Goldfelder.
+
 ## [1.5.12] - 2026-11-24
 
 ### Geändert

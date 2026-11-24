@@ -499,7 +499,7 @@ class Game {
   settlementSpots(pid) {
     const S = this.S, out = new Set();
     if (S.phase === 'setup') {
-      for (const h of S.home) for (const v of G.hexCorners(h)) if (this.distanceOk(v) && this.vertTouchesLand(v)) out.add(v);
+      for (const h of S.home) for (const v of G.hexCorners(h)) if (this.distanceOk(v) && this.vertTouchesLand(v) && !B.touchesGold(S, v)) out.add(v);
       return [...out];
     }
     for (const e in S.edges) {
@@ -685,7 +685,7 @@ class Game {
     if (pid !== S.turn) fail(`${this.name(S.turn)} ist beim Aufbau an der Reihe.`);
     if (su.stage === 'settlement') {
       if (a.type !== 'place_settlement') fail('Setze zuerst eine Siedlung.');
-      if (!this.settlementSpots(pid).includes(a.v)) fail('Hier darf keine Siedlung stehen (Abstandsregel: mindestens zwei Wege Abstand; Aufbau nur auf der Startinsel).');
+      if (!this.settlementSpots(pid).includes(a.v)) fail('Hier darf keine Siedlung stehen (Abstandsregel: mindestens zwei Wege Abstand; Aufbau nur auf der Startinsel und nicht an einem Goldfluss).');
       this.placeSettlement(pid, a.v, true);
       su.last = a.v; su.stage = 'road';
       const second = su.i >= S.order.length;

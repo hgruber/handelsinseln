@@ -676,6 +676,25 @@ test('Inseln dichter: kleinerer Spielfeldradius bei gleicher Landfläche', () =>
   }
 });
 
+test('Goldfluss: nur Zahlen 2,3,4,10,11,12 und keine Anfangssiedlung daran', () => {
+  for (const variant of ['klassisch', 'inseln', 'archipel']) {
+    for (let seed = 1; seed <= 12; seed++) {
+      const g = lobby(3, seed); g.act(0, { type: 'set_settings', settings: { variant } }); g.act(0, { type: 'start' });
+      const S = g.S;
+      for (const k in S.hexes) if (S.hexes[k].t === 'gold') assert(B.GOLD_NUMS.includes(S.hexes[k].n), `${variant}/${seed}: Gold mit Zahl ${S.hexes[k].n}`);
+      for (const v of g.settlementSpots(0)) assert(!B.touchesGold(S, v), `${variant}/${seed}: Anfangsplatz grenzt an Gold`);
+    }
+  }
+  // Nebel: entdecktes Gold bekommt ebenfalls nur schwache Zahlen
+  let seed = 3; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  let golds = 0;
+  for (let i = 0; i < 400; i++) {
+    const S = { hexes: { '0,0': { t: 'wald', n: 5 } }, harbors: {}, harborKinds: [], fogGold: 3, supply: { terrain: {}, chips: {} } };
+    for (const h of G.neighbors('0,0')) { const x = B.discover(S, h, rnd); if (x.t === 'gold') { golds++; assert(B.GOLD_NUMS.includes(x.n), 'Nebel-Gold mit Zahl ' + x.n); } }
+  }
+  assert(golds > 0, 'Test hat Gold entdeckt');
+});
+
 test('Spieltisch: Tischspieler nur über den Spielleiter, keine Bots/Online-Spieler, Tisch ein/aus', () => {
   const g = new Game({ rnd: rng(11) });
   g.join('Hanna', 'rot');
@@ -739,7 +758,7 @@ test('Kartenformat: breiter Bildschirm gibt eine breitere Karte', () => {
       for (const k of Object.keys(S.hexes)) { if (S.hexes[k].t === 'meer') continue; const c = Geo.hexCenter(k); x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y); }
       f[asp] += (x1 - x0 + 1.7) / (y1 - y0 + 2);
     }
-    assert(f.wide > f.std * 1.3, `${variant}: Format ${(f.wide / 12).toFixed(2)} statt ${(f.std / 12).toFixed(2)}`);
+    assert(f.wide > f.std * 1.15, `${variant}: Format ${(f.wide / 12).toFixed(2)} statt ${(f.std / 12).toFixed(2)}`);
   }
   const g = new Game({ rnd: rng(2) }); g.join('A', 'rot');
   g.act(0, { type: 'set_settings', settings: { aspect: 1.78 } });

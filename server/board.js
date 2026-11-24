@@ -58,6 +58,14 @@ function drawNumber(S, rnd) {
   if (!S.numBag.length) S.numBag = shuffle(NUM_BAG, rnd);
   return S.numBag.pop();
 }
+// Goldfluss-Felder tragen nur schwache Zahlen (Fairness: Gold ist ein Joker-Rohstoff)
+const GOLD_NUMS = [2, 3, 4, 10, 11, 12];
+function drawGoldNumber(S, rnd) {
+  if (!S.numBag.length) S.numBag = shuffle(NUM_BAG, rnd);
+  let i = S.numBag.findIndex((n) => GOLD_NUMS.includes(n));
+  if (i < 0) { S.numBag = [...S.numBag, ...shuffle(NUM_BAG, rnd)]; i = S.numBag.findIndex((n) => GOLD_NUMS.includes(n)); }
+  return S.numBag.splice(i, 1)[0];
+}
 function drawTerrain(S, rnd) {
   if (!S.landBag.length) S.landBag = shuffle(LAND_BAG, rnd);
   return S.landBag.pop();
@@ -176,7 +184,8 @@ function generateOnce(S, nPlayers, rnd, settings) {
   let best = null;
   for (let t = 0; t < 300; t++) {
     const nums = {}; S.numBag = [];
-    for (const k of shuffle(landKeys, rnd)) if (types[k] !== 'wueste') nums[k] = drawNumber(S, rnd);
+    const order = shuffle(landKeys, rnd).sort((a, c) => (types[c] === 'gold') - (types[a] === 'gold')); // Gold zuerst: bekommt sicher eine schwache Zahl
+    for (const k of order) if (types[k] !== 'wueste') nums[k] = types[k] === 'gold' ? drawGoldNumber(S, rnd) : drawNumber(S, rnd);
     const bad = Object.keys(nums).some((k) => red(nums[k]) && G.neighbors(k).some((n) => nums[n] && red(nums[n])));
     best = nums; if (!bad) break;
   }
@@ -207,6 +216,9 @@ function generateOnce(S, nPlayers, rnd, settings) {
 // ---- Ausgleich der Startecken ------------------------------------------------------------
 const pipsOf = (n) => (n ? 6 - Math.abs(7 - n) : 0);
 
+// Anfangssiedlungen dürfen nicht an ein Goldfluss-Feld grenzen
+const touchesGold = (S, v) => G.vertHexes(v).some((h) => S.hexes[h] && S.hexes[h].t === 'gold');
+
 // Wert einer Ecke: Wahrscheinlichkeitspunkte der angrenzenden Landfelder und die Rohstoffe (Gold = Joker).
 function cornerInfo(S, v) {
   let pips = 0; const res = new Set();
@@ -223,7 +235,7 @@ function cornerInfo(S, v) {
 // und liefert eine Unausgewogenheit: je kleiner, desto fairer. Spielerzahl n, Heimatfelder S.home.
 function startImbalance(S, n, variant, islands) {
   const verts = new Map();
-  for (const h of S.home) for (const v of G.hexCorners(h)) if (!verts.has(v)) { const c = cornerInfo(S, v); if (c.pips > 0) verts.set(v, c); }
+  for (const h of S.home) for (const v of G.hexCorners(h)) if (!verts.has(v) && !touchesGold(S, v)) { const c = cornerInfo(S, v); if (c.pips > 0) verts.set(v, c); }
   const taken = new Set(), blocked = new Set();
   const have = Array.from({ length: n }, () => new Set()), total = new Array(n).fill(0);
   const order = [...Array(n).keys(), ...[...Array(n).keys()].reverse()];
@@ -301,8 +313,8 @@ function weighted(items, w, rnd) {
   for (const k of items) { x -= w(k); if (x <= 0) return k; }
   return items[items.length - 1];
 }
-function drawChip(S, rnd) {
-  const ok = Object.keys(CHIP_W).filter((n) => avail(S.supply.chips, n));
+function drawChip(S, rnd, only) {
+  const ok = Object.keys(CHIP_W).filter((n) => avail(S.supply.chips, n) && (!only || only.includes(+n)));
   if (!ok.length) return null;
   const n = weighted(ok, (k) => CHIP_W[k], rnd);
   take(S.supply.chips, n);
@@ -316,7 +328,7 @@ function discover(S, k, rnd) {
   const ln = ns.filter((h) => isLand(h.t)).length;
   const pLand = Math.min(0.62, 0.16 + 0.17 * ln);
   const chipsLeft = Object.keys(CHIP_W).some((n) => avail(sup.chips, n));
-  const landTypes = Object.keys(LAND_W).filter((t) => avail(sup.terrain, t) && (t === 'wueste' || chipsLeft));
+  const landTypes = Object.keys(LAND_W).filter((t) => avail(sup.terrain, t) && (t === 'wueste' || chipsLeft) && (t !== 'gold' || GOLD_NUMS.some((n) => avail(sup.chips, n))));
   const seaOk = avail(sup.terrain, 'meer');
   let wantLand = rnd() < pLand;
   if (wantLand && !landTypes.length) wantLand = false;
@@ -326,7 +338,7 @@ function discover(S, k, rnd) {
     const boost = S.fogGold || 1;
     const t = weighted(landTypes, (x) => LAND_W[x] * (x === 'gold' ? boost : 1), rnd);
     take(sup.terrain, t);
-    h = { t, n: t === 'wueste' ? null : drawChip(S, rnd) };
+    h = { t, n: t === 'wueste' ? null : drawChip(S, rnd, t === 'gold' ? GOLD_NUMS : null) };
   } else {
     if (seaOk) take(sup.terrain, 'meer');
     h = { t: 'meer', n: null }; // erschöpfte Vorräte: es bleibt (unbegrenzt) Meer
@@ -347,4 +359,4 @@ function fog(S) {
   return [...out];
 }
 
-module.exports = { RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, generateOnce, startImbalance, homeIslands, discover, fog, drawNumber, tryHarbor };
+module.exports = { GOLD_NUMS, touchesGold, RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, generateOnce, startImbalance, homeIslands, discover, fog, drawNumber, tryHarbor };
