@@ -381,6 +381,7 @@ class Game {
     const n = S.players.length, set = S.settings;
     // Vorrat für aufgedeckte Felder (Nebel)
     S.supply = { terrain: { ...set.limits.fogTerrain }, chips: { ...set.limits.fogChips } };
+    S.goldRate = set.goldRate;
     S.fogGold = set.variant === 'nebel' ? 1.3 : set.variant === 'archipel' ? 1.6 : 1;
     this.buildDeck(n);
     // Am Spieltisch bestimmt die Sitzordnung (im Uhrzeigersinn) die Reihenfolge; Würfeln legt nur fest, wer beginnt
@@ -863,15 +864,6 @@ class Game {
           (entries[b.p] = entries[b.p] || []).push({ res, amt, hex: k, label: `${TERR_DE[h.t]} ${n}${b.k === 'c' ? ', Stadt' : ''}` });
         }
       }
-    }
-    // Ertragsgrenze Goldfluss: je Spieler und Wurf höchstens `goldMax` freie Wahlen
-    const gmax = S.settings.goldMax || 6;
-    for (const p of Object.keys(S.pend.gold)) {
-      if (S.pend.gold[p] <= gmax) continue;
-      const cut = S.pend.gold[p] - gmax;
-      S.pend.gold[p] = gmax;
-      const g = entries[p].filter((e) => e.res === null);
-      if (g.length) g[g.length - 1].desc += ` – begrenzt auf ${gmax} je Wurf (−${cut})`;
     }
     // Bank-Vorrat: reicht er nicht, bekommt ein einzelner Empfänger den Rest, bei mehreren niemand
     for (const r of RES) {

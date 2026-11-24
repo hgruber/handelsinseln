@@ -160,7 +160,7 @@
   // ======================================================================================
   const DEF = {
     dense: true, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
-    islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, goldHome: true, goldStart: false, goldMax: 6, leaver: 'uebernahme', vanishRounds: 5,
+    islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, goldHome: true, goldStart: false, goldRate: 3, leaver: 'uebernahme', vanishRounds: 5,
     limits: {
       road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
       bank: Object.fromEntries(RES.map((r) => [r, null])),
@@ -196,7 +196,7 @@
       ] },
       { id: 'gold', title: 'Goldfluss', rows: [
         { path: 'goldStart', type: 'seg', label: 'Erstsiedlung am Goldfluss', tip: 'Ob Anfangssiedlungen an ein Goldfluss-Feld grenzen dürfen.', dep: 'goldHome=true', opts: [[true, 'Erlaubt'], [false, 'Nein']] },
-        { path: 'goldMax', type: 'num', label: 'Max. Ertrag je Wurf', tip: 'Höchstens so viele freie Rohstoffe vom Goldfluss erhält ein Spieler bei einem Wurf (Siedlung 1, Stadt 2).', min: 1, max: 6 },
+        { path: 'goldRate', type: 'num', label: 'Max. Ertragsrate Goldfluss', tip: 'Welche Zahlen ein Goldfluss-Feld tragen darf (samt der schwächeren): 1: 2 oder 12, 2: 3 oder 11, 3: 4 oder 10, 4: 5 oder 9, 5: 6 oder 8.', min: 1, max: 5 },
       ] },
       { id: 'vorraete', title: 'Vorräte & Limits', rows: [
         { path: 'limits.road', type: 'num', label: 'Straßen', min: 1, max: 99, inf: true },

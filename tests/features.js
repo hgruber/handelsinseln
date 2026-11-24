@@ -681,7 +681,7 @@ test('Goldfluss: nur Zahlen 2,3,4,10,11,12 und keine Anfangssiedlung daran', () 
     for (let seed = 1; seed <= 12; seed++) {
       const g = lobby(3, seed); g.act(0, { type: 'set_settings', settings: { variant } }); g.act(0, { type: 'start' });
       const S = g.S;
-      for (const k in S.hexes) if (S.hexes[k].t === 'gold') assert(B.GOLD_NUMS.includes(S.hexes[k].n), `${variant}/${seed}: Gold mit Zahl ${S.hexes[k].n}`);
+      for (const k in S.hexes) if (S.hexes[k].t === 'gold') assert(B.goldNums(3).includes(S.hexes[k].n), `${variant}/${seed}: Gold mit Zahl ${S.hexes[k].n}`);
       for (const v of g.settlementSpots(0)) assert(!B.touchesGold(S, v), `${variant}/${seed}: Anfangsplatz grenzt an Gold`);
     }
   }
@@ -690,7 +690,7 @@ test('Goldfluss: nur Zahlen 2,3,4,10,11,12 und keine Anfangssiedlung daran', () 
   let golds = 0;
   for (let i = 0; i < 400; i++) {
     const S = { hexes: { '0,0': { t: 'wald', n: 5 } }, harbors: {}, harborKinds: [], fogGold: 3, supply: { terrain: {}, chips: {} } };
-    for (const h of G.neighbors('0,0')) { const x = B.discover(S, h, rnd); if (x.t === 'gold') { golds++; assert(B.GOLD_NUMS.includes(x.n), 'Nebel-Gold mit Zahl ' + x.n); } }
+    for (const h of G.neighbors('0,0')) { const x = B.discover(S, h, rnd); if (x.t === 'gold') { golds++; assert(B.goldNums(3).includes(x.n), 'Nebel-Gold mit Zahl ' + x.n); } }
   }
   assert(golds > 0, 'Test hat Gold entdeckt');
 });
@@ -930,12 +930,12 @@ test('Goldfluss-Einstellungen: Startinsel, Erstsiedlung, Ertragsgrenze', () => {
   assert(!g.settlementSpots(0).includes(near), 'Standard: kein Anfangsplatz am Gold');
   S.settings.goldStart = true;
   assert(g.settlementSpots(0).includes(near), 'mit Freigabe: Anfangsplatz am Gold');
-  // Ertragsgrenze: höchstens goldMax freie Wahlen je Spieler und Wurf
-  const m = mainBoard(3); const M = m.S;
-  M.hexes['0,0'] = { t: 'gold', n: 4 };
-  for (const v of G.hexCorners('0,0').slice(0, 3)) M.verts[v] = { p: 1, k: 'c' };
-  m.produce(4); assert.equal(M.pend.gold[1], 6, 'ohne Grenze 3 Städte = 6');
-  M.pend.gold = {}; M.settings.goldMax = 2; m.produce(4); assert.equal(M.pend.gold[1], 2, 'Grenze 2');
-  throws(() => ST.merge(ST.defaults(), { goldMax: 7 }), /Ertrag/);
+  // Ertragsrate: Goldfelder tragen nur Zahlen bis zur Rate
+  assert.deepEqual(B.goldNums(1), [2, 12]); assert.deepEqual(B.goldNums(3), [2, 3, 4, 10, 11, 12]); assert.equal(B.goldNums(5).length, 10);
+  for (const rate of [1, 2, 4]) for (let seed = 1; seed <= 6; seed++) {
+    const g2 = lobby(3, seed); g2.act(0, { type: 'set_settings', settings: { goldRate: rate, variant: 'archipel' } }); g2.act(0, { type: 'start' });
+    for (const k in g2.S.hexes) if (g2.S.hexes[k].t === 'gold') assert(B.goldNums(rate).includes(g2.S.hexes[k].n), `Rate ${rate}: Gold mit Zahl ${g2.S.hexes[k].n}`);
+  }
+  throws(() => ST.merge(ST.defaults(), { goldRate: 6 }), /Ertragsrate/);
   throws(() => ST.merge(ST.defaults(), { goldHome: 'ja' }), /Goldfluss/);
 });

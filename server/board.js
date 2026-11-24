@@ -59,11 +59,12 @@ function drawNumber(S, rnd) {
   return S.numBag.pop();
 }
 // Goldfluss-Felder tragen nur schwache Zahlen (Fairness: Gold ist ein Joker-Rohstoff)
-const GOLD_NUMS = [2, 3, 4, 10, 11, 12];
-function drawGoldNumber(S, rnd) {
+// Ertragsrate 1–5 = höchste erlaubte Zahl-Klasse (samt den schwächeren): 1: 2/12, 2: 3/11, 3: 4/10, 4: 5/9, 5: 6/8
+const goldNums = (rate) => { const t = (rate || 3) + 1; return [2, 3, 4, 5, 6, 8, 9, 10, 11, 12].filter((n) => Math.min(n, 14 - n) <= t); };
+function drawGoldNumber(S, rnd, nums) {
   if (!S.numBag.length) S.numBag = shuffle(NUM_BAG, rnd);
-  let i = S.numBag.findIndex((n) => GOLD_NUMS.includes(n));
-  if (i < 0) { S.numBag = [...S.numBag, ...shuffle(NUM_BAG, rnd)]; i = S.numBag.findIndex((n) => GOLD_NUMS.includes(n)); }
+  let i = S.numBag.findIndex((n) => nums.includes(n));
+  if (i < 0) { S.numBag = [...S.numBag, ...shuffle(NUM_BAG, rnd)]; i = S.numBag.findIndex((n) => nums.includes(n)); }
   return S.numBag.splice(i, 1)[0];
 }
 function drawTerrain(S, rnd) {
@@ -187,7 +188,7 @@ function generateOnce(S, nPlayers, rnd, settings) {
   for (let t = 0; t < 300; t++) {
     const nums = {}; S.numBag = [];
     const order = shuffle(landKeys, rnd).sort((a, c) => (types[c] === 'gold') - (types[a] === 'gold')); // Gold zuerst: bekommt sicher eine schwache Zahl
-    for (const k of order) if (types[k] !== 'wueste') nums[k] = types[k] === 'gold' ? drawGoldNumber(S, rnd) : drawNumber(S, rnd);
+    for (const k of order) if (types[k] !== 'wueste') nums[k] = types[k] === 'gold' ? drawGoldNumber(S, rnd, goldNums(settings && settings.goldRate)) : drawNumber(S, rnd);
     const bad = Object.keys(nums).some((k) => red(nums[k]) && G.neighbors(k).some((n) => nums[n] && red(nums[n])));
     best = nums; if (!bad) break;
   }
@@ -330,7 +331,7 @@ function discover(S, k, rnd) {
   const ln = ns.filter((h) => isLand(h.t)).length;
   const pLand = Math.min(0.62, 0.16 + 0.17 * ln);
   const chipsLeft = Object.keys(CHIP_W).some((n) => avail(sup.chips, n));
-  const landTypes = Object.keys(LAND_W).filter((t) => avail(sup.terrain, t) && (t === 'wueste' || chipsLeft) && (t !== 'gold' || GOLD_NUMS.some((n) => avail(sup.chips, n))));
+  const landTypes = Object.keys(LAND_W).filter((t) => avail(sup.terrain, t) && (t === 'wueste' || chipsLeft) && (t !== 'gold' || goldNums(S.goldRate).some((n) => avail(sup.chips, n))));
   const seaOk = avail(sup.terrain, 'meer');
   let wantLand = rnd() < pLand;
   if (wantLand && !landTypes.length) wantLand = false;
@@ -340,7 +341,7 @@ function discover(S, k, rnd) {
     const boost = S.fogGold || 1;
     const t = weighted(landTypes, (x) => LAND_W[x] * (x === 'gold' ? boost : 1), rnd);
     take(sup.terrain, t);
-    h = { t, n: t === 'wueste' ? null : drawChip(S, rnd, t === 'gold' ? GOLD_NUMS : null) };
+    h = { t, n: t === 'wueste' ? null : drawChip(S, rnd, t === 'gold' ? goldNums(S.goldRate) : null) };
   } else {
     if (seaOk) take(sup.terrain, 'meer');
     h = { t: 'meer', n: null }; // erschöpfte Vorräte: es bleibt (unbegrenzt) Meer
@@ -361,4 +362,4 @@ function fog(S) {
   return [...out];
 }
 
-module.exports = { GOLD_NUMS, touchesGold, RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, generateOnce, startImbalance, homeIslands, discover, fog, drawNumber, tryHarbor };
+module.exports = { goldNums, touchesGold, RES, TERRAIN_RES, shuffle, isLand, dist, island, generate, generateOnce, startImbalance, homeIslands, discover, fog, drawNumber, tryHarbor };
