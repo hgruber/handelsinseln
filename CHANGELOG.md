@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.5.12] - 2026-11-24
+
 ### Geändert
 - **Inselabstand umgedreht:** „Normal“ ist jetzt der dichte Abstand zwischen den Inseln (Heimatinsel, Archipel), die Alternative heißt „Weiter“ (die bisherigen größeren Abstände). Die Einstellung hieß „Inseln dichter“; bestehende Spiele behalten ihr Brett.
 - **Lobby, „Tischspieler anlegen“** sitzt rechts neben der Überschrift „Spieler 1/6“.
