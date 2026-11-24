@@ -83,6 +83,8 @@ try:
         for pg in (A, B):
             # mehrere Info-Fenster können übereinanderliegen: per Skript alle schließen statt zu klicken
             pg.evaluate("document.querySelectorAll('.devshow.manual').forEach((e) => e.click())")
+            # neue Info-Fenster können jederzeit zwischen clear() und Klick auftauchen: für den Test ganz ausblenden
+            pg.add_style_tag(content='.devshow { display: none !important; }')
         # --- Gast verlässt über das Menü mitten im Spiel
         clear(B); B.click('#btnMenu'); clear(B); B.click('[data-mi=leave]')
         B.wait_for_selector('#dlgRoot [data-d=yes]', timeout=3000); clear(B); B.click('#dlgRoot [data-d=yes]')

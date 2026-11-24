@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # Führt alle Tests parallel aus und fasst das Ergebnis zusammen (Browser-Tests brauchen Playwright + Chromium).
-# JOBS=n begrenzt die Parallelität (Standard: Zahl der CPU-Kerne). Logs und Screenshots je Test unter $SHOTS/<test>/.
+# JOBS=n begrenzt die Parallelität (Standard: Zahl der CPU-Kerne), PLAY_SECS die Dauer der Spiel-Dauerläufe (Standard 50 s).
+# Logs und Screenshots je Test unter $SHOTS/<test>/.
 cd "$(dirname "$0")/.." || exit 1
 export SHOTS_ROOT="${SHOTS:-/tmp/handelsinseln-tests}"; mkdir -p "$SHOTS_ROOT"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
 # Name|Befehl – die längsten zuerst, damit sich die Jobs gut verteilen
 TESTS=(
-  "Browser Spielen|python3 tests/browser_play.py 4 90"
-  "Browser Spielen auto|python3 tests/browser_play.py 3 90 auto"
-  "Browser Dauerlauf 6|python3 tests/browser_soak.py 6 80"
+  "Browser Spielen|python3 tests/browser_play.py 4 ${PLAY_SECS:-50}"
+  "Browser Spielen auto|python3 tests/browser_play.py 3 $(( ${PLAY_SECS:-50} * 4 / 5 )) auto"
+  "Browser Dauerlauf 6|python3 tests/browser_soak.py 6 $(( ${PLAY_SECS:-50} * 9 / 10 ))"
   "Simulation 2|node tests/sim.js ${SIM_SEEDS:-2}"
   "Browser Lobby|python3 tests/browser_lobby.py"
   "Browser Spieltisch|python3 tests/browser_table.py"
