@@ -24,6 +24,9 @@ Erster öffentlicher Release. Die früheren 1.x-Versionen waren interne Entwickl
 ### Entfernt
 - Node-Server (`server/`), die Node-internen Tests (`rules.js`, `features.js`, `sim.js`, `bots.js`, `e2e.js`), die Differenztests gegen den Node-Server, der Browser-Test der Übernahme samt Node-Vorbereitungsserver sowie der Node-Screenshot-Generator (`tests/mock/readme.js` samt `readme_shots.py`). Regel- und Funktionstests dafür werden in Rust neu aufgebaut (siehe `BACKLOG.md`).
 
+### Behoben
+- **Neuladen:** Schließt der Browser beim Neuladen die Ereignisverbindung, bevor `pagehide` feuert, löschte die App den Token und zeigte wieder die Anmeldung. Sie wartet jetzt kurz und prüft, ob die Seite wirklich verlassen wird, bevor sie die Sitzung beendet.
+
 ## Frühere interne Entwicklungsstände
 
 Die Entwicklung vor dem ersten öffentlichen Release (1.0.0) ist im [Changelog-Archiv](docs/CHANGELOG-archiv.md) dokumentiert.

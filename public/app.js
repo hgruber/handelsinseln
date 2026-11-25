@@ -89,6 +89,7 @@
   }
   function setOnline(on) { $('conn').hidden = on; }
   addEventListener('pagehide', () => { st.unloading = true; });
+  addEventListener('beforeunload', () => { st.unloading = true; });
   addEventListener('pageshow', () => { st.unloading = false; }); // Seite kommt aus dem Zurück-Cache wieder
   function connect() {
     if (st.es) st.es.close();
@@ -104,9 +105,15 @@
     es.addEventListener('kicked', () => { Lobby.setNotice('Du wurdest vom Spielleiter entfernt.'); logout('Du wurdest vom Spielleiter entfernt.'); });
     es.onopen = () => setOnline(true);
     es.onerror = () => {
-      if (st.unloading) return; // Neuladen/Tab schließen: der Browser bricht die Verbindung selbst ab, das ist kein Sitzungsende
-      if (es.readyState === EventSource.CLOSED) logout('Die Sitzung ist abgelaufen – bitte neu anmelden.');
-      else setOnline(false);
+      if (st.unloading || document.visibilityState === 'hidden') return; // Neuladen/Tab schließen: kein Sitzungsende
+      if (es.readyState === EventSource.CLOSED) {
+        // Beim Neuladen kann die alte Verbindung vor pagehide schließen; erst kurz prüfen, ob die Seite bleibt.
+        setTimeout(() => {
+          if (!st.unloading && document.visibilityState !== 'hidden' && es.readyState === EventSource.CLOSED) {
+            logout('Die Sitzung ist abgelaufen – bitte neu anmelden.');
+          }
+        }, 800);
+      } else setOnline(false);
     };
   }
   // ---- Digitaler Spieltisch ---------------------------------------------------------------------------
