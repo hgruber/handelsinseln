@@ -118,6 +118,19 @@ Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-
   eigenständige App ohne Adressleiste (Manifest, Icons inkl. Apple-Touch-Icon und Service Worker in `public/`; braucht https).
 - Töne lassen sich im Spielmenü abschalten.
 
+## Hintergrund
+
+Der Hintergrund hinter Anmeldung, Lobby und Spielfeld ist aus denselben Gelände-Tiles wie das Brett gebaut und lässt sich pro Gerät wählen –
+über den Knopf mit dem Paletten-Symbol unten links, im Spiel über „Hintergrund …“ im Hamburger-Menü. Die Wahl gilt nur lokal (gespeichert im
+Browser) und ändert nichts am Spiel.
+
+- **Erdkrümmung** – eine große Tile-Fläche wölbt sich wie eine Erdkugel bis zum Dunsthorizont; im Vordergrund stehen wenige Felder groß.
+- **Spieltisch** – die Tiles liegen als Plättchen mit Schatten auf dunklem Holz.
+- **Seekarte** – die Tiles als gemalte Karte auf gealtertem Pergament, mit Küstenlinien, Handelsrouten und Windrose.
+- **Nebelmeer** – Inseln und Siedlungslichter im nächtlichen Nebel.
+
+Gezeichnet wird im Browser (`public/background.js`, Canvas), die Texturen für Himmel, Holz und Pergament liegen in `public/img/bg/`.
+
 ## Spiele, Lobby, Einstellungen
 
 - Wer den Server betritt, sieht alle beitretbaren Spiele; gibt es keins, eröffnet er ein neues und wird Spielleiter. Beliebig viele Spiele laufen parallel.

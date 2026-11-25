@@ -17,9 +17,32 @@ svg { display: block; }
 
 .glass { background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); box-shadow: 0 12px 34px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .09); border-radius: 16px; }
 
-/* ================= Meer-Hintergrund ================= */
-#sea { position: fixed; inset: 0; overflow: hidden; background: linear-gradient(rgba(12, 52, 92, .5), rgba(12, 52, 92, .5)), url("img/meerbg.webp") center / cover no-repeat, #0f3d68; }  /* Flux-Bild, ruhig und ohne Animation */
+/* ================= Hintergrund (#sea, background.js) ================= */
+#sea { position: fixed; inset: 0; overflow: hidden; background: #0f3d68; }
+#sea canvas.sea-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #sea .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(2, 8, 20, .55) 100%); pointer-events: none; }
+
+/* kleiner Einstieg in die Hintergrundwahl (Login, Lobby, Statistik; im Spiel im Menü) */
+#bgBtn { position: fixed; left: 14px; bottom: 14px; z-index: 30; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px); color: var(--gold2); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(0, 0, 0, .42); opacity: .82; transition: opacity .15s, transform .15s; }
+#bgBtn:hover { opacity: 1; transform: translateY(-1px); }
+body.in-game #bgBtn { display: none; }
+.bgdlg { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; }
+.bgdlg-back { position: absolute; inset: 0; background: rgba(3, 8, 18, .62); backdrop-filter: blur(3px); }
+.bgdlg-card { position: relative; width: min(880px, 96vw); max-height: 92vh; overflow: auto; padding: 22px 24px; text-align: left; animation: rise .28s cubic-bezier(.2, .9, .3, 1) both; }
+.bgdlg-card h2 { margin: 0 0 4px; font: 700 24px/1.15 var(--serif); }
+.bgdlg-sub { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+.bgdlg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bgopt { position: relative; display: grid; gap: 4px; padding: 8px 8px 10px; text-align: left; border-radius: 14px; border: 2px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); transition: border-color .12s, background .12s, transform .12s; }
+.bgopt:hover { background: rgba(255, 255, 255, .09); transform: translateY(-1px); }
+.bgopt.on { border-color: var(--gold); background: rgba(232, 185, 90, .14); box-shadow: 0 0 0 2px rgba(232, 185, 90, .28); }
+.bgopt .bgpv { display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 9px; background: #0b1a30; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.bgopt .bgpv canvas { width: 100%; height: 100%; display: block; }
+.bgopt b { font: 700 15px/1.2 var(--serif); color: var(--text); }
+.bgopt small { color: var(--muted); font-size: 12px; line-height: 1.3; }
+.bgopt.on b { color: var(--gold2); }
+.bgopt.on::after { content: '✓'; position: absolute; top: 14px; right: 16px; width: 24px; height: 24px; border-radius: 50%; background: var(--gold); color: #2a1a05; font: 700 14px/24px var(--sans); text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.bgdlg-act { display: flex; justify-content: flex-end; margin-top: 18px; }
+@media (max-width: 640px) { .bgdlg-grid { grid-template-columns: 1fr; } .bgdlg-card { padding: 18px 16px; } }
 
 /* ================= Brett ================= */
 #board { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
