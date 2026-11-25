@@ -391,6 +391,8 @@ fn report(room: &Room, reason: Option<&str>, version: &str, data_dir: &Path, no_
 // ---------- Anfragen ----------
 
 pub fn handle_conn(app: App, stream: TcpStream) {
+    // Antworten sofort senden (kein Nagle/Delayed-ACK – sonst ~40 ms Verzögerung je Anfrage).
+    let _ = stream.set_nodelay(true);
     let mut reader = match stream.try_clone() {
         Ok(s) => BufReader::new(s),
         Err(_) => return,
