@@ -23,4 +23,5 @@ pub mod model;
 pub mod rng;
 pub mod rules;
 pub mod settings;
+pub mod tls;
 pub mod view;

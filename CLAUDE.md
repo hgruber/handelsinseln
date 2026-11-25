@@ -50,7 +50,7 @@ Spielkonstanten (Rohstoffe `holz lehm wolle getreide erz`, Gelände, Wertechips,
 
 ## Rust-Server
 
-`rust/` ist eine vollständige Portierung von `server/` (gleiches Protokoll, gleiche Sichten, Bots, Tisch/Controller/Übergabe); die Node-Dateien bleiben Referenz. `RNG_SEED` setzt in beiden Servern denselben Zufallsstrom (mulberry32, `server/rng.js`). Bewusste Abweichungen: kein eigenes https, kein gzip für den Ereignisstrom, kein IP-Debug im Log; Container `Containerfile.rust` (statisch, `scratch`). Details und die SQLite-Untersuchung: `docs/rust-server.md`.
+`rust/` ist eine vollständige Portierung von `server/` (gleiches Protokoll, gleiche Sichten, Bots, Tisch/Controller/Übergabe); die Node-Dateien bleiben Referenz. `RNG_SEED` setzt in beiden Servern denselben Zufallsstrom (mulberry32, `server/rng.js`). TLS auf 8443 (`HTTPS_PORT`, `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`, Zertifikat in `DATA_DIR/tls`); bewusste Abweichung: kein gzip für den Ereignisstrom, kein IP-Debug im Log. Container `Containerfile.rust` (statisch, `scratch`, Ports 8080/8443). Details und die SQLite-Untersuchung: `docs/rust-server.md`.
 
 ## Tests
 

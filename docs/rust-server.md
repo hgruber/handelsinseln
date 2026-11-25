@@ -13,7 +13,8 @@ cargo build --manifest-path rust/Cargo.toml --release
 
 Gleiche Umgebungsvariablen wie beim Node-Server, soweit sie den Kern betreffen: `PORT`, `LISTEN`,
 `DATA_DIR`, `APP_VERSION`, `LOG_LEVEL`, `STUN_URL`, `MAX_GAMES`, `BOT_MS`, `TICK_MS`, `GRACE_MS`,
-`ABSENT_MS`, `HANDOVER_MS`, `RNG_SEED`, zusätzlich `ROOT_DIR` (Verzeichnis mit `public/` und `shared/`;
+`ABSENT_MS`, `HANDOVER_MS`, `RNG_SEED`, `HTTPS_PORT` (Standard 8443, `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`,
+zusätzlich `ROOT_DIR` (Verzeichnis mit `public/` und `shared/`;
 sonst wird es neben bzw. oberhalb des Programms gesucht) und `NO_SAVE=1` für Tests.
 
 Das Programm kennt `--health`: Es fragt `GET /api/lobby` auf `127.0.0.1:$PORT` ab und endet mit 0 bei
@@ -60,6 +61,7 @@ bash scripts/diff.sh      # oder: npm run test:diff
   Kontrollübergabe an ein Handy und Rückgabe.
 - `api.js` – Signalweg (Sprachchat), Kick und Verlassen samt Fehlerfällen (unbekannter Token, entfernter
   Spieler).
+- `tests/tls.js` – HTTPS, `/api/config`, Zertifikats-SANs aus `TLS_HOSTS`, SSE über TLS, HTTP parallel.
 
 Die Tests decken 2–6 Spieler, alle Kartenvarianten, automatisches Würfeln/Räuberversetzen,
 Bank- und Entwicklungskarten-Einstellungen sowie komplette Partien bis zum Spielende ab. Beim
@@ -73,16 +75,34 @@ podman build -f Containerfile.rust -t handelsinseln-rust .
 
 Mehrstufiger Bau: `rust:1-alpine` kompiliert mit musl und `-C target-feature=+crt-static` (nur für das
 Endprogramm, damit die proc-macros der Abhängigkeiten baubar bleiben). Das Laufzeit-Image ist `scratch`:
-ein statisch gelinktes Binary (rund 1,3 MB), `public/` und `shared/`, ein leeres `/data` für den
-Benutzer 10001. Ergebnis: rund 3,9 MB, keine Shell, keine Bibliotheken. Der Healthcheck nutzt
+ein statisch gelinktes Binary (rund 2,0 MB inkl. TLS), `public/` und `shared/`, ein leeres `/data` für den
+Benutzer 10001. Ergebnis: rund 4,8 MB, keine Shell, keine Bibliotheken. Der Healthcheck nutzt
 `handelsinseln --health`. Podman ignoriert `HEALTHCHECK` im OCI-Format; mit `--format docker` bauen,
 wenn der Healthcheck im Image stehen soll.
 
+## TLS (8443)
+
+Der Server spricht zusätzlich HTTPS auf `HTTPS_PORT` (Standard 8443, `0` schaltet ab). Er erzeugt beim
+ersten Start ein selbstsigniertes Zertifikat und legt es in `DATA_DIR/tls/tls.json` ab (PEM, Rechte
+0600); vorhandene Zertifikate werden wiederverwendet, solange alle gewünschten Namen enthalten sind.
+Eigene Zertifikate: `TLS_CERT=/pfad/cert.pem TLS_KEY=/pfad/key.pem`.
+
+Die Namen im Zertifikat sind `localhost`, `127.0.0.1`, `::1`, der Hostname und alles aus
+`TLS_HOSTS` (kommagetrennt, Namen und IP-Adressen). Im Container ist die automatische
+Interface-Erkennung wertlos (Container-IP), deshalb dort die LAN-Adresse bzw. den Namen setzen:
+
+```bash
+podman run -p 8080:8080 -p 8443:8443 -e HTTPS_PORT=8443 \
+  -e TLS_HOSTS=handelsinseln.lan,192.168.0.20 handelsinseln-rust
+```
+
+Der Browser zeigt beim ersten Aufruf die Warnung für das selbstsignierte Zertifikat; danach bleibt sie
+weg, solange dasselbe Zertifikat verwendet wird (also `DATA_DIR` bleibt). Sprachchat funktioniert damit
+im LAN ohne Reverse-Proxy. Hinter einem TLS-Proxy `HTTPS_PORT=0` setzen; der Container lauscht dann nur
+auf 8080. `/api/config` meldet den aktiven HTTPS-Port; die Lobby verweist automatisch darauf.
+
 ## Unterschiede zum Node-Server
 
-- **Kein eigenes HTTPS.** Der Node-Server startet zusätzlich auf 8443 mit einem selbst erzeugten
-  Zertifikat, damit das Mikrofon im Browser funktioniert. Der Rust-Server spricht nur HTTP; TLS gehört
-  vor den Container (Reverse-Proxy). `/api/config` meldet `httpsPort: null`.
 - **Kein gzip für den Ereignisstrom.** Der Client versteht beide Varianten; ohne gzip sind die
   SSE-Nachrichten größer. (Komprimierung ließe sich mit `flate2` nachrüsten, kostet Binary-Größe.)
 - **Log ohne IP-Adressen.** Die Diagnosefelder des Node-Servers (`LOG_LEVEL=debug`: gekürzter Token,

@@ -1,7 +1,7 @@
 // HTTP-Server: statische Dateien, SSE, Aktions-API, Spieleverwaltung und WebRTC-Signalweg.
 // Portierung von server/server.js (ohne TLS und ohne gzip – der Client kommt mit beidem zurecht).
 use std::collections::HashMap;
-use std::io::{self, BufReader, Write};
+use std::io::{self, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
@@ -390,33 +390,27 @@ fn report(room: &Room, reason: Option<&str>, version: &str, data_dir: &Path, no_
 
 // ---------- Anfragen ----------
 
-pub fn handle_conn(app: App, stream: TcpStream) {
-    // Antworten sofort senden (kein Nagle/Delayed-ACK – sonst ~40 ms Verzögerung je Anfrage).
-    let _ = stream.set_nodelay(true);
-    let mut reader = match stream.try_clone() {
-        Ok(s) => BufReader::new(s),
-        Err(_) => return,
-    };
-    let mut stream = stream;
+pub fn handle_conn<S: Read + Write + Send + 'static>(app: App, stream: S) {
+    let mut reader = BufReader::new(stream);
     loop {
         let req = match http::read_request(&mut reader) {
             Ok(Some(r)) => r,
             _ => break,
         };
         if req.method == "GET" && req.path == "/api/events" {
-            events(&app, stream, &req);
+            events(&app, reader.get_mut(), &req);
             return;
         }
-        if handle(&app, &mut stream, &req).is_err() {
+        if handle(&app, reader.get_mut(), &req).is_err() {
             break;
         }
-        if stream.flush().is_err() {
+        if reader.get_mut().flush().is_err() {
             break;
         }
     }
 }
 
-fn json_error(stream: &mut TcpStream, code: u16, msg: &str, games: Option<&[Value]>) -> io::Result<()> {
+fn json_error<W: Write>(stream: &mut W, code: u16, msg: &str, games: Option<&[Value]>) -> io::Result<()> {
     let mut v = json!({ "error": msg });
     if let Some(g) = games {
         v.as_object_mut().unwrap().insert("games".into(), json!(g));
@@ -431,7 +425,7 @@ fn parse_body(req: &Request) -> Result<Value, String> {
     req.json()
 }
 
-fn handle(app: &App, stream: &mut TcpStream, req: &Request) -> io::Result<()> {
+fn handle<W: Write>(app: &App, stream: &mut W, req: &Request) -> io::Result<()> {
     let path = req.path.as_str();
     if path == "/api/games" || path == "/api/lobby" {
         let inner = app.inner.lock().unwrap();
@@ -468,7 +462,7 @@ fn handle(app: &App, stream: &mut TcpStream, req: &Request) -> io::Result<()> {
     http::serve_static(stream, req, &app.root, head_only)
 }
 
-fn handle_post(app: &App, stream: &mut TcpStream, req: &Request, path: &str) -> io::Result<()> {
+fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -> io::Result<()> {
     let b = match parse_body(req) {
         Ok(v) => v,
         Err(e) => return json_error(stream, 400, &e, None),
@@ -964,7 +958,7 @@ fn schedule_expire(app: Arc<Mutex<Inner>>, rid: String, ttl: i64) {
 
 // ---------- Ereignisstrom ----------
 
-fn events(app: &App, mut stream: TcpStream, req: &Request) {
+fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
     let token = req.q("token").unwrap_or("").to_string();
     let want_table = req.q("table") == Some("1");
     let (rx, client_id, room_id, is_watcher, pid, phone, initial) = {
@@ -978,7 +972,7 @@ fn events(app: &App, mut stream: TcpStream, req: &Request) {
         if found.is_none() && watcher.is_none() {
             drop(inner);
             let _ = http::write_head(
-                &mut stream,
+                stream,
                 401,
                 &[("Content-Type", "text/plain; charset=utf-8".into())],
                 Some(0),
@@ -1040,7 +1034,7 @@ fn events(app: &App, mut stream: TcpStream, req: &Request) {
         (rx, cid, rid, isw, p_id, ph, bytes)
     };
     let _ = http::write_head(
-        &mut stream,
+        stream,
         200,
         &[
             ("Content-Type", "text/event-stream".into()),
@@ -1103,6 +1097,7 @@ pub struct Options {
     pub version: String,
     pub stun: Option<String>,
     pub https_port: Option<u16>,
+    pub tls_hosts: String,
     pub tick_ms: u64,
     pub bot_ms: u64,
 }
@@ -1116,6 +1111,7 @@ impl App {
 
 pub fn run(opts: Options) -> io::Result<()> {
     install_signal_handlers();
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let seed = Rng::from_env().unwrap_or_else(random_rng);
     let rnd = Arc::new(Mutex::new(seed));
     let mut hub = Hub::new(rnd);
@@ -1124,6 +1120,23 @@ pub fn run(opts: Options) -> io::Result<()> {
         if let Ok(v) = serde_json::from_str::<Value>(&s) {
             hub.load(&v, 300_000);
             log::info("spielstand_geladen", &[("spiele", hub.rooms.len().to_string())]);
+        }
+    }
+    let mut https_port = opts.https_port;
+    let mut tls_setup: Option<(Arc<rustls::ServerConfig>, TcpListener)> = None;
+    if let Some(p) = https_port {
+        match crate::tls::build(&opts.data_dir, &opts.tls_hosts) {
+            Ok(cfg) => match TcpListener::bind(("0.0.0.0", p)) {
+                Ok(l) => tls_setup = Some((cfg, l)),
+                Err(e) => {
+                    log::error("tls_fehler", &[("fehler", e.to_string())]);
+                    https_port = None;
+                }
+            },
+            Err(e) => {
+                log::error("tls_fehler", &[("fehler", e)]);
+                https_port = None;
+            }
         }
     }
     let inner = Arc::new(Mutex::new(Inner {
@@ -1136,7 +1149,7 @@ pub fn run(opts: Options) -> io::Result<()> {
         data_dir: opts.data_dir.clone(),
         no_save: opts.no_save,
         stun: opts.stun.clone(),
-        https_port: opts.https_port,
+        https_port,
     }));
     let app = App { inner: inner.clone(), root: Arc::new(opts.root.clone()) };
     let addr = match &opts.listen {
@@ -1149,7 +1162,7 @@ pub fn run(opts: Options) -> io::Result<()> {
         &[
             ("version", opts.version.clone()),
             ("http", addr.clone()),
-            ("https", "aus".into()),
+            ("https", https_port.map(|p| p.to_string()).unwrap_or_else(|| "aus".into())),
             ("daten", opts.data_dir.to_string_lossy().to_string()),
         ],
     );
@@ -1210,9 +1223,27 @@ pub fn run(opts: Options) -> io::Result<()> {
             }
         });
     }
+    if let Some((cfg, tls_listener)) = tls_setup {
+        let app_tls = app.clone();
+        thread::spawn(move || {
+            for stream in tls_listener.incoming() {
+                if let Ok(s) = stream {
+                    let _ = s.set_nodelay(true);
+                    let app = app_tls.clone();
+                    let cfg = cfg.clone();
+                    thread::spawn(move || {
+                        if let Ok(conn) = rustls::ServerConnection::new(cfg) {
+                            handle_conn(app, rustls::StreamOwned::new(conn, s));
+                        }
+                    });
+                }
+            }
+        });
+    }
     for stream in listener.incoming() {
         match stream {
             Ok(s) => {
+                let _ = s.set_nodelay(true);
                 let app = app.clone();
                 thread::spawn(move || handle_conn(app, s));
             }

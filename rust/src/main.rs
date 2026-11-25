@@ -74,6 +74,11 @@ fn main() {
     let listen = std::env::var("LISTEN").ok().filter(|s| !s.is_empty());
     let no_save = std::env::var("NO_SAVE").ok().map(|v| v == "1").unwrap_or(false);
     let stun = std::env::var("STUN_URL").ok().filter(|s| !s.is_empty());
+    let https_port = match env_num("HTTPS_PORT", 8443u16) {
+        0 => None,
+        p => Some(p),
+    };
+    let tls_hosts = std::env::var("TLS_HOSTS").unwrap_or_default();
     let tick_ms = env_num("TICK_MS", 2000u64);
     let bot_ms = env_num("BOT_MS", 800u64);
     let opts = Options {
@@ -84,7 +89,8 @@ fn main() {
         no_save,
         version,
         stun,
-        https_port: None,
+        https_port,
+        tls_hosts,
         tick_ms,
         bot_ms,
     };

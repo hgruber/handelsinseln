@@ -1,7 +1,7 @@
 // Kleiner HTTP/1.1-Server (keine Abhängigkeiten): Anfragen lesen, Antworten schreiben, Dateien ausliefern.
 use std::collections::HashMap;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::net::TcpStream;
 use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -29,7 +29,7 @@ impl Request {
     }
 }
 
-pub fn read_request(reader: &mut BufReader<TcpStream>) -> io::Result<Option<Request>> {
+pub fn read_request<R: BufRead>(reader: &mut R) -> io::Result<Option<Request>> {
     let mut line = String::new();
     let n = reader.read_line(&mut line)?;
     if n == 0 {
@@ -123,8 +123,8 @@ pub fn status_text(code: u16) -> &'static str {
     }
 }
 
-pub fn write_head(
-    stream: &mut TcpStream,
+pub fn write_head<W: Write>(
+    stream: &mut W,
     code: u16,
     headers: &[(&str, String)],
     content_length: Option<usize>,
@@ -143,7 +143,7 @@ pub fn write_head(
     stream.write_all(s.as_bytes())
 }
 
-pub fn send_json(stream: &mut TcpStream, code: u16, value: &serde_json::Value) -> io::Result<()> {
+pub fn send_json<W: Write>(stream: &mut W, code: u16, value: &serde_json::Value) -> io::Result<()> {
     let body = serde_json::to_vec(value).unwrap_or_else(|_| b"{}".to_vec());
     write_head(
         stream,
@@ -157,7 +157,7 @@ pub fn send_json(stream: &mut TcpStream, code: u16, value: &serde_json::Value) -
     stream.write_all(&body)
 }
 
-pub fn send_text(stream: &mut TcpStream, code: u16, text: &str) -> io::Result<()> {
+pub fn send_text<W: Write>(stream: &mut W, code: u16, text: &str) -> io::Result<()> {
     write_head(
         stream,
         code,
@@ -210,8 +210,8 @@ fn safe_join(base: &Path, rel: &str) -> Option<PathBuf> {
 }
 
 /// Statische Datei ausliefern (mit ETag/Last-Modified, 304 bei unverändert).
-pub fn serve_static(
-    stream: &mut TcpStream,
+pub fn serve_static<W: Write>(
+    stream: &mut W,
     req: &Request,
     root: &Path,
     head_only: bool,
@@ -326,9 +326,4 @@ fn civil(secs: i64) -> (i64, i64, i64, i64, i64, i64, usize) {
     let y = if m <= 2 { y0 + 1 } else { y0 };
     let wd = (days + 4).rem_euclid(7) as usize; // 1970-01-01 war Donnerstag
     (y, m, d, h, mi, s, wd)
-}
-
-#[allow(dead_code)]
-fn _seek(_f: &mut fs::File) {
-    let _ = _f.seek(SeekFrom::Start(0));
 }

@@ -20,7 +20,7 @@ const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
 function freePort() { return new Promise((res, rej) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); s.on('error', rej); }); }
 async function waitPort(port, ms = 15000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { await new Promise((res, rej) => { const s = net.connect(port, '127.0.0.1', () => { s.end(); res(); }); s.on('error', rej); }); return; } catch (e) { await sleep(40); } } throw new Error('Port antwortet nicht'); }
 function startNode(port, data) { return spawn(process.execPath, [path.join(ROOT, 'server', 'server.js')], { env: { ...process.env, PORT: String(port), DATA_DIR: data, HTTPS_PORT: '0', RNG_SEED: String(SEED), LOG_LEVEL: 'error' }, stdio: 'ignore' }); }
-function startRust(port, data) { return spawn(BIN, [], { env: { ...process.env, PORT: String(port), DATA_DIR: data, RNG_SEED: String(SEED), NO_SAVE: '1', LOG_LEVEL: 'error', ROOT_DIR: ROOT }, stdio: 'ignore' }); }
+function startRust(port, data) { return spawn(BIN, [], { env: { ...process.env, PORT: String(port), DATA_DIR: data, RNG_SEED: String(SEED), NO_SAVE: '1', LOG_LEVEL: 'error', ROOT_DIR: ROOT, HTTPS_PORT: '0' }, stdio: 'ignore' }); }
 async function post(base, p, body) { try { const r = await fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, ...(await r.json()) }; } catch (e) { return { status: 0, error: e.message }; } }
 
 function connect(base, token, table = false) {

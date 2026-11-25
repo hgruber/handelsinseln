@@ -34,7 +34,7 @@ function startNode(port, data) {
 }
 function startRust(port, data) {
   return spawn(BIN, [], {
-    env: { ...process.env, PORT: String(port), DATA_DIR: data, RNG_SEED: String(SEED), NO_SAVE: '1', LOG_LEVEL: 'error', ROOT_DIR: ROOT },
+    env: { ...process.env, PORT: String(port), DATA_DIR: data, RNG_SEED: String(SEED), NO_SAVE: '1', LOG_LEVEL: 'error', ROOT_DIR: ROOT, HTTPS_PORT: '0' },
     stdio: 'ignore',
   });
 }
