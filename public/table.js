@@ -126,7 +126,7 @@
       `<span title="Entwicklungskarten">${A.dev('ritter', 13)}${p.devCount || 0}</span>` +
       `<span title="Gespielte Ritter">⚔ ${p.knightsPlayed}</span>` +
       `<span title="Längster Handelsweg">${A.pieceIcon('road', p.color, 13)}${p.longestRoute}</span>` +
-      (p.hasLongest ? '<span class="bdg2" title="Längster Handelsweg">Längster</span>' : '') + (p.hasLargest ? '<span class="bdg2" title="Stärkste Schutzmacht">Ritter</span>' : '') +
+      C.vpIcons(p, v.phase === 'ended') +
       (p.discarding ? `<span class="duty">⚠ wirft ${p.discarding} ab</span>` : '') + (p.pickingGold ? `<span class="duty gold">✦ Gold ×${p.pickingGold}</span>` : '') +
       `</span></span>${extra || ''}`;
   }

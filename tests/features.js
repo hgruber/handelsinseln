@@ -395,6 +395,8 @@ test('Statistik: Sieg und Abbruch liefern vollständige Statistik', () => {
   assert(st.history.length >= 5 && st.history[0].vp.length === 3);
   const fin = st.history[st.history.length - 1]; // letzter Messpunkt = Endstand nach dem letzten Zug (wie die Endwertung)
   assert(fin.end && fin.round === st.history.length, 'Endpunkt fehlt');
+  assert.equal(st.rounds, st.history.length - 1, 'Runden = Messpunkte ohne Endpunkt (nicht die Züge)');
+  assert(st.rounds < st.turns, 'bei 3 Spielern weniger Runden als Züge');
   assert.deepEqual(fin.vp, st.players.map((p) => p.vp));
   const n = st.history.length;
   g.act(0, { type: 'resume_game', winPoints: 20 });

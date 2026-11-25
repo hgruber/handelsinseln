@@ -205,7 +205,7 @@ Längster Handelsweg ab 5, Stärkste Schutzmacht ab 3 Rittern) plus:
 - **Goldfelder**: Ertrag nach freier Wahl; sie tragen nur die Zahlen 2, 3, 4, 10, 11, 12, und Anfangssiedlungen dürfen nicht an ein Goldfeld grenzen (Fairness). **Häfen** 3:1 und 2:1.
 - **Entdeckung**: Das Spielfeld ist zufällig und unbegrenzt. Wer mit Straße oder Schiff an ein unentdecktes Feld stößt, deckt es auf;
   Land bringt 1 Rohstoff Belohnung (Gold: freie Wahl), Meer nichts.
-- **Neue Inseln**: Die erste Siedlung auf einer neuen Insel bringt Inselpunkte (Standard 2, höchstens für zwei Inseln pro Spieler); sie stehen als „Insel“ am Punktestand. Ein Hinweis am Punktestand und in der Rangliste schlüsselt die Siegpunkte auf (Siedlungen, Städte, Inseln, Längster Handelsweg, Stärkste Schutzmacht, Siegpunktkarten – fremde erst nach Spielende).
+- **Neue Inseln**: Die erste Siedlung auf einer neuen Insel bringt Inselpunkte (Standard 2, höchstens für zwei Inseln pro Spieler); jede besiedelte Insel steht als kleines Inselsymbol (gelber Rahmen) beim Spieler, ebenso Längster Handelsweg, Stärkste Schutzmacht und nach Spielende jede Siegpunktkarte. Ein Hinweis am Punktestand und in der Rangliste schlüsselt die Siegpunkte auf (Siedlungen, Städte, Inseln, Längster Handelsweg, Stärkste Schutzmacht, Siegpunktkarten – fremde erst nach Spielende).
 - **Straßenbau-Karte** erlaubt Straßen und/oder Schiffe.
 - Ab 5 Spielern: **Sonderbauphase** nach jedem Zug (bauen/kaufen, kein Handel mit Spielern); Spieler ohne Möglichkeit werden übersprungen.
 - Bank-Vorrat standardmäßig unbegrenzt; bei gesetztem Vorrat gilt die Originalregel (reicht er nicht, bekommt ein einzelner Empfänger den Rest, mehrere niemanden).

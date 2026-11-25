@@ -792,6 +792,19 @@
     setHTML($('banner'), `<div class="bn ${you ? 'mine' : 'wait'}">${avatar(v.turn, 28)}<span class="txt">${pre}${esc(txt)}${esc(mode)}${esc(dsc)}</span>${extra}</div>`);
   }
 
+  // Sonderpunkte als kleine Icons mit gelbem Rahmen: Längster Handelsweg, Stärkste Schutzmacht, je Insel eins, Siegpunktkarten (nur nach Spielende)
+  const ISLAND_SVG = (s) => `<svg viewBox="0 0 16 16" width="${s}" height="${s}" aria-hidden="true"><path d="M1,14 Q8,9.5 15,14Z" fill="#e3c27a" stroke="#9a7a3a" stroke-width=".6"/><path d="M8.3,11.6 Q8.6,7.5 7.4,4.6" fill="none" stroke="#7a5428" stroke-width="1.3" stroke-linecap="round"/><path d="M7.4,4.6 Q4.6,3.4 2.6,5.6 M7.4,4.6 Q10.4,3 12.8,5 M7.4,4.6 Q6,1.8 3.6,2 M7.4,4.6 Q9.6,2 11.6,2.4" fill="none" stroke="#3f9a4a" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  function vpIcons(p, ended) {
+    const x = p.vpParts || {}, ic = (t, inner) => `<span class="vpi" title="${t}">${inner}</span>`;
+    const longest = x.longest !== undefined ? x.longest : p.hasLongest ? 2 : 0, largest = x.largest !== undefined ? x.largest : p.hasLargest ? 2 : 0;
+    let o = '';
+    if (longest) o += ic(`Längster Handelsweg${p.longestRoute ? ' (' + p.longestRoute + ')' : ''}: 2 Punkte`, Art.pieceIcon('road', p.color, 15));
+    if (largest) o += ic(`Stärkste Schutzmacht${p.knightsPlayed !== undefined ? ' (' + p.knightsPlayed + ' Ritter)' : ''}: 2 Punkte`, Art.dev('ritter', 15));
+    const n = x.islandCount || 0, per = n ? Math.round((x.islands || 0) / n) : 0;
+    for (let i = 0; i < n; i++) o += ic(`Neue Insel besiedelt: ${per} Punkte`, ISLAND_SVG(15));
+    if (ended) for (let i = 0; i < (x.cards || 0); i++) o += ic('Siegpunktkarte: 1 Punkt', Art.dev('siegpunkt', 15));
+    return o;
+  }
   // Hinweis zum Punktestand: Aufschlüsselung nach Quellen (Siegpunktkarten nur eigene bzw. nach Spielende)
   function vpTip(p) {
     const x = p.vpParts; if (!x) return 'Siegpunkte';
@@ -812,14 +825,14 @@
       const duty = (p.discarding ? `<span class="duty" title="Muss ${p.discarding} Karten abwerfen">⚠ wirft ${p.discarding} ab</span>` : '') + (p.pickingGold ? `<span class="duty gold" title="Wählt ${p.pickingGold} Rohstoffe vom Goldfluss">✦ Gold ×${p.pickingGold}</span>` : '');
       const gone = p.gone ? '<span class="bdg gone" title="Dieser Spieler hat das Spiel verlassen. Seine Figuren bleiben stehen (oder verschwinden nach den Spieleinstellungen).">verlassen</span>'
         : p.auto ? '<span class="bdg auto" title="Auto-Modus: Der Server spielt für diesen Spieler (abwesend). Er würfelt, tauscht 1:1 und beendet den Zug selbst.">Auto</span>' : '';
-      const badges = gone + (p.hasLongest ? `<span class="bdg" title="Längster Handelsweg (${p.longestRoute})">${Art.pieceIcon('road', p.color, 16)}Längste</span>` : '') + (p.hasLargest ? `<span class="bdg" title="Stärkste Schutzmacht (${p.knightsPlayed} Ritter)">${Art.dev('ritter', 16)}Schutzmacht</span>` : '');
+      const badges = gone + vpIcons(p, v.phase === 'ended');
       return `<div class="pc${turn ? ' turn' : ''}${compact() && st.openPc === pid ? ' open' : ''}${pid === v.you ? ' me' : ''}${p.connected && !p.gone ? '' : ' off'}${p.gone ? ' gone' : ''}" data-pid="${pid}" style="--pc:${Art.COLORS[p.color]}">` +
         `${avatar(pid, 38)}<div class="info"><div class="top"><b class="nm">${esc(p.name)}</b>${p.bot ? `<span class="botTag" title="Computerspieler: ${esc((Avatars.BOTS[p.bot] || {}).label || '')}">Bot</span>` : ''}${pid === v.host ? '<span class="crown" title="Spielleiter">♛</span>' : ''}<span class="dot ${p.connected ? 'on' : ''}" title="${p.connected ? 'verbunden' : 'getrennt'}"></span>${Voice.badge(pid)}</div>` +
         `<div class="stats"><span title="Rohstoffkarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#e8dcc0" stroke="#7a6a48"/></svg>${p.resCount}</span>` +
         `<span title="Entwicklungskarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#6a7bb0" stroke="#2c3560"/><path d="M8,5 l1,2 2,.3 -1.5,1.4 .4,2 -1.9,-1 -1.9,1 .4,-2 -1.5,-1.4 2,-.3z" fill="#ffe27a"/></svg>${p.devCount}</span>` +
         `<span title="Gespielte Ritter">${Art.dev('ritter', 14)}${p.knightsPlayed}</span>` +
         `<span title="Längster Handelsweg (Länge)">${Art.pieceIcon('road', p.color, 14)}${p.longestRoute}</span></div>${badges || duty ? `<div class="bd">${badges}${duty}</div>` : ''}</div>` +
-        `<div class="vp" title="${esc(vpTip(p))}"><b>${p.vp}</b><i>★</i>${p.svp ? `<small>${p.svp} Insel</small>` : ''}</div>${turn ? '<span class="arrow" aria-hidden="true"></span>' : ''}</div>`;
+        `<div class="vp" title="${esc(vpTip(p))}"><b>${p.vp}</b><i>★</i></div>${turn ? '<span class="arrow" aria-hidden="true"></span>' : ''}</div>`;
     }).join('');
     setHTML($('players'), html);
   }
@@ -1150,11 +1163,11 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { vpTip, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
+    const ctx = { vpTip, vpIcons, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });
-    Table.init({ act, Art, avatar, esc, hold: requestControl });
+    Table.init({ act, Art, avatar, esc, vpIcons, hold: requestControl });
     Fx.init({ Art, table: () => !!st.tableOn, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
     Trade.init({ root: $('tradeDock'), table: () => !!st.tableOn, view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);

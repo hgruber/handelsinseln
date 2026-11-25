@@ -7,13 +7,13 @@ class GameView {
   // Siegpunkte nach Quellen (für den Hinweis an Punktestand und Rangliste); Siegpunktkarten nur, wenn sie sichtbar sein dürfen (eigene, Spielende)
   vpParts(pid, cards) {
     const S = this.S, p = this.pl(pid);
-    return { settlements: this.count(pid, 's'), cities: this.count(pid, 'c'), islands: p.svp, longest: S.longest === pid ? 2 : 0, largest: S.largest === pid ? 2 : 0, cards: cards ? this.hiddenVp(pid) : null };
+    return { settlements: this.count(pid, 's'), cities: this.count(pid, 'c'), islands: p.svp, islandCount: p.islandBonus || 0, longest: S.longest === pid ? 2 : 0, largest: S.largest === pid ? 2 : 0, cards: cards ? this.hiddenVp(pid) : null };
   }
   statsView() {
     const S = this.S, st = S.stats;
     if (!st || S.phase !== 'ended') return null;
     return {
-      durationSec: Math.round(((st.endedAt || Date.now()) - st.startedAt) / 1000), turns: S.turnNo, aborted: S.aborted,
+      durationSec: Math.round(((st.endedAt || Date.now()) - st.startedAt) / 1000), turns: S.turnNo, rounds: st.history.filter((h) => !h.end).length, aborted: S.aborted,
       rolls: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [String(i + 2), st.rolls[i + 2] || 0])),
       history: st.history,
       players: S.players.map((p) => {

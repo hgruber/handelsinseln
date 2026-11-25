@@ -11,9 +11,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ### Geändert
 - **Zoom bleibt stehen:** Die Karte springt nirgends mehr von selbst zurück – am Spieltisch nicht mehr 1,5 s nach dem Zoomen/Verschieben, am Desktop nicht mehr beim Aufdecken neuer Felder, beim Auf-/Zuklappen der Seitenleiste oder beim Wechsel der Fenstergröße. Zentriert wird nur per Doppelklick/Doppeltipp oder „Brett zentrieren“ im Menü (beim ersten Anzeigen und zum Spielstart wird das Brett weiterhin eingepasst).
-- **Punktestand „Insel“ statt „Sonder“, mit Aufschlüsselung:** Die kleine Zahl am Punktestand und in der Rangliste der Auswertung zählt nur die Inselpunkte und heißt jetzt „Insel“. Ein Hinweis zeigt, woraus sich die Siegpunkte zusammensetzen: Siedlungen, Städte, Inseln, Längster Handelsweg, Stärkste Schutzmacht und Siegpunktkarten (eigene immer, fremde erst nach Spielende).
+- **Sonderpunkte als Icons statt „Sonder“-Zahl:** Längster Handelsweg, Stärkste Schutzmacht, jede besiedelte neue Insel (ein Icon je Insel) und – erst nach Spielende – jede Siegpunktkarte erscheinen als kleines Icon mit gelbem Rahmen: in der Spielerleiste, am Spieltisch und in der Rangliste der Auswertung. Die bisherigen Text-Abzeichen „Längste“/„Schutzmacht“ und die Angabe „2 Sonder“ entfallen. Ein Hinweis am Punktestand und in der Rangliste schlüsselt die Siegpunkte auf (Siedlungen, Städte, Inseln, Längster Handelsweg, Stärkste Schutzmacht, Siegpunktkarten – eigene immer, fremde erst nach Spielende).
 - **Karte drehen nur im Hamburger-Menü:** Die Knöpfe ↺/↻ neben dem Menü entfallen auch am Desktop und am Spieltisch; gedreht wird überall über „Karte links/rechts drehen“ im Hamburger-Menü (jetzt auch für Zuschauer).
 - **Spieltisch, Hamburger-Menü in Blickrichtung des Spielleiters:** Das Menü öffnet im Platz des Spielleiters und ist wie dieser gedreht – sitzt er oben oder seitlich, steht es für ihn aufrecht statt auf dem Kopf bzw. quer; es klappt zur Tischmitte auf.
+
+### Behoben
+- **Auswertung, Runden:** „Runden“ zeigte die Zahl der Züge (bei 6 Spielern etwa sechsmal zu viel); jetzt die echten Runden.
 
 ## [1.7.2] - 2026-11-25
 
