@@ -269,7 +269,8 @@
   // Siedlung/Stadt sind neutral hell gemalt und werden per Filter pt-<farbe> in der Spielerfarbe eingefaerbt.
   const stone = (name, x, y, w, h, c, cls) => `<image${cls ? ` class="${cls}"` : ''} href="${IMG_DIR}stein-${name}.webp" x="${x}" y="${y}" width="${w}" height="${h}"${c ? ` filter="url(#pt-${c})"` : ''}/>`;
   const settlement = (c) => sh(24, 6.5, 1) + stone('siedlung', -23, -44, 46, 44.5, c);
-  const city = (c) => sh(40, 9, 0) + stone('stadt', -42, -67, 84, 67, c);
+  // Stadt ohne Bodenplatte: Bild endet an der Gebaeudeunterkante, die auf y=0 steht
+  const city = (c) => sh(40, 9, 0) + stone('stadt', -30.3, -69.6, 58.8, 69.6, c);
   const road = (c) => `<ellipse cy="6" rx="44" ry="5" fill="#000" opacity=".3"/>` + stone('strasse', -42, -11, 84, 16.2, c);
   function ship(c) {
     return `<ellipse cy="11" rx="38" ry="6.5" fill="#000" opacity=".3"/><g class="bob">` +
