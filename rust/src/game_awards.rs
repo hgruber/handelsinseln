@@ -40,7 +40,6 @@ impl Game {
                     break;
                 }
                 used.insert(e.clone());
-                let w = if &ends[e][0] == v { ends[e][1].clone() } else { ends[e][0].clone() };
                 dfs(v, e, 1, pid, S, &own, &ends, &mut used, &mut best, &mut budget, total);
                 used.shift_remove(e);
             }

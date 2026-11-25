@@ -23,6 +23,8 @@ node scripts/rohstoffe.js <Name>   # Testhilfe: Spieler bekommt je 20 Rohstoffe 
 
 CI: `.github/workflows/tests.yml` (schnell → voll mit Playwright; nachts `PLAY_SECS=120`).
 
+Rust-Server: `cargo build --manifest-path rust/Cargo.toml` (Release: `--release`), `bash scripts/diff.sh` vergleicht Node- und Rust-Server.
+
 Linter: `npm run lint` (ESLint, nur Fehlerklassen wie undefinierte/ungenutzte Namen, keine Stilregeln; einmalig `npm install` für die Dev-Abhängigkeiten – zur Laufzeit gibt es weiterhin keine). Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter; `rules.js`/`features.js` zählen intern `✓`/`✗`). Browser-Tests holen sich freie Ports und können parallel laufen.
 
 ## Release
@@ -45,6 +47,10 @@ Linter: `npm run lint` (ESLint, nur Fehlerklassen wie undefinierte/ungenutzte Na
 Client (`public/`, klassische Skripte ohne Module, über `window` verbunden): `app.js` ist der Kern (Zustand, SSE, SVG-Brett mit Diff-Rendering, HUD); `lobby.js`, `table.js` (Digitaler Spieltisch/Zuschauer-Anzeige, Sicht aller Spieler über SSE-Event `table`), `trade.js`, `menu.js`, `voice.js` (WebRTC), `fx.js` (Kartenanimation), `art.js` (Grafikbezeichner), `background.js` (vier wählbare Hintergründe für `#sea` aus den Gelände-Tiles, lokal in `localStorage`), `sw.js` (Service Worker/PWA). Die Modi Spieler / Tischspieler / Zuschauer / Controller-Ansicht teilen sich dieselbe View; Verhalten hängt am Server-gelieferten Zustand.
 
 Spielkonstanten (Rohstoffe `holz lehm wolle getreide erz`, Gelände, Wertechips, Farben, Entwicklungskarten, Baukosten) stehen einmal in `shared/rules.js` – Server per `require`, Browser als `window.Rules` (in `index.html` vor den übrigen Skripten). Nicht erneut kopieren. Spieler-ID `pid` = Index in `players`.
+
+## Rust-Server
+
+`rust/` ist eine vollständige Portierung von `server/` (gleiches Protokoll, gleiche Sichten, Bots, Tisch/Controller/Übergabe); die Node-Dateien bleiben Referenz. `RNG_SEED` setzt in beiden Servern denselben Zufallsstrom (mulberry32, `server/rng.js`). Bewusste Abweichungen: kein eigenes https, kein gzip für den Ereignisstrom, kein IP-Debug im Log; Container `Containerfile.rust` (statisch, `scratch`). Details und die SQLite-Untersuchung: `docs/rust-server.md`.
 
 ## Tests
 

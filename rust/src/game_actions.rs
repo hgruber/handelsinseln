@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 use indexmap::IndexMap;
 use serde_json::Value;
 
-use crate::board;
 use crate::game::{clean_cards, fmt_cards, truthy, Game, GameError};
 use crate::geom;
 use crate::model::*;

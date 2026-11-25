@@ -481,7 +481,7 @@ impl Game {
         }
         out.into_iter().collect()
     }
-    pub fn setup_path_spots(&self, pid: usize, kind: &str) -> Vec<String> {
+    pub fn setup_path_spots(&self, _pid: usize, kind: &str) -> Vec<String> {
         let v = match self.S.setup.as_ref().and_then(|s| s.last.clone()) {
             Some(v) => v,
             None => return Vec::new(),

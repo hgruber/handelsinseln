@@ -43,7 +43,27 @@ fn env_num<T: std::str::FromStr>(name: &str, def: T) -> T {
         .unwrap_or(def)
 }
 
+/// Healthcheck für den Container: GET /api/lobby, Exit 0 bei HTTP 200.
+fn health() -> ! {
+    use std::io::{Read, Write};
+    let port = std::env::var("PORT").ok().and_then(|s| s.parse::<u16>().ok()).unwrap_or(8080);
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let ok = std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(3))
+        .and_then(|mut s| {
+            s.set_read_timeout(Some(std::time::Duration::from_secs(3)))?;
+            s.write_all(b"GET /api/lobby HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")?;
+            let mut buf = [0u8; 64];
+            let n = s.read(&mut buf)?;
+            Ok(String::from_utf8_lossy(&buf[..n]).contains(" 200 "))
+        })
+        .unwrap_or(false);
+    std::process::exit(if ok { 0 } else { 1 });
+}
+
 fn main() {
+    if std::env::args().any(|a| a == "--health") {
+        health();
+    }
     log::set_level(&std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".into()));
     let root = find_root();
     let data_dir = std::env::var("DATA_DIR")

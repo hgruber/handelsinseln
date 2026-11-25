@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::{self, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -18,6 +18,22 @@ use crate::http::{self, Request};
 use crate::hub::{Hub, HubError, JoinReq, Room};
 use crate::log;
 use crate::rng::Rng;
+
+static STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+extern "C" fn stop_handler(_sig: i32) {
+    STOP.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn install_signal_handlers() {
+    unsafe extern "C" {
+        fn signal(signum: i32, handler: usize) -> usize;
+    }
+    unsafe {
+        signal(2, stop_handler as extern "C" fn(i32) as usize); // SIGINT
+        signal(15, stop_handler as extern "C" fn(i32) as usize); // SIGTERM
+    }
+}
 
 pub struct Client {
     pub id: u64,
@@ -276,7 +292,7 @@ fn pview(room: &mut Room, clients: &Clients, pid: usize, via_phone: bool) -> Val
     v
 }
 
-fn wview(room: &mut Room, clients: &Clients) -> Value {
+fn wview(room: &mut Room, _clients: &Clients) -> Value {
     let mut v = room.game.watch_view();
     let av = arm::view_for(room, None);
     if let Some(o) = v.as_object_mut() {
@@ -1097,6 +1113,7 @@ impl App {
 }
 
 pub fn run(opts: Options) -> io::Result<()> {
+    install_signal_handlers();
     let seed = Rng::from_env().unwrap_or_else(random_rng);
     let rnd = Arc::new(Mutex::new(seed));
     let mut hub = Hub::new(rnd);
@@ -1140,6 +1157,11 @@ pub fn run(opts: Options) -> io::Result<()> {
         thread::spawn(move || loop {
             thread::sleep(Duration::from_millis(opts.tick_ms.max(100)));
             let mut inner = app2.inner.lock().unwrap();
+            if STOP.load(std::sync::atomic::Ordering::SeqCst) {
+                inner.save();
+                log::info("stop", &[("signal", "SIGTERM/SIGINT".into())]);
+                std::process::exit(0);
+            }
             let (changed, remove) = inner.hub.tick();
             for rid in remove {
                 room_gone(&mut inner, &rid, "niemand mehr verbunden");

@@ -78,9 +78,6 @@ fn pips(n: Option<u32>) -> f64 {
 fn r(rnd: &Arc<Mutex<Rng>>) -> f64 {
     rnd.lock().unwrap().next_f64()
 }
-fn below(rnd: &Arc<Mutex<Rng>>, n: usize) -> usize {
-    rnd.lock().unwrap().below(n)
-}
 fn hget(h: &Value, r: &str) -> f64 {
     h.get(r).and_then(|v| v.as_f64()).unwrap_or(0.0)
 }
@@ -154,7 +151,7 @@ pub fn bot_play(
         return Ok(false);
     }
     let p = persona(&kind);
-    let mut v = game.view(Some(pid));
+    let v = game.view(Some(pid));
     let win = num(&v, "winPoints");
     let turn_no = game.S.turn_no;
     let mut bm = game.pl(pid).bm.clone().unwrap_or_default();

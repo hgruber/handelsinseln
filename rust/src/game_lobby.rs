@@ -857,14 +857,12 @@ impl Game {
         let b = 1 + self.rbelow(6) as u32;
         self.S.dice = Some((a, b));
         self.S.dice_seq += 1;
-        let (idx, cur_len, table, cur, top, best) = {
+        let (idx, cur_len, table) = {
             let o = self.S.setup.as_mut().unwrap().ord.as_mut().unwrap();
             o.rolled.insert(pid, a + b);
             o.idx += 1;
-            (o.idx, o.cur.len(), o.table, o.cur.clone(), 0u32, Vec::<usize>::new())
+            (o.idx, o.cur.len(), o.table)
         };
-        let _ = top;
-        let _ = best;
         let name = self.name(pid);
         self.log(format!("{} würfelt {} ({}+{}) um die Reihenfolge.", name, a + b, a, b), "roll", Some(pid));
         if idx < cur_len {

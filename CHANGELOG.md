@@ -4,6 +4,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Rust-Server:** `rust/` ist eine vollständige Portierung des Servers – Spiellogik, Kartengenerierung, Sichten, Handel, Auto-Modus, Auszeichnungen, Bots, Räume, Ereignisstrom, Controller-Ansicht und Kontrollübergabe. Er spricht dasselbe Protokoll und liefert dieselben Sichten wie der Node-Server; der Browser merkt keinen Unterschied. Statischer Container (`Containerfile.rust`, Laufzeit `scratch`): rund 3,9 MB, eigenes `--health` für den Container-Healthcheck, Zustand speichern und beenden bei SIGTERM/SIGINT. Bewusst ohne eigenes https und ohne gzip im Ereignisstrom (TLS übernimmt ein Reverse-Proxy); Details in `docs/rust-server.md`.
+- **Deterministischer Zufall für Vergleiche:** `RNG_SEED=<zahl>` stellt beide Server auf denselben mulberry32-Strom (Bretter, Würfe, Diebstähle, Kartenstapel, Bots). Ohne die Variable bleibt es beim bisherigen Zufall.
+- **Differenztests:** `tests/diff/` vergleicht Node- und Rust-Server Schritt für Schritt – Spiellogik und Sichten, autonome Bot-Partien, echtes HTTP/SSE mit Zuschauer, Spieltisch mit Platzwahl, Handeln „als“, Controller-Ansicht und Kontrollübergabe. Aufruf: `bash scripts/diff.sh` bzw. `npm run test:diff`.
+
+### Geändert
+- `tests/sim.js` nutzt den gemeinsamen Zufallsgenerator aus `server/rng.js`.
+
 ## [1.7.3] - 2026-11-25
 
 ### Hinzugefügt

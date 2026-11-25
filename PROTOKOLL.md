@@ -3,6 +3,8 @@
 Server: `node server/server.js` (Port 8080, keine Laufzeit-Abhängigkeiten). Statische Dateien aus `public/`, dazu `shared/` unter `/shared/`
 (`geom.js`, `rules.js`, `avatars.js`); alle mit `ETag`/`Last-Modified` und `Cache-Control: no-cache` (unverändert → `304`).
 Der Server führt beliebig viele Spiele parallel (siehe „Erweiterung v2“); dieser erste Teil beschreibt das Grundprotokoll.
+Eine vollständige Rust-Implementierung liegt in `rust/` und spricht dasselbe Protokoll; sie liefert den Ereignisstrom unkomprimiert
+und ohne eigenes https (TLS übernimmt ein Reverse-Proxy).
 
 ## Transport
 - `GET  /api/games` (Alias `/api/lobby`) → Liste der Spiele (ohne Anmeldung), Felder siehe „Mehrere parallele Spiele“.

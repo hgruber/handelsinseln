@@ -38,17 +38,17 @@ fn main() {
         }
     }
     let mut rnd = Rng::seeded(seed);
-    let mut S = State::empty(set.clone());
-    board::generate(&mut S, n, &mut rnd, &set);
+    let mut state = State::empty(set.clone());
+    board::generate(&mut state, n, &mut rnd, &set);
     let out = json!({
-        "hexes": S.hexes,
-        "harbors": S.harbors,
-        "robber": S.robber,
-        "pirate": S.pirate,
-        "home": S.home,
-        "numBag": S.num_bag,
-        "landBag": S.land_bag,
-        "harborKinds": S.harbor_kinds,
+        "hexes": state.hexes,
+        "harbors": state.harbors,
+        "robber": state.robber,
+        "pirate": state.pirate,
+        "home": state.home,
+        "numBag": state.num_bag,
+        "landBag": state.land_bag,
+        "harborKinds": state.harbor_kinds,
         "next": rnd.next_f64(),
     });
     println!("{}", serde_json::to_string(&out).unwrap());

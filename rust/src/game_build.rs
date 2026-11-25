@@ -3,7 +3,7 @@
 use indexmap::{IndexMap, IndexSet};
 use serde_json::Value;
 
-use crate::game::{cost_map, fmt_cards, hand_sum, Game, GameError};
+use crate::game::{cost_map, fmt_cards, Game, GameError};
 use crate::geom;
 use crate::model::*;
 use crate::rules::{self, RES};

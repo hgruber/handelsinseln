@@ -1,4 +1,6 @@
 // Server der Handelsinseln in Rust – Portierung von server/*.js.
+// „S“ als Feldname des Spielzustands ist bewusst an die JS-Vorlage angelehnt.
+#![allow(non_snake_case)]
 pub mod arm;
 pub mod avatars;
 pub mod board;

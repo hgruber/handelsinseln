@@ -44,7 +44,7 @@ pub fn targets(g: &mut Game, pid: usize, mode: Option<&str>, move_from: Option<&
     }
     let step = g.step_of();
     let mut out: Vec<Target> = Vec::new();
-    let mut add = |t: &str, k: &str, kind: &str, out: &mut Vec<Target>| {
+    let add = |t: &str, k: &str, kind: &str, out: &mut Vec<Target>| {
         let id = format!("{}:{}", t, k);
         if let Some(x) = out.iter_mut().find(|x| format!("{}:{}", x.t, x.k) == id) {
             if !x.kinds.iter().any(|z| z == kind) {
