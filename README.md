@@ -109,8 +109,8 @@ Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-
   Handlimit-Warnung erscheint als kleines Etikett über den Rohstoffen.
 - **Bestätigung auf der Karte:** Bei Bedienung per Finger führt ein Tipp auf ein Ziel (Bauen, Aufbau, Räuber/Pirat, Schiff versetzen, Übernahme)
   nicht sofort aus; das Ziel wird markiert und erst „Siedlung bauen“, „Räuber hierher“ usw. bestätigt. Mit der Maus und am Spieltisch genügt ein Klick.
-- **Karte bewegen:** Verschieben mit einem Finger, Zoomen mit zwei Fingern. Die Karte zentriert sich nicht von selbst, sondern per Doppeltipp oder
-  „Brett zentrieren“ im Menü. Drehen in 60°-Schritten über „Karte links/rechts drehen“ im Hamburger-Menü (frei mit zwei Fingern nur am Spieltisch).
+- **Karte bewegen:** Verschieben mit einem Finger, Zoomen mit zwei Fingern. Die Karte zentriert sich nicht von selbst (auch nicht am Desktop und am
+  Spieltisch), sondern per Doppeltipp bzw. Doppelklick oder „Brett zentrieren“ im Menü. Drehen in 60°-Schritten über „Karte links/rechts drehen“ im Hamburger-Menü (frei mit zwei Fingern nur am Spieltisch).
 - **iPhone (Safari):** Die Leisten berücksichtigen Notch und Home-Balken (Safe Area); das Handelsfenster endet über der unteren Leiste und scrollt;
   die Würfel zeigen nach dem Wurf eine flache Seite (Safari stellt die 3D-Würfel in der Leiste nicht zuverlässig dar). Vibration, wenn man in der
   Controller-Ansicht am Zug ist, gibt es nur dort, wo der Browser sie erlaubt (Android, nicht iOS).

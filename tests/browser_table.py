@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Digitaler Spieltisch am echten Server: Spielleiter + 3 weitere Spieler (per API, ohne Browser), Tischmodus per Menü einschalten,
-Sitzplätze/Drehung/Fokus prüfen, Handelsangebot (eigenes Menü je Mitspieler), Zoom springt zurück, Ausschalten stellt die normale Ansicht her.
+Sitzplätze/Drehung/Fokus prüfen, Handelsangebot (eigenes Menü je Mitspieler), Zoom bleibt, Doppelklick zentriert, Ausschalten stellt die normale Ansicht her.
 Aufruf: python3 tests/browser_table.py"""
 import json, os, time, urllib.request
 from playwright.sync_api import sync_playwright
@@ -91,7 +91,7 @@ try:
         got = pg.evaluate("(() => { const c = document.querySelector('#world .hex .chip'); const w = c.getScreenCTM(); return Math.round(Math.atan2(w.b, w.a) * 180 / Math.PI); })()")
         check((got - want) % 360 in (0, 359, 1), f'Zahlenchips zeigen in die Blickrichtung des Tischspielers (Platz {cs}: {want}°, gemessen {got}°)')
 
-        # Zoom springt zurück
+        # Zoom bleibt stehen, nur ein Doppelklick zentriert
         k0 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
         pg.mouse.move(1000, 300)
         for _ in range(6): pg.mouse.wheel(0, 400)
@@ -102,9 +102,15 @@ try:
         k2 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
         import re
         nums = lambda t: [float(x) for x in re.findall(r'-?\d+\.?\d*', t)]
-        n0, n1, n2 = nums(k0), nums(k1), nums(k2)
-        close = all(abs(a - b) <= max(3, abs(a) * 0.03) for a, b in zip(n0[:2], n2[:2])) and abs(n0[2] - n2[2]) <= n0[2] * 0.03
-        check(close, f'Ansicht springt zurück: ganzes Spielfeld wieder sichtbar ({k0} → {k1} → {k2})')
+        n0 = nums(k0)
+        n1, n2 = nums(k1), nums(k2)
+        check(abs(n2[3] - n1[3]) <= n1[3] * 0.05 and abs(n2[3] - n0[3]) > n0[3] * 0.1, f'Zoom bleibt stehen, die Ansicht springt nicht von selbst zurück ({k0} → {k1} → {k2})')
+        pg.evaluate("document.getElementById('board').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))")
+        pg.wait_for_timeout(1500)
+        k3 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
+        n3 = nums(k3)
+        close = all(abs(a - b) <= max(3, abs(a) * 0.03) for a, b in zip(n0[:2], n3[:2])) and abs(n0[3] - n3[3]) <= n0[3] * 0.03
+        check(close, f'Doppelklick zentriert: ganzes Spielfeld wieder sichtbar ({k0} → {k3})')
 
         # Handelsangebot: jeder Mitspieler bekommt sein eigenes Menü
         v = None

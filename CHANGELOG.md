@@ -9,6 +9,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Betriebslog:** Der Server protokolliert auf stdout, was man später zur Diagnose braucht: Start/Stopp, Räume (angelegt, gelöscht mit Grund), Partien (Start, Ende, Fortsetzung), Spieler (Beitritt, Verlassen, Entfernen, abwesend → Auto-Modus, wieder da), Kontrollübergabe, Zuschauer und Fehler – eine Zeile je Ereignis. `LOG_LEVEL` (Standard `info`); bei `debug` zusätzlich jede Verbindung mit gekürztem Token und IP-Adresse.
 - **Abschlussbericht je Partie:** Endet eine Partie (Sieg, vom Spielleiter beendet oder abgebrochen, weil niemand mehr da ist), hängt der Server eine JSON-Zeile an `DATA_DIR/partien.jsonl` an: Spieler, Ergebnis, Dauer, Runden, Einstellungen, Statistik und Punkteverlauf.
 
+### Geändert
+- **Zoom bleibt stehen:** Die Karte springt nirgends mehr von selbst zurück – am Spieltisch nicht mehr 1,5 s nach dem Zoomen/Verschieben, am Desktop nicht mehr beim Aufdecken neuer Felder, beim Auf-/Zuklappen der Seitenleiste oder beim Wechsel der Fenstergröße. Zentriert wird nur per Doppelklick/Doppeltipp oder „Brett zentrieren“ im Menü (beim ersten Anzeigen und zum Spielstart wird das Brett weiterhin eingepasst).
+
 ## [1.7.2] - 2026-11-25
 
 ### Geändert

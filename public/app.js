@@ -472,8 +472,7 @@
     } else if (nk.length) {
       const first = st.firstBoard;
       nk.forEach((k) => st.known.add(k));
-      if (first) fit(true);
-      else if (!compact() && !nk.every((k) => inView(hpos(k)))) fit(false); // Handy: kein automatisches Zentrieren (Doppeltipp oder Menü)
+      if (first) fit(true); // danach kein automatisches Zentrieren mehr (Doppelklick/Doppeltipp oder Menü)
     }
     if (st.firstBoard) { st.firstBoard = false; document.body.dataset.phase = 'ready'; }
   }
@@ -636,10 +635,6 @@
     const bottom = H - bt.top + 12;
     return { left, top, right: W - right, bottom: H - bottom, W, H };
   }
-  function inView(p) {
-    const a = area(); const d = toScreen(p.x - cam.x, p.y - cam.y, cam.rot), sx = a.W / 2 + d.x * cam.k, sy = a.H / 2 + d.y * cam.k;
-    return sx > a.left && sx < a.right && sy > a.top && sy < a.bottom;
-  }
   function fit(snap) {
     const v = V(); if (!v) return;
     // Aufgedeckte Felder (Land + Meer) UND der umlaufende Nebelring (view.fog) sollen immer im Bild sein.
@@ -655,16 +650,13 @@
     tgt.k = k; tgt.x = c.x / k; tgt.y = c.y / k;
     kick(snap);
   }
-  // Spieltisch: nach Zoomen/Verschieben springt die Ansicht zurück, damit das ganze Spielfeld sichtbar bleibt
-  let snapT = 0;
-  const snapBack = () => { if (!st.tableOn) return; clearTimeout(snapT); snapT = setTimeout(() => fit(false), 1500); };
   function zoomAt(f, mx, my) {
     const W = board.clientWidth, H = board.clientHeight;
     const k2 = Math.max(KMIN, Math.min(KMAX, tgt.k * f));
     const w0 = toWorld(mx - W / 2, my - H / 2, tgt.rot);
     const wx = tgt.x + w0.x / tgt.k, wy = tgt.y + w0.y / tgt.k;
     tgt.k = k2; tgt.x = wx - w0.x / k2; tgt.y = wy - w0.y / k2;
-    kick(); snapBack();
+    kick();
   }
   let moved = false;
   const ptrs = new Map(); let drag = null, pinch = null;
@@ -688,7 +680,7 @@
     if (!moved && Math.hypot(dx, dy) > 5) { moved = true; try { board.setPointerCapture(e.pointerId); } catch (_) { /* egal */ } board.classList.add('drag'); }
     if (moved) { const w = toWorld(dx, dy, tgt.rot); tgt.x = drag.cx - w.x / tgt.k; tgt.y = drag.cy - w.y / tgt.k; Object.assign(cam, tgt); applyCam(); }
   });
-  const up = (e) => { snapBack(); ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { drag = null; board.classList.remove('drag'); setTimeout(() => { moved = false; }, 30); } };
+  const up = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) { drag = null; board.classList.remove('drag'); setTimeout(() => { moved = false; }, 30); } };
   board.addEventListener('pointerup', up); board.addEventListener('pointercancel', up);
   board.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0017)), e.clientX, e.clientY); }, { passive: false });
   board.addEventListener('dblclick', (e) => { if (!e.target.closest('[data-t]')) fit(false); });
@@ -718,7 +710,7 @@
     if (Math.abs(d) < .01) return;
     tgt.crot += d; kick();
   }
-  addEventListener('resize', () => { applyCam(); if (st.tableOn) fit(true); if (st.view && st.view.phase === 'lobby') fit(true); });
+  addEventListener('resize', () => { applyCam(); if (st.view && st.view.phase === 'lobby') fit(true); });
 
   // ======================================================================================
   // WUERFEL
@@ -1123,8 +1115,8 @@
     if (c) setOpenPc(st.openPc === +c.dataset.pid ? null : +c.dataset.pid);
     else if (st.openPc != null) setOpenPc(null);
   });
-  compactMQ.addEventListener('change', () => { st.openPc = null; if (V() && V().phase !== 'lobby') { renderPlayers(V()); renderBuild(V()); fit(true); } });
-  $('sideToggle').addEventListener('click', () => { st.logOpen = !st.logOpen; renderHUD(V()); if (!compact()) setTimeout(() => { if (V()) fit(false); }, 260); });
+  compactMQ.addEventListener('change', () => { st.openPc = null; if (V() && V().phase !== 'lobby') { renderPlayers(V()); renderBuild(V()); } });
+  $('sideToggle').addEventListener('click', () => { st.logOpen = !st.logOpen; renderHUD(V()); });
   document.querySelectorAll('#logPanel .tabbtn').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; renderLog(V()); const l = $(st.tab === 'log' ? 'logList' : st.tab === 'chat' ? 'chatList' : 'rulesList'); l.scrollTop = l.scrollHeight; }));
   $('chatForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const t = $('chatIn').value.trim(); if (!t) return;
