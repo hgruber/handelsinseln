@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const Game = require('./game');
 const { botPlay } = require('./botplay');
 const { botAct } = require('./bot');
+const log = require('./log');
 
 class Hub {
   constructor(opts = {}) {
@@ -23,9 +24,16 @@ class Hub {
     const id = crypto.randomBytes(4).toString('hex');
     const room = { id, game: new Game({ rnd: this.rnd, meta: { id, name: `Spiel ${++this.counter}` } }), absent: new Map(), emptySince: this.now(), createdAt: this.now() };
     this.rooms.set(id, room);
+    log.info('raum_neu', { raum: id });
     return room;
   }
-  deleteRoom(id) { this.rooms.delete(id); }
+  deleteRoom(id, grund) {
+    const room = this.rooms.get(id);
+    if (!room) return;
+    room.removedWhy = grund || room.removedWhy;
+    this.rooms.delete(id);
+    log.info('raum_weg', { raum: id, phase: room.game.S.phase, grund: room.removedWhy });
+  }
 
   findByToken(token) {
     if (!token) return null;
@@ -56,7 +64,7 @@ class Hub {
   // Beitritt. Rückgabe {token,pid,game,room}; Fehler als Game.GameError (ggf. mit .games)
   join(b) {
     const found = this.findByToken(b.token);
-    if (found) return { token: found.player.token, pid: found.player.id, game: found.room.id, room: found.room };
+    if (found) return { token: found.player.token, pid: found.player.id, game: found.room.id, room: found.room, again: true };
     let room;
     if (b.game) {
       room = this.rooms.get(String(b.game));
@@ -78,7 +86,7 @@ class Hub {
       room.emptySince = this.now();
       return { ...r, game: room.id, room };
     } catch (e) {
-      if (fresh) this.deleteRoom(room.id);
+      if (fresh) this.rooms.delete(room.id); // nie benutzt: still verwerfen
       throw e;
     }
   }
@@ -104,7 +112,10 @@ class Hub {
   watcherConnected(w, on) { w.gone = on ? null : this.now(); }
 
   // Verbindung geöffnet/geschlossen (aus dem SSE-Handler)
-  connected(room, player) { room.absent.delete(player.token); room.game.setConnected(player.id, true); room.emptySince = null; }
+  connected(room, player) {
+    const since = room.absent.get(player.token);
+    if (since !== undefined && room.game.S.phase !== 'lobby' && this.now() - since >= this.absentMs) log.info('zurück', { raum: room.id, spieler: player.name, pid: player.id, weg: `${Math.round((this.now() - since) / 60000)}min` });
+    room.absent.delete(player.token); room.game.setConnected(player.id, true); room.emptySince = null; }
   disconnected(room, player) {
     if (!this.rooms.has(room.id) || !room.game.S.players.includes(player)) return;
     room.absent.set(player.token, this.now());
@@ -122,21 +133,21 @@ class Hub {
       if (S.phase === 'lobby') {
         for (const p of S.players.slice()) {
           const since = room.absent.get(p.token);
-          if (!p.connected && since !== undefined && t - since > this.lobbyAbsentMs && S.players.length > 1) { g.leave(p.token); room.absent.delete(p.token); changed.add(room); }
+          if (!p.connected && since !== undefined && t - since > this.lobbyAbsentMs && S.players.length > 1) { log.info('platz_verloren', { raum: room.id, spieler: p.name, grund: 'lange abwesend in der Lobby' }); g.leave(p.token); room.absent.delete(p.token); changed.add(room); }
         }
       } else if (S.phase !== 'ended') {
         for (const p of S.players) {
           const since = room.absent.get(p.token);
-          if (!p.left && !p.connected && !p.auto && since !== undefined && t - since >= this.absentMs) { if (g.setAbsentAuto(p.id, true)) changed.add(room); }
+          if (!p.left && !p.connected && !p.auto && since !== undefined && t - since >= this.absentMs) { if (g.setAbsentAuto(p.id, true)) { changed.add(room); log.info('abwesend', { raum: room.id, spieler: p.name, pid: p.id, folge: 'Auto-Modus' }); } }
         }
       }
       const connectedHumans = S.players.filter((p) => !p.left && !p.bot && !p.tableGuest && p.connected).length;
       const humans = g.humans().length;
-      if (!humans) { this.deleteRoom(room.id); removed.push(room); continue; }
+      if (!humans) { this.deleteRoom(room.id, 'keine Menschen mehr'); removed.push(room); continue; }
       if (connectedHumans) room.emptySince = null;
       else {
         if (room.emptySince === null) room.emptySince = t;
-        if (t - room.emptySince >= (room.graceMs ?? this.graceMs)) { this.deleteRoom(room.id); removed.push(room); }
+        if (t - room.emptySince >= (room.graceMs ?? this.graceMs)) { this.deleteRoom(room.id, 'niemand mehr verbunden'); removed.push(room); }
       }
     }
     return { changed: [...changed], removed };
@@ -152,7 +163,7 @@ class Hub {
       try { if (botPlay(g, p.id, { rnd: this.rnd })) changed = true; } catch (e) {
         if (!(e instanceof Game.GameError)) throw e;
         // Eine abgelehnte Bot-Aktion darf das Spiel nicht blockieren: Notlauf über die Pflichten (Zug beenden o. Ä.)
-        console.error(`Bot ${p.name}: Aktion abgelehnt (${e.message})`);
+        log.warn('bot_abgelehnt', { raum: room.id, spieler: p.name, fehler: e.message });
         try { if (botAct(g, p.id, { rnd: this.rnd, minimal: true })) changed = true; } catch (e2) { if (!(e2 instanceof Game.GameError)) throw e2; }
       }
     }

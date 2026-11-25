@@ -88,7 +88,13 @@ committet „Release 1.0.0“, setzt das Tag `v1.0.0` und baut mit `--build` das
 
 Lokal ohne Container: `node server/server.js`. Zum Entwickeln: `npm run dev` (Port 8090, nur http, Spielstand in `/tmp/handelsinseln-dev`, Neustart des Servers bei Änderungen;
 Änderungen in `public/` genügt ein Neuladen im Browser, ggf. „Bypass for network“ für den Service Worker). Umgebungsvariablen: `PORT`, `DATA_DIR` (Spielstand), `ABSENT_MS` (Abwesenheit bis Auto-Modus, 60000),
-`LISTEN` (Adresse:Port des http-Listeners, z. B. `127.0.0.1:8080`; sonst `PORT`), `MAX_GAMES` (gleichzeitige Spiele, 3), `BOT_MS` (Takt der Bots, 800), `TICK_MS` (Takt der Zeitprüfung, 2000), `GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000), `HTTPS_PORT` (8443), `TLS_CERT`/`TLS_KEY`/`TLS_HOSTS`, `STUN_URL` (optional, für Sprachchat über Netzgrenzen).
+`LISTEN` (Adresse:Port des http-Listeners, z. B. `127.0.0.1:8080`; sonst `PORT`), `MAX_GAMES` (gleichzeitige Spiele, 3), `BOT_MS` (Takt der Bots, 800), `TICK_MS` (Takt der Zeitprüfung, 2000), `GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000), `HTTPS_PORT` (8443), `TLS_CERT`/`TLS_KEY`/`TLS_HOSTS`, `STUN_URL` (optional, für Sprachchat über Netzgrenzen), `LOG_LEVEL` (`error`/`warn`/`info`/`debug`/`silent`, Standard `info`).
+
+**Logging:** Der Server schreibt ein Betriebslog auf stdout (eine Zeile je Ereignis, Rotation übernimmt journald bzw. der Container-Logtreiber): Start/Stopp,
+Räume (angelegt, gelöscht mit Grund), Partien (Start, Ende, Fortsetzung, neue Runde), Spieler (Beitritt, Verlassen, Entfernen, Platzverlust in der Lobby,
+abwesend → Auto-Modus, wieder da), Kontrollübergabe, Zuschauer und Fehler. Einzelne Spielzüge und jedes Neuverbinden (Tab neu laden) stehen nicht darin.
+Mit `LOG_LEVEL=debug` kommen jede Verbindung sowie gekürzte Tokens und IP-Adressen (`X-Forwarded-For` hinter dem Reverse-Proxy) dazu.
+Jede beendete oder abgebrochene Partie hängt zusätzlich einen Abschlussbericht als JSON-Zeile an `DATA_DIR/partien.jsonl` an (Spieler, Ergebnis, Einstellungen, Statistik, Punkteverlauf je Runde).
 
 **Sprachchat und https:** Browser erlauben das Mikrofon nur unter `https://` oder `http://localhost`. Der Server startet deshalb zusätzlich auf Port 8443 mit https und
 erzeugt dafür selbst ein Zertifikat (gespeichert in `DATA_DIR/tls`). Beim ersten Öffnen von `https://<rechner>:8443` muss der Browser-Warnhinweis einmal bestätigt werden

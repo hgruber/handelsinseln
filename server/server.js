@@ -10,11 +10,13 @@ const Arm = require('./arm');
 const Handover = require('./handover');
 const { Hub } = require('./hub');
 const selfsigned = require('./selfsigned');
+const log = require('./log');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 8080;
 const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 const STATE_FILE = path.join(DATA, 'state.json');
+const GAMES_FILE = path.join(DATA, 'partien.jsonl'); // Abschlussbericht je Partie, eine JSON-Zeile
 // Version: package.json; liegen seit dem letzten Tag Commits vor, kommt ein Zusatz „+Anzahl.Hash“ dazu (aus git oder APP_VERSION, z. B. beim Container-Bau)
 const VERSION = (() => {
   let base = null; try { base = require('../package.json').version; } catch (e) { /* ohne package.json */ }
@@ -44,7 +46,7 @@ function createServer(opts = {}) {
       await fs.promises.mkdir(DATA, { recursive: true });
       await fs.promises.writeFile(STATE_FILE + '.tmp', data);
       await fs.promises.rename(STATE_FILE + '.tmp', STATE_FILE);
-    } catch (e) { console.error('Speichern fehlgeschlagen:', e.message); }
+    } catch (e) { log.error('speichern_fehler', { fehler: e.message }); }
     saving = false;
     if (saveAgain) { saveAgain = false; writeState(); }
   };
@@ -72,8 +74,40 @@ function createServer(opts = {}) {
   const displays = (room) => (room.watchers ? [...room.watchers.keys()].filter((t) => clients.has(t)).length : 0) + (tableStream(room) ? 1 : 0);
   const pview = (room, pid, viaPhone) => { const v = room.game.view(pid); v.display = displays(room) > 0; v.arm = Arm.viewFor(room, pid); if (viaPhone) v.host = -1; return v; }; // Handy am Spielleiter-Platz: keine Spielleiter-Funktionen
   const wview = (room) => { const v = room.game.watchView(); v.arm = Arm.viewFor(room, 'watch'); return v; };
+  const ipOf = (req) => (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress);
+  const kindOf = (p) => (p.bot ? 'bot:' + p.bot : p.tableGuest ? 'tisch' : 'mensch');
+  // Abschlussbericht: eine Zeile je beendeter oder abgebrochener Partie in partien.jsonl (nach einer Fortsetzung ggf. eine weitere)
+  const report = (room, reason) => {
+    const g = room.game, S = g.S, st = S.stats;
+    if (!st) return;
+    const end = st.endedAt || Date.now(), result = S.phase !== 'ended' ? 'abgebrochen' : S.aborted ? 'beendet' : 'sieg';
+    const rec = {
+      room: room.id, version: VERSION, startedAt: new Date(st.startedAt).toISOString(), endedAt: new Date(end).toISOString(),
+      minutes: Math.round((end - st.startedAt) / 60000), rounds: st.history.filter((h) => !h.end).length, result, reason: reason || null,
+      winner: S.winner !== null && S.winner !== undefined && S.players[S.winner] ? S.players[S.winner].name : null, settings: S.settings,
+      players: S.players.map((p) => ({ name: p.name, color: p.color, kind: kindOf(p), vp: g.vp(p.id) + g.hiddenVp(p.id), left: !!p.left, vanished: !!p.vanished, stats: st.players[p.id] || null })),
+      history: st.history.map((h) => h.vp),
+    };
+    log.info('partie_ende', { raum: room.id, ergebnis: result, sieger: rec.winner, runden: rec.rounds, dauer: `${rec.minutes}min`, grund: reason });
+    if (opts.noSave) return;
+    fs.promises.mkdir(DATA, { recursive: true }).then(() => fs.promises.appendFile(GAMES_FILE, JSON.stringify(rec) + '\n'))
+      .catch((e) => log.error('bericht_fehler', { raum: room.id, fehler: e.message }));
+  };
+  // Phasenwechsel einer Partie protokollieren (hier laufen alle Änderungen vorbei, auch die von Bots und Auto-Modus)
+  const phaseLog = (room) => {
+    const S = room.game.S, was = room.lastPhase, now = S.phase;
+    room.lastPhase = now;
+    if (was === undefined || was === now) return;
+    if (was === 'lobby' && now === 'setup') log.info('partie_start', { raum: room.id, variante: S.settings.variant, ziel: S.settings.winPoints, tisch: !!S.settings.table, spieler: S.players.map((p) => p.name + (p.bot ? '(Bot)' : p.tableGuest ? '(Tisch)' : '')).join(',') });
+    else if (now === 'ended') report(room);
+    else if (was === 'ended' && now === 'lobby') log.info('neue_runde', { raum: room.id });
+    else if (was === 'ended') log.info('partie_weiter', { raum: room.id, ziel: S.settings.winPoints });
+  };
+  // Raum ist weg: lief die Partie noch, gilt sie als abgebrochen
+  const roomGone = (room) => { if (room.game.S.phase === 'setup' || room.game.S.phase === 'main') report(room, room.removedWhy); };
   const broadcast = (room) => {
     if (!hub.rooms.has(room.id)) return;
+    phaseLog(room);
     for (const p of room.game.S.players) {
       for (const tok of [p.token, p.phone]) {
         const set = tok && clients.get(tok);
@@ -123,7 +157,7 @@ function createServer(opts = {}) {
   const guarded = (fn) => {
     try { fn(); return null; } catch (e) {
       if (e instanceof Game.GameError) return e;
-      console.error(e); return new Error('Interner Fehler: ' + e.message);
+      log.error('interner_fehler', { fehler: e.message }); console.error(e.stack); return new Error('Interner Fehler: ' + e.message);
     }
   };
 
@@ -143,6 +177,7 @@ function createServer(opts = {}) {
           if (!clients.has(token)) clients.set(token, new Set());
           clients.get(token).add(out);
           hub.watcherConnected(watcher, true);
+          log.debug('verbunden', { raum: room.id, als: 'zuschauer' }, { token: log.tok(token), ip: ipOf(req) });
           room.game.settle();
           send(out, 'state', wview(room));
           broadcast(room); // die Spieler erfahren, dass eine Tisch-Anzeige da ist
@@ -150,7 +185,7 @@ function createServer(opts = {}) {
           req.on('close', () => {
             clearInterval(ping);
             const set = clients.get(token);
-            if (set) { set.delete(out); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); broadcast(room); } }
+            if (set) { set.delete(out); if (!set.size) { clients.delete(token); hub.watcherConnected(watcher, false); log.debug('getrennt', { raum: room.id, als: 'zuschauer' }, { token: log.tok(token) }); broadcast(room); } }
           });
           return;
         }
@@ -160,6 +195,7 @@ function createServer(opts = {}) {
         if (!clients.has(token)) clients.set(token, new Set());
         out.tableMode = !f.phone && url.searchParams.get('table') === '1' && player.id === room.game.S.host;
         clients.get(token).add(out);
+        log.debug('verbunden', { raum: room.id, spieler: player.name, pid: player.id, als: f.phone ? 'handy' : out.tableMode ? 'spieltisch' : 'spieler' }, { token: log.tok(token), ip: ipOf(req) });
         if (!f.phone) hub.connected(room, player); // das Handy am Spielleiter-Platz ändert nichts an der Verbindung des Spielleiters
         room.game.settle();
         send(out, 'state', pview(room, player.id, !!f.phone));
@@ -168,7 +204,7 @@ function createServer(opts = {}) {
         req.on('close', () => {
           clearInterval(ping);
           const set = clients.get(token);
-          if (set) { set.delete(out); if (!set.size) { clients.delete(token); if (!f.phone) hub.disconnected(room, player); broadcast(room); } }
+          if (set) { set.delete(out); if (!set.size) { clients.delete(token); log.debug('getrennt', { raum: room.id, spieler: player.name, pid: player.id }, { token: log.tok(token) }); if (!f.phone) hub.disconnected(room, player); broadcast(room); } }
         });
         return;
       }
@@ -178,6 +214,7 @@ function createServer(opts = {}) {
           let out;
           const err = guarded(() => { out = hub.watch(b); });
           if (err) return json(res, 400, { error: err.message });
+          log.info('zuschauer', { raum: out.game, anzahl: out.room.watchers.size }, { token: log.tok(out.token), ip: ipOf(req) });
           return json(res, 200, { token: out.token, game: out.game, watch: true });
         }
         const wf = hub.findWatcher(b.token);
@@ -208,6 +245,7 @@ function createServer(opts = {}) {
           let out;
           const err = guarded(() => { out = hub.join(b); });
           if (err) return json(res, 400, { error: err.message, ...(err.games ? { games: err.games } : {}) });
+          { const p = out.room.game.S.players[out.pid]; (out.again ? log.debug : log.info)(out.again ? 'wieder_angemeldet' : 'beitritt', { raum: out.game, spieler: p.name, pid: out.pid, farbe: p.color }, { token: log.tok(out.token), ip: ipOf(req) }); }
           broadcast(out.room);
           return json(res, 200, { token: out.token, pid: out.pid, game: out.game });
         }
@@ -216,14 +254,15 @@ function createServer(opts = {}) {
         const { room, player } = f;
         if (url.pathname === '/api/leave' && player.handover && (f.phone || player.id !== room.game.S.host)) { // Platz, den ein Handy übernommen hat: „Kontrolle an den Spieltisch“ statt Verlassen
           const tok = f.phone ? player.phone : player.token;
-          Handover.handBack(room, player.id); notify(tok, 'control_end'); dropClients(tok); broadcast(room);
+          Handover.handBack(room, player.id); log.info('kontrolle_tisch', { raum: room.id, spieler: player.name, pid: player.id }); notify(tok, 'control_end'); dropClients(tok); broadcast(room);
           return json(res, 200, { ok: true });
         }
         if (url.pathname === '/api/leave') {
           const tok = player.token;
+          log.info('verlassen', { raum: room.id, spieler: player.name, phase: room.game.S.phase }, { token: log.tok(tok) });
           room.game.leave(tok);
           dropClients(tok);
-          if (!room.game.humans().length) { dropRoom(room); hub.deleteRoom(room.id); save(); } else broadcast(room);
+          if (!room.game.humans().length) { hub.deleteRoom(room.id, 'alle Menschen haben verlassen'); roomGone(room); dropRoom(room); save(); } else broadcast(room);
           return json(res, 200, { ok: true });
         }
         if (url.pathname === '/api/signal') {
@@ -254,7 +293,7 @@ function createServer(opts = {}) {
             out = Handover.answer(room, Number(b.pid), b.code, !!b.accept);
           });
           if (err) return json(res, 400, { error: err.message });
-          if (out.accepted) notify(out.req.token, 'control', { pid: out.req.pid, host: out.req.pid === g.S.host });
+          if (out.accepted) { notify(out.req.token, 'control', { pid: out.req.pid, host: out.req.pid === g.S.host }); log.info('kontrolle_handy', { raum: room.id, spieler: g.S.players[out.req.pid].name, pid: out.req.pid }, { token: log.tok(out.req.token) }); }
           else notify(out.req.token, 'handover', { state: 'declined', pid: out.req.pid });
           broadcast(room);
           return json(res, 200, { ok: true });
@@ -270,6 +309,7 @@ function createServer(opts = {}) {
             tok = Handover.handBack(room, pid);
           });
           if (err) return json(res, 400, { error: err.message });
+          log.info('kontrolle_tisch', { raum: room.id, durch: player.name });
           notify(tok, 'control_end'); dropClients(tok); broadcast(room);
           return json(res, 200, { ok: true });
         }
@@ -281,9 +321,10 @@ function createServer(opts = {}) {
           actor = b.as;
         }
         if (actor === player.id && !f.phone && g.S.players[actor].phone && !HOST_ACTS.has(b.type) && b.type !== 'chat') return json(res, 400, { error: 'Dieser Platz wird gerade von einem Handy gesteuert.' });
+        const kicked = b.type === 'kick' && g.S.players[b.pid] ? g.S.players[b.pid].name : undefined;
         const err = guarded(() => g.act(actor, b));
         if (err) return json(res, 400, { error: err.message });
-        if (g.lastKicked) dropClients(g.lastKicked, 'kicked');
+        if (g.lastKicked) { log.info('entfernt', { raum: room.id, spieler: kicked, durch: player.name }); dropClients(g.lastKicked, 'kicked'); }
         broadcast(room);
         return json(res, 200, { ok: true });
       }
@@ -319,7 +360,7 @@ function createServer(opts = {}) {
   // Pflege: Abwesende → Auto-Modus, verwaiste Spiele aufräumen
   const timer = setInterval(() => {
     const { changed, removed } = hub.tick();
-    removed.forEach((r) => dropRoom(r));
+    removed.forEach((r) => { roomGone(r); dropRoom(r); });
     changed.forEach((r) => broadcast(r));
     if (removed.length) save();
     for (const room of hub.rooms.values()) { // Auto-Spieler könnten durch Zeitablauf am Zug sein
@@ -340,21 +381,22 @@ function loadHub() {
   const hub = new Hub({ graceMs: +process.env.GRACE_MS || undefined, absentMs: +process.env.ABSENT_MS || undefined, maxGames: +process.env.MAX_GAMES || 3 });
   try {
     hub.load(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')), 300000);
-    console.log(`Spielstand geladen: ${hub.rooms.size} Spiel(e).`);
+    log.info('spielstand_geladen', { spiele: hub.rooms.size });
   } catch (e) { /* neuer Start */ }
   return hub;
 }
 
 if (require.main === module) {
+  log.setLevel(process.env.LOG_LEVEL || 'info');
   const hub = loadHub();
   const httpsPort = process.env.HTTPS_PORT !== undefined ? +process.env.HTTPS_PORT : 8443; // 0 = kein https
   const server = createServer({ hub, https: httpsPort > 0, httpsPort: httpsPort > 0 ? httpsPort : null });
   // LISTEN="Adresse:Port" (z. B. 127.0.0.1:8080 oder [::1]:8080) hat Vorrang vor PORT
   const m = /^(.*):(\d+)$/.exec(process.env.LISTEN || '');
   const host = m ? m[1].replace(/^\[(.*)\]$/, '$1') || undefined : undefined, port = m ? +m[2] : PORT;
-  server.listen(port, host, () => console.log(`Handelsinseln läuft auf ${host ? host + ':' : 'Port '}${port} (http)`));
-  if (server.httpsServer) server.httpsServer.listen(httpsPort, () => console.log(`und auf Port ${httpsPort} (https, für das Mikrofon im Browser)`));
-  const bye = () => { try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(hub.toJSON())); } catch (e) { /* egal */ } process.exit(0); };
+  server.listen(port, host, () => log.info('start', { version: VERSION, http: `${host ? host + ':' : ''}${port}`, https: server.httpsServer ? httpsPort : 'aus', daten: DATA }));
+  if (server.httpsServer) server.httpsServer.listen(httpsPort);
+  const bye = (sig) => { log.info('stop', { signal: sig }); try { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(hub.toJSON())); } catch (e) { /* egal */ } process.exit(0); };
   process.on('SIGTERM', bye); process.on('SIGINT', bye);
 }
 
