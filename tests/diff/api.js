@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
-const BIN = process.env.RUST_SERVER || path.join(ROOT, 'rust', 'target', 'debug', 'handelsinseln');
+const BIN = process.env.RUST_SERVER || path.join(ROOT, 'rust', 'target', 'release', 'handelsinseln');
 const seed = (process.argv.find((a) => a.startsWith('--seed=')) || '--seed=77').split('=')[1];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -113,7 +113,7 @@ async function scenario(kind) {
 }
 
 (async () => {
-  if (!fs.existsSync(BIN)) { console.error('Rust-Server fehlt:', BIN); process.exit(2); }
+  if (!fs.existsSync(BIN)) { console.error('Rust-Server fehlt:', BIN, '– bitte cargo build --release --manifest-path rust/Cargo.toml'); process.exit(2); }
   const n = await scenario('node');
   const r = await scenario('rust');
   const keys = Object.keys(n);

@@ -4,7 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-cargo build --manifest-path rust/Cargo.toml
+cargo build --release --manifest-path rust/Cargo.toml
+export TRACECHECK="$PWD/rust/target/release/tracecheck"
+export RUST_SERVER="$PWD/rust/target/release/handelsinseln"
 
 echo "== Spiellogik und Sichten =="
 node tests/diff/logic.js --n=4 --seed=1 --max=1200

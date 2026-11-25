@@ -9,7 +9,7 @@ const os = require('os');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
-const BIN = process.env.RUST_SERVER || path.join(ROOT, 'rust', 'target', 'debug', 'handelsinseln');
+const BIN = process.env.RUST_SERVER || path.join(ROOT, 'rust', 'target', 'release', 'handelsinseln');
 const COL = ['rot', 'blau', 'orange', 'weiss', 'gruen', 'violett'];
 const RES = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -191,7 +191,7 @@ function choose(view, players) {
 }
 
 (async () => {
-  if (!fs.existsSync(BIN)) { console.error('Rust-Server fehlt:', BIN, '– bitte cargo build'); process.exit(2); }
+  if (!fs.existsSync(BIN)) { console.error('Rust-Server fehlt:', BIN, '– bitte cargo build --release --manifest-path rust/Cargo.toml'); process.exit(2); }
   const dirN = fs.mkdtempSync(path.join(os.tmpdir(), 'hi-node-'));
   const dirR = fs.mkdtempSync(path.join(os.tmpdir(), 'hi-rust-'));
   const [pN, pR] = [await freePort(), await freePort()];

@@ -47,7 +47,7 @@ betreiben.
 bash scripts/diff.sh      # oder: npm run test:diff
 ```
 
-Die Skripte unter `tests/diff/` starten beide Server getrennt (eigene Ports und Datenverzeichnisse):
+`scripts/diff.sh` baut die Rust-Binaries im Release-Profil; damit ist die Suite insgesamt rund drei Mal schneller als mit dem Debug-Build (der HTTP-Vergleich rund fünf Mal). Die Skripte unter `tests/diff/` starten beide Server getrennt (eigene Ports und Datenverzeichnisse):
 
 - `logic.js` – spielt eine Partie im Node-Server, zeichnet die Aktionen auf, lässt den Rust-Server
   dieselben Aktionen nachspielen und vergleicht nach jedem Schritt die Sichten aller Spieler und der

@@ -12,7 +12,7 @@ const { botPlay } = require('../../server/botplay');
 const { mulberry32 } = require('../../server/rng');
 
 const ROOT = path.join(__dirname, '..', '..');
-const BIN = process.env.TRACECHECK || path.join(ROOT, 'rust', 'target', 'debug', 'tracecheck');
+const BIN = process.env.TRACECHECK || path.join(ROOT, 'rust', 'target', 'release', 'tracecheck');
 const COL = ['rot', 'blau', 'orange', 'weiss', 'gruen', 'violett'];
 
 const args = Object.fromEntries(process.argv.slice(2).map((s) => {
@@ -93,7 +93,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'handelsinseln-trace-'));
 const tracePath = path.join(tmp, 'trace.jsonl');
 fs.writeFileSync(tracePath, trace.map((x) => JSON.stringify(x)).join('\n') + '\n');
 const r = spawnSync(BIN, [tracePath], { encoding: 'utf8' });
-if (r.error) { console.error('Rust-Tracecheck nicht startbar:', r.error.message); process.exit(2); }
+if (r.error) { console.error('Rust-Tracecheck nicht startbar:', r.error.message, '– bitte cargo build --release --manifest-path rust/Cargo.toml'); process.exit(2); }
 if (r.status !== 0) { console.error('Rust-Tracecheck Fehler:', r.stderr); process.exit(2); }
 const rustHashes = r.stdout.trim().split('\n');
 let bad = -1;
