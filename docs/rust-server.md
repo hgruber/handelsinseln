@@ -41,6 +41,9 @@ speichern den Zustand und beenden den Prozess sofort.
 
 Der Rust-Server wird über die API und im Browser geprüft:
 
+- `cargo test --release --locked --manifest-path rust/Cargo.toml --test rules` – 26 gezielte Regeltests auf
+  handgebauten Brettern (Erträge, Bauen, Handel, Räuber, Karten, Punkte, Lobby, Aufbau, Einstellungen, Varianten,
+  JSON-Roundtrip); Laufzeit rund 0,05 s.
 - `node tests/api.js` – HTTP/SSE: statische Dateien/ETag, Spiele, Lobby und Rechte, Signalweg, Kick, Verlassen,
   Auto-Modus, ganze Partien (Aktionen aus der Sicht gewählt).
 - `node tests/tls.js` – HTTPS, `/api/config`, Zertifikats-SANs aus `TLS_HOSTS`, SSE über TLS, HTTP parallel.
@@ -62,6 +65,18 @@ ein statisch gelinktes Binary (rund 2,0 MB inkl. TLS), `public/` und `shared/`, 
 Benutzer 10001. Ergebnis: rund 4,8 MB, keine Shell, keine Bibliotheken. Der Healthcheck nutzt
 `handelsinseln --health`. Podman ignoriert `HEALTHCHECK` im OCI-Format; mit `--format docker` bauen,
 wenn der Healthcheck im Image stehen soll.
+
+Für Raspberry Pi 64-bit (aarch64) baut `Containerfile.pi` dasselbe statische Image. Nativ auf dem Pi:
+
+```bash
+podman build -f Containerfile.pi -t localhost/handelsinseln:latest .
+```
+
+Auf x86_64 mit qemu-user-static (langsamer, gleiches Ergebnis):
+
+```bash
+podman build --platform linux/arm64 -f Containerfile.pi -t localhost/handelsinseln:pi .
+```
 
 ## TLS (8443)
 

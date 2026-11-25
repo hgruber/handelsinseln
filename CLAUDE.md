@@ -16,11 +16,13 @@ Commit-Messages sind deutsch. Details zu Funktionen/Einstellungen: `README.md`; 
 npm run dev                  # Rust, Port 8090, nur http, Spielstand /tmp/handelsinseln-dev; Rust-Änderung = Neustart
 npm start                    # Rust, PORT 8080, TLS 8443 (selbstsigniert; TLS_HOSTS für die Namen)
 cargo build --release --locked --manifest-path rust/Cargo.toml
+cargo test --release --locked --manifest-path rust/Cargo.toml --test rules   # 26 Rust-Regeltests (rund 0,05 s)
 node tests/api.js            # HTTP/SSE: Spiele, Lobby, Rechte, Signalweg, Auto-Modus, ganze Partien
 node tests/tls.js            # HTTPS, Zertifikats-SANs, SSE über TLS
 python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requirements.txt && python3 -m playwright install chromium
 bash tests/run_all.sh        # volle Suite parallel (JOBS=n, PLAY_SECS=n); Logs/Screenshots je Test in $SHOTS
-npm run test:schnell         # nur API- und TLS-Tests (< 1 Min) – nach jeder Änderung; baut den Rust-Server
+npm run test:schnell         # Rust-Regeltests, API und TLS (ohne Browser) – nach jeder Änderung; baut den Rust-Server
+podman build -f Containerfile.pi -t localhost/handelsinseln:latest .   # Raspberry Pi 64-bit (aarch64)
 node scripts/rohstoffe.js <Name>   # Testhilfe: Spieler bekommt je 20 Rohstoffe (beendet den Server mit DATA_DIR)
 ```
 
@@ -74,6 +76,7 @@ Der Server liefert `shared/` aus, damit der Browser dieselbe Geometrie nutzt. Sp
 
 ## Tests
 
+`rust/tests/rules.rs` enthält gezielte Regeltests gegen die öffentliche `Game`-API auf handgebauten Brettern (Erträge, Bauen, Handel, Räuber, Karten, Punkte, Lobby, Aufbau, Einstellungen, Varianten, JSON-Roundtrip).
 `tests/api.js` und `tests/tls.js` prüfen den Rust-Server direkt (HTTP/SSE/TLS, ganze Partien). Die Browser-Tests nutzen
 `tests/lib.py` (`start_server(**env)` startet das Release-Binary mit freiem Port und eigenem Datenverzeichnis, `poster`,
 `sse_event`, `check`, `finish`); `tests/drive.js` treibt Spieler über die API an, indem es Aktionen aus der jeweiligen Sicht
