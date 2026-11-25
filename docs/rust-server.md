@@ -58,6 +58,8 @@ Die Skripte unter `tests/diff/` starten beide Server getrennt (eigene Ports und 
   nach jeder Aktion werden alle Sichten verglichen.
 - `table.js` – Tisch-Partie: Tischspieler, Platzwahl, Handeln „als“, Controller-Ansicht (`arm`/`pick`),
   Kontrollübergabe an ein Handy und Rückgabe.
+- `api.js` – Signalweg (Sprachchat), Kick und Verlassen samt Fehlerfällen (unbekannter Token, entfernter
+  Spieler).
 
 Die Tests decken 2–6 Spieler, alle Kartenvarianten, automatisches Würfeln/Räuberversetzen,
 Bank- und Entwicklungskarten-Einstellungen sowie komplette Partien bis zum Spielende ab. Beim

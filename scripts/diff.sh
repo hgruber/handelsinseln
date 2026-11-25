@@ -22,4 +22,7 @@ node tests/diff/http.js --n=5 --seed=7 --max=300
 echo "== Spieltisch, Controller-Ansicht, Kontrollübergabe =="
 node tests/diff/table.js --seed=8
 
+echo "== Signalweg, Kick, Verlassen =="
+node tests/diff/api.js --seed=9
+
 echo "Alle Differenztests bestanden."
