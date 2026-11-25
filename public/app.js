@@ -345,7 +345,7 @@
   const board = $('board'), world = $('world');
   const layer = (name) => { const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'L-' + name); world.appendChild(g); return { g, map: new Map() }; };
   const L = {};
-  ['shadow', 'hex', 'foam', 'harbor', 'edge', 'vert', 'token', 'target'].forEach((n) => { L[n] = layer(n); });
+  ['shadow', 'hex', 'foam', 'harbor', 'vshadow', 'edge', 'vert', 'token', 'target'].forEach((n) => { L[n] = layer(n); });
   const posCache = { v: new Map(), e: new Map(), h: new Map() };
   const vpos = (k) => { let p = posCache.v.get(k); if (!p) { p = Geom.vertPos(k, S); posCache.v.set(k, p); } return p; };
   const hpos = (k) => { let p = posCache.h.get(k); if (!p) { p = Geom.hexCenter(k, S); posCache.h.set(k, p); } return p; };
@@ -436,16 +436,36 @@
         L.edge.map.delete(g); L.edge.map.set(nk, c);
       }
     }
+    // Strassen enden vor Siedlung/Stadt: Kuerzung je Richtung (Grad, von der Ecke weg), aus den Bild-Silhouetten
+    // berechnet (3 Abstand), damit eine Strasse nie unter oder hinter dem Gebaeude liegt
+    const CUT = { s: { '-150': 23, '-90': 34, '-30': 22.5, '30': 7.5, '90': 0, '150': 11 },
+      c: { '-150': 31, '-90': 30, '-30': 29, '30': 1, '90': 0, '150': 5.5 } };
+    const cutAt = (x, y) => {
+      const d = v.verts && v.verts[x]; if (!d || !CUT[d.k]) return 0;
+      const px = vpos(x), py = vpos(y), deg = Math.atan2(py.y - px.y, py.x - px.x) * 180 / Math.PI;
+      return CUT[d.k][Math.round((deg - 30) / 60) * 60 + 30] || 0;
+    };
     syncLayer(L.edge, edges.map(([e, d]) => {
       const ship = d.k === 's';
       const p = ship ? shipPos(e, d.p, v) : epos(e), col = v.players[d.p] ? v.players[d.p].color : 'rot';
-      return { key: e, sig: (ship ? 's' : 'r') + d.p, make: () => piece(ship ? 'ship' : 'road', p.x, p.y, p.ang, ship ? Art.ship(col) : Art.road(col)) };
+      let l = 0, r = 0;
+      if (!ship) {
+        const [a, b] = Geom.edgeVerts(e), pa = vpos(a);
+        const aLeft = (pa.x - p.x) * Math.cos(p.ang * Math.PI / 180) + (pa.y - p.y) * Math.sin(p.ang * Math.PI / 180) < 0;
+        [l, r] = aLeft ? [cutAt(a, b), cutAt(b, a)] : [cutAt(b, a), cutAt(a, b)];
+      }
+      return { key: e, sig: ship ? 's' + d.p : 'r' + d.p + '|' + l + ',' + r, make: () => piece(ship ? 'ship' : 'road', p.x, p.y, p.ang, ship ? Art.ship(col) : Art.road(col, l, r)) };
     }), 'pop');
 
-    // Ecken
-    syncLayer(L.vert, Object.entries(v.verts || {}).map(([k, d]) => {
+    // Ecken; Gebaeudeschatten in eigener Ebene unter den Strassen
+    const verts = Object.entries(v.verts || {});
+    syncLayer(L.vshadow, verts.map(([k, d]) => {
+      const p = vpos(k);
+      return { key: k, sig: d.k, make: () => piece('vsh', p.x, p.y, 0, Art.vertShadow(d.k === 'c' ? 'city' : 'settlement')) };
+    }), 'pop');
+    syncLayer(L.vert, verts.map(([k, d]) => {
       const p = vpos(k), col = v.players[d.p] && v.players[d.p].color;
-      return { key: k, sig: d.k + d.p, make: () => piece(d.k === 'c' ? 'city' : 'settlement', p.x, p.y, 0, d.k === 'c' ? Art.city(col) : Art.settlement(col)) };
+      return { key: k, sig: d.k + d.p, make: () => piece(d.k === 'c' ? 'city' : 'settlement', p.x, p.y, 0, d.k === 'c' ? Art.city(col, true) : Art.settlement(col, true)) };
     }), 'pop');
 
     // Raeuber / Pirat (Element bleibt erhalten, bewegt sich per CSS-Transition)

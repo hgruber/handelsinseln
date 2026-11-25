@@ -268,10 +268,15 @@
   // Siedlung, Stadt, Raeuber, Piratenschiff: gemalte Steine (public/img/stein-*.webp, Flux, freigestellt).
   // Siedlung/Stadt sind neutral hell gemalt und werden per Filter pt-<farbe> in der Spielerfarbe eingefaerbt.
   const stone = (name, x, y, w, h, c, cls) => `<image${cls ? ` class="${cls}"` : ''} href="${IMG_DIR}stein-${name}.webp" x="${x}" y="${y}" width="${w}" height="${h}"${c ? ` filter="url(#pt-${c})"` : ''}/>`;
-  const settlement = (c) => sh(24, 6.5, 1) + stone('siedlung', -23, -44, 46, 44.5, c);
+  // Schatten von Siedlung/Stadt liegt auf dem Brett in eigener Ebene unter den Strassen (vertShadow);
+  // ohneSchatten = true liefert nur das Gebaeude. Siedlung 4 tiefer, damit die Grundflaeche auf der Ecke sitzt.
+  const vertShadow = (kind) => kind === 'city' ? sh(40, 9, 0) : sh(24, 6.5, 5);
+  const settlement = (c, ohneSchatten) => (ohneSchatten ? '' : vertShadow('settlement')) + stone('siedlung', -23, -40, 46, 44.5, c);
   // Stadt ohne Bodenplatte: Bild endet an der Gebaeudeunterkante, die auf y=0 steht
-  const city = (c) => sh(40, 9, 0) + stone('stadt', -30.3, -69.6, 58.8, 69.6, c);
-  const road = (c) => `<ellipse cy="6" rx="44" ry="5" fill="#000" opacity=".3"/>` + stone('strasse', -42, -11, 84, 16.2, c);
+  const city = (c, ohneSchatten) => (ohneSchatten ? '' : vertShadow('city')) + stone('stadt', -30.3, -69.6, 58.8, 69.6, c);
+  // Strasse; l/r kuerzen das linke/rechte Ende (an Ecken mit Gebaeude, damit sie nicht darunter laeuft)
+  const road = (c, l = 0, r = 0) => `<ellipse cx="${f((l - r) / 2)}" cy="6" rx="${f(44 - (l + r) / 2)}" ry="5" fill="#000" opacity=".3"/>` +
+    stone('strasse', f(-42 + l), -11, f(84 - l - r), 16.2, c);
   function ship(c) {
     return `<ellipse cy="11" rx="38" ry="6.5" fill="#000" opacity=".3"/><g class="bob">` +
       `<path class="wake" d="M-34,10 q8,-5 16,0 M-38,15 q10,-6 20,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +
@@ -288,7 +293,7 @@
   // Figur in kleinem Symbol (Bau-Buttons)
   function pieceIcon(kind, c, size = 36) {
     const body = { road: road(c), ship: ship(c), settlement: settlement(c), city: city(c) }[kind] || '';
-    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-42 -62 84 80' : kind === 'city' ? '-46 -70 92 76' : '-27 -46 54 52';
+    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-42 -62 84 80' : kind === 'city' ? '-46 -70 92 76' : '-27 -42 54 54';
     return `<svg class="pi" viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
   }
 
@@ -373,7 +378,7 @@
 
   root.Art = {
     S, COLORS, COLOR_NAMES, RES_COLORS, RES_NAMES, TERRAIN_NAMES, DEV_NAMES, mix, lighten, darken,
-    hexPts, corner, hex, fog, foam, shadow, chip, harbor, settlement, city, road, ship, robber, pirate, pieceIcon,
+    hexPts, corner, hex, fog, foam, shadow, chip, harbor, settlement, city, vertShadow, road, ship, robber, pirate, pieceIcon,
     res, dev, logIcon, defs,
   };
 })(typeof self !== 'undefined' ? self : this);
