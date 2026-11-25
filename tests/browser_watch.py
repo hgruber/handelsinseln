@@ -37,6 +37,8 @@ try:
 
         print('Startseite: laufendes Spiel farblich abgesetzt, Knopf „Spiel ansehen“')
         W = b.new_context(viewport={'width': 1600, 'height': 900}).new_page()
+        net = []
+        W.on('response', lambda r: net.append((r.status, r.url)) if '/api/' in r.url else None)
         W.on('pageerror', lambda e: problems.append(f'pageerror Zuschauer: {e}'))
         W.on('console', lambda m: m.type == 'error' and problems.append(f'console.error Zuschauer: {m.text}'))
         W.goto(BASE); W.wait_for_selector('#gameList .gcard.run', timeout=6000)
@@ -111,8 +113,18 @@ try:
         W.wait_for_selector('#gameList .gcard.run')
         if W.locator('#joinBtn').is_hidden(): W.click('#gameList .gcard.run')  # Auswahl bleibt nach dem Verlassen erhalten
         W.click('#joinBtn')
-        W.wait_for_selector('body.watch #seats .seat', timeout=20000)
-        W.reload(); W.wait_for_selector('body.watch #seats .seat', timeout=20000)
+        W.wait_for_selector('body.watch #seats .seat', timeout=60000)
+        net.clear()
+        try:
+            W.reload(); W.wait_for_selector('body.watch #seats .seat', timeout=60000)
+        except Exception:
+            W.screenshot(path=f'{SHOTS}/reload-watch.png')
+            print('DIAGNOSE URL:', W.url)
+            print('DIAGNOSE TOKEN:', W.evaluate("localStorage.getItem('handelsinseln.token')"))
+            print('DIAGNOSE BODY:', W.inner_text('body')[:800].replace('\n', ' | '))
+            print('DIAGNOSE API:', net[:20])
+            print('DIAGNOSE STORAGE:', W.evaluate("Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])"))
+            raise
         check(W.locator('#seats .seat').count() == 3, 'nach Neuladen wieder die Tisch-Anzeige')
         b.close()
 finally:

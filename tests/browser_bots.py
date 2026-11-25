@@ -24,6 +24,8 @@ try:
             pg.goto(BASE)
             return pg
         A, B = newpage('Host'), newpage('Gast')
+        net = []
+        B.on('response', lambda r: net.append((r.status, r.url)) if '/api/' in r.url else None)
 
         # --- Anmeldung: Avatar-Auswahl
         A.wait_for_selector('#avatars .avsel'); A.click('#avatars .avsel')
@@ -60,7 +62,17 @@ try:
         B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
         # Neuladen darf nicht ausloggen: Sitzung und Lobby bleiben erhalten
         tok = B.evaluate("localStorage.getItem('handelsinseln.token')")
-        B.reload(); B.wait_for_selector('#lobby:not([hidden])', timeout=20000)
+        net.clear()
+        try:
+            B.reload(); B.wait_for_selector('#lobby:not([hidden])', timeout=60000)
+        except Exception:
+            B.screenshot(path=f'{SHOTS}/reload-bots.png')
+            print('DIAGNOSE URL:', B.url)
+            print('DIAGNOSE TOKEN:', B.evaluate("localStorage.getItem('handelsinseln.token')"))
+            print('DIAGNOSE BODY:', B.inner_text('body')[:800].replace('\n', ' | '))
+            print('DIAGNOSE API:', net[:20])
+            print('DIAGNOSE STORAGE:', B.evaluate("Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])"))
+            raise
         check(B.evaluate("localStorage.getItem('handelsinseln.token')") == tok and tok, 'nach dem Neuladen bleibt man angemeldet (Lobby sichtbar)')
         av = [x['avatar'] for x in games()[0]['players']]
         check(len(av) == 3 and len(set(av)) == 3, 'drei Spieler, drei verschiedene Avatare')
