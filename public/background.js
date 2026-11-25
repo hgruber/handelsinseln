@@ -537,18 +537,66 @@
   }
 
   // ======================================================================================
+  // Szenen: Meer, Holz und Pergament als ruhige Flächen
+  // ======================================================================================
+  function drawCover(g, img, W, H) {
+    const s = Math.max(W / img.width, H / img.height);
+    g.drawImage(img, (W - img.width * s) / 2, (H - img.height * s) / 2, img.width * s, img.height * s);
+  }
+  function sceneMeer(g, W, H) {
+    const img = tex.__meer;
+    if (img) drawCover(g, img, W, H);
+    else {
+      const gr = g.createLinearGradient(0, 0, 0, H);
+      gr.addColorStop(0, '#17466f'); gr.addColorStop(1, '#0b2a4a');
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    }
+    g.fillStyle = 'rgba(12,52,92,.5)'; g.fillRect(0, 0, W, H);
+    vignette(g, W, H, 0.45);
+  }
+  function sceneHolz(g, W, H) {
+    const img = tex.__wood;
+    if (img) drawCover(g, img, W, H);
+    else {
+      const gr = g.createLinearGradient(0, 0, 0, H);
+      gr.addColorStop(0, '#4b2f1b'); gr.addColorStop(1, '#241509');
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    }
+    g.save(); g.globalCompositeOperation = 'soft-light';
+    glow(g, W * 0.6, H * 0.14, Math.max(W, H) * 0.75, '#ffcf8c', 0.5);
+    g.restore();
+    vignette(g, W, H, 0.62);
+    grain(g, W, H, 0.05);
+  }
+  function scenePapier(g, W, H) {
+    const img = tex.__paper;
+    if (img) drawCover(g, img, W, H);
+    else {
+      const gr = g.createLinearGradient(0, 0, 0, H);
+      gr.addColorStop(0, '#f0e2c0'); gr.addColorStop(1, '#d9c08c');
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    }
+    g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(255,247,222,1)'; g.fillRect(0, 0, W, H); g.restore();
+    vignette(g, W, H, 0.38);
+    grain(g, W, H, 0.06);
+  }
+
+  // ======================================================================================
   // Szenen-Registry und Rendering
   // ======================================================================================
   const SCENES = {
-    erde: { name: 'Erdkrümmung', desc: 'Die Tiles wölben sich als Erde bis zum Dunsthorizont.', draw: sceneErde, tint: '#12233f' },
-    tisch: { name: 'Spieltisch', desc: 'Die Tiles liegen als Plättchen auf dunklem Holz.', draw: sceneTisch, tint: '#2a170c' },
+    meer: { name: 'Meer', desc: 'Ruhiges Meer, wie bisher.', draw: sceneMeer, tint: '#0f3d68' },
     karte: { name: 'Seekarte', desc: 'Die Tiles als gemalte Karte auf altem Pergament.', draw: sceneKarte, tint: '#c9b184' },
     nacht: { name: 'Nebelmeer', desc: 'Inseln und Lichter im Nebelmeer bei Nacht.', draw: sceneNacht, tint: '#071226' },
+    holz: { name: 'Holz', desc: 'Nur die dunkle Holzplatte im warmen Licht.', draw: sceneHolz, tint: '#2a170c' },
+    papier: { name: 'Pergament', desc: 'Nur das gealterte Papier, warm und ruhig.', draw: scenePapier, tint: '#c9b184' },
+    tisch: { name: 'Spieltisch', desc: 'Die Tiles liegen als Plättchen auf dunklem Holz.', draw: sceneTisch, tint: '#2a170c' },
+    erde: { name: 'Erdkrümmung', desc: 'Die Tiles wölben sich als Erde bis zum Dunsthorizont.', draw: sceneErde, tint: '#12233f' },
   };
-  const ORDER = ['erde', 'tisch', 'karte', 'nacht'];
+  const ORDER = ['meer', 'karte', 'nacht', 'holz', 'papier'];
 
-  let cur = localStorage.getItem(KEY) || 'erde';
-  if (!SCENES[cur]) cur = 'erde';
+  let cur = localStorage.getItem(KEY) || 'meer';
+  if (!ORDER.includes(cur)) cur = 'meer';
   let cv = null, g = null, W = 0, H = 0, RS = 1, timer = 0, raf = 0;
 
   function sizeCanvas() {
@@ -648,6 +696,11 @@
       img.onload = () => { tex[n] = img; schedule(); };
       img.src = 'img/bg/' + n.slice(2) + '.webp';
     });
+    {
+      const img = new Image(); img.decoding = 'async';
+      img.onload = () => { tex.__meer = img; schedule(); };
+      img.src = 'img/meerbg.webp';
+    }
     // Einstiegsknopf (im Spiel liegt die Wahl im Spielmenü)
     if (!$('bgBtn')) {
       const b = document.createElement('button');

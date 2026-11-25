@@ -31,7 +31,7 @@ body.in-game #bgBtn { display: none; }
 .bgdlg-card { position: relative; width: min(880px, 96vw); max-height: 92vh; overflow: auto; padding: 22px 24px; text-align: left; animation: rise .28s cubic-bezier(.2, .9, .3, 1) both; }
 .bgdlg-card h2 { margin: 0 0 4px; font: 700 24px/1.15 var(--serif); }
 .bgdlg-sub { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
-.bgdlg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bgdlg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
 .bgopt { position: relative; display: grid; gap: 4px; padding: 8px 8px 10px; text-align: left; border-radius: 14px; border: 2px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .05); transition: border-color .12s, background .12s, transform .12s; }
 .bgopt:hover { background: rgba(255, 255, 255, .09); transform: translateY(-1px); }
 .bgopt.on { border-color: var(--gold); background: rgba(232, 185, 90, .14); box-shadow: 0 0 0 2px rgba(232, 185, 90, .28); }

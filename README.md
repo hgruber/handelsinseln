@@ -120,14 +120,14 @@ Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-
 
 ## Hintergrund
 
-Der Hintergrund hinter Anmeldung, Lobby und Spielfeld ist aus denselben Gelände-Tiles wie das Brett gebaut und lässt sich pro Gerät wählen –
-über den Knopf mit dem Paletten-Symbol unten links, im Spiel über „Hintergrund …“ im Hamburger-Menü. Die Wahl gilt nur lokal (gespeichert im
-Browser) und ändert nichts am Spiel.
+Der Hintergrund hinter Anmeldung, Lobby und Spielfeld lässt sich pro Gerät wählen – über den Knopf mit dem Paletten-Symbol unten links,
+im Spiel über „Hintergrund …“ im Hamburger-Menü. Die Wahl gilt nur lokal (gespeichert im Browser) und ändert nichts am Spiel.
 
-- **Erdkrümmung** – eine große Tile-Fläche wölbt sich wie eine Erdkugel bis zum Dunsthorizont; im Vordergrund stehen wenige Felder groß.
-- **Spieltisch** – die Tiles liegen als Plättchen mit Schatten auf dunklem Holz.
+- **Meer** – das ruhige Meerbild (Vorgabe).
 - **Seekarte** – die Tiles als gemalte Karte auf gealtertem Pergament, mit Küstenlinien, Handelsrouten und Windrose.
 - **Nebelmeer** – Inseln und Siedlungslichter im nächtlichen Nebel.
+- **Holz** – nur die dunkle Holzplatte im warmen Licht.
+- **Pergament** – nur das gealterte Papier, warm und ruhig.
 
 Gezeichnet wird im Browser (`public/background.js`, Canvas), die Texturen für Himmel, Holz und Pergament liegen in `public/img/bg/` (mit Flux erzeugt).
 
