@@ -44,7 +44,7 @@ test('Einstellungen: Standardwerte = bisheriges Verhalten, Prüfung und Zugriffs
   const g = lobby(2);
   const s = g.S.settings;
   assert.equal(s.winPoints, 14); assert.equal(s.handLimit, 7); assert.equal(s.bankRate, 4); assert.equal(s.limits.road, 15); assert.equal(s.limits.city, 4);
-  assert.equal(s.limits.dev, 'standard'); assert.equal(s.dice, 'manuell'); assert.equal(s.limits.bank.holz, null);
+  assert.deepEqual(s.limits.dev, { ritter: 'standard', siegpunkt: 'standard', strassenbau: 'standard', erfindung: 'standard', monopol: 'standard', stadtmauer: 0 }); assert.equal(s.dice, 'manuell'); assert.equal(s.limits.bank.holz, null);
   throws(() => g.act(1, { type: 'set_settings', settings: { winPoints: 10 } }), /Spielleiter/);
   throws(() => g.act(0, { type: 'set_settings', settings: { winPoints: 99 } }), /Siegpunkte/);
   throws(() => g.act(0, { type: 'set_settings', settings: { limits: { bank: { gold: 3 } } } }), /unbekannt/);
@@ -152,23 +152,50 @@ test('Vorräte: Bank-Vorrat begrenzt Erträge, Tausch, Erfindung, Gold', () => {
   g.act(1, { type: 'gold_pick', cards: { erz: 1 } });
 });
 
-test('Vorräte: Entwicklungskarten Standard / Zahl / unbegrenzt', () => {
+test('Vorräte: Entwicklungskarten je Art (Standard / Zahl), Stapel wird leer, ältere Spielstände', () => {
+  const cnt = (gg) => gg.S.deck.reduce((o, t) => { o[t] = (o[t] || 0) + 1; return o; }, {});
   let g = lobby(3); g.act(0, { type: 'start' });
-  assert.equal(g.S.deck.length, 25);
-  g = lobby(5); g.act(0, { type: 'start' }); assert.equal(g.S.deck.length, 34);
+  assert.deepEqual(cnt(g), { ritter: 14, siegpunkt: 5, strassenbau: 2, erfindung: 2, monopol: 2 }, 'Grundspiel, Stadtmauer aus');
+  g = lobby(5); g.act(0, { type: 'start' });
+  assert.deepEqual(cnt(g), { ritter: 20, siegpunkt: 5, strassenbau: 3, erfindung: 3, monopol: 3 }, 'Erweiterung 5–6 Spieler');
+  g = lobby(3); g.act(0, { type: 'set_settings', settings: { limits: { dev: { ritter: 4, monopol: 0, stadtmauer: 3 } } } }); g.act(0, { type: 'start' });
+  assert.deepEqual(cnt(g), { ritter: 4, siegpunkt: 5, strassenbau: 2, erfindung: 2, stadtmauer: 3 });
+  throws(() => g.act(0, { type: 'set_settings', settings: { limits: { dev: { drache: 1 } } } }), /unbekannte Art/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { limits: { dev: { ritter: null } } } }), /Entwicklungskarten/);
+  throws(() => g.act(0, { type: 'set_settings', settings: { limits: { dev: null } } }), /Entwicklungskarten/);
   g = lobby(3); g.act(0, { type: 'set_settings', settings: { limits: { dev: 7 } } }); g.act(0, { type: 'start' });
-  assert.equal(g.S.deck.length, 7);
-  g = lobby(3); g.act(0, { type: 'set_settings', settings: { limits: { dev: null } } }); g.act(0, { type: 'start' });
-  assert.equal(g.devLeft(), 999);
-  const g2 = mainBoard(3, { limits: { dev: null } });
-  hand(g2, 0, { erz: 50, wolle: 50, getreide: 50 });
-  g2.S.deckUnlimited = true;
-  for (let i = 0; i < 40; i++) g2.act(0, { type: 'buy_dev' });
-  assert.equal(g2.pl(0).dev.length, 40);
-  const g3 = mainBoard(3, { limits: { dev: 2 } });
+  assert.equal(g.S.deck.length, 7, 'Gesamtzahl (älteres Format) im Grundspiel-Verhältnis');
+  const g3 = mainBoard(3, { limits: { dev: { ritter: 2, siegpunkt: 0, strassenbau: 0, erfindung: 0, monopol: 0 } } });
   hand(g3, 0, { erz: 5, wolle: 5, getreide: 5 });
   g3.act(0, { type: 'buy_dev' }); g3.act(0, { type: 'buy_dev' });
   throws(() => g3.act(0, { type: 'buy_dev' }), /leer/);
+  // Ältere Spielstände: ein Wert für den ganzen Stapel bzw. früher unbegrenzter Stapel
+  const g4 = lobby(3); g4.S.settings.limits.dev = 10; g4.act(0, { type: 'start' }); assert.equal(g4.S.deck.length, 10);
+  const old = mainBoard(3); old.S.settings.limits.dev = null; old.S.deckUnlimited = true; old.S.deck = []; old.S.stats.players[0].built.dev = 3;
+  const g5 = Game.fromJSON(JSON.parse(JSON.stringify(old.S)), { rnd: rng(1) });
+  assert.deepEqual(g5.S.settings.limits.dev, { ritter: 'standard', siegpunkt: 'standard', strassenbau: 'standard', erfindung: 'standard', monopol: 'standard', stadtmauer: 0 });
+  assert.equal(g5.S.settings.devReturn, true, 'früher ∞ → mit Zurücklegen'); assert.equal(g5.S.deck.length, 25); assert.equal(g5.devLeft(), 999);
+  assert.equal('deckUnlimited' in g5.S, false);
+  // Mit Zurücklegen: Verhältnis aus den Zahlen je Art, Stapel bleibt gleich groß
+  const g6 = lobby(3); g6.act(0, { type: 'set_settings', settings: { devReturn: true, limits: { dev: { ritter: 3, siegpunkt: 0, strassenbau: 0, erfindung: 0, monopol: 0, stadtmauer: 1 } } } }); g6.act(0, { type: 'start' });
+  const n = { ritter: 0, stadtmauer: 0 }; for (let i = 0; i < 4000; i++) n[g6.drawDev()]++;
+  assert.equal(g6.S.deck.length, 4); assert(n.ritter > 2700 && n.ritter < 3300, 'etwa 3 : 1 – ' + JSON.stringify(n));
+  // Umschalten im Spiel: zurück auf „wird leer“ zieht die gekauften Karten ab
+  g6.S.stats.players[0].built.dev = 1; g6.act(0, { type: 'set_settings', settings: { devReturn: false } }); assert.equal(g6.devLeft(), 3);
+  throws(() => g6.act(0, { type: 'set_settings', settings: { devReturn: 'ja' } }), /zurücklegen/);
+});
+
+test('Stadtmauer: jede Karte erlaubt eine Handkarte mehr, nicht ausspielbar', () => {
+  const g = mainBoard(3, { handLimit: 3, limits: { dev: { stadtmauer: 5 } } });
+  g.pl(1).dev.push({ id: 900, type: 'stadtmauer', bought: 0 }, { id: 901, type: 'stadtmauer', bought: 0 });
+  assert.equal(g.handLimit(1), 5); assert.equal(g.handLimit(2), 3);
+  assert.equal(g.view(1).me.handLimit, 5);
+  assert.equal(g.view(1).me.dev.find((d) => d.type === 'stadtmauer').playable, false);
+  g.S.ts.rolled = false; hand(g, 1, { holz: 5 }); hand(g, 2, { holz: 4 });
+  g.rnd = (() => { const seq = [0.5, 0.34]; let i = 0; return () => seq[i++ % 2]; })();
+  g.act(0, { type: 'roll' });
+  assert.equal(g.S.pend.discard[1], undefined, '5 Karten bei Limit 3+2'); assert.equal(g.S.pend.discard[2], 2);
+  assert(g.S.log.some((l) => /Stadtmauer/.test(l.text)), 'Hinweis im Log');
 });
 
 test('Vorräte: Nebel-Felder und Wertechips begrenzt, danach nur noch Meer', () => {
@@ -504,7 +531,7 @@ test('Simulation: komplette Partien mit Auto-Würfeln/-Räuber, harten Limits un
     { variant: 'nebel', dice: 'auto', robber: 'auto' },
     { variant: 'inseln', winPoints: 8, handLimit: 5, limits: { dev: 10, bank: { holz: 12, lehm: 12, wolle: 12, getreide: 12, erz: 12 } } },
     { variant: 'klassisch', limits: { road: 8, ship: 6, settlement: 4, city: 3, fogTerrain: { gold: 0, wueste: 0 }, fogChips: { 6: 1, 8: 1 } }, winPoints: 9 },
-    { variant: 'nebel', limits: { dev: null, road: null, ship: null }, playerTrade: false, winPoints: 12 },
+    { variant: 'nebel', limits: { dev: { ritter: 30, stadtmauer: 4 }, road: null, ship: null }, devReturn: true, playerTrade: false, winPoints: 12 },
     { variant: 'archipel', winPoints: 10, dice: 'auto', robber: 'auto' },
   ];
   let k = 0;

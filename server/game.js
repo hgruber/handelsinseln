@@ -27,6 +27,12 @@ class Game {
     this.meta = opts.meta || { id: 'lokal', name: 'Spiel' };
     this.S = state;
     if (!state) this.reset();
+    else if (state.settings) {
+      // ältere Spielstände: ein Wert für den ganzen Stapel ('standard', Zahl oder null = unbegrenzt)
+      if (state.settings.devReturn === undefined || state.deckUnlimited) state.settings.devReturn = !!state.deckUnlimited || state.settings.limits.dev === null;
+      state.settings.limits.dev = ST.devLimits(state.settings.limits.dev);
+      if (state.deckUnlimited) { delete state.deckUnlimited; delete state.devInf; if (state.stats) this.rebuildDeck(); } // früher unbegrenzter Stapel → mit Zurücklegen
+    }
   }
   // Wiederherstellen ohne reset(): sonst würde jedes Mal ein Vorschau-Brett erzeugt und gleich verworfen
   static fromJSON(json, opts) { return new Game(opts, json); }
@@ -38,7 +44,7 @@ class Game {
     const host = keepPlayers && this.S ? this.S.host : 0;
     this.S = {
       v: 0, fx: [], fxId: (this.S && this.S.fxId) || 0, phase: 'lobby', players: old.map((p) => ({ ...p, hand: emptyHand(), dev: [], claimed: {}, knights: 0, svp: 0, islandBonus: 0, auto: false, autoTurns: 0, vanished: false })),
-      settings, closed: false, endedBy: null, aborted: false, stats: null, supply: null, deckUnlimited: false, fogGold: 1,
+      settings, closed: false, endedBy: null, aborted: false, stats: null, supply: null, fogGold: 1,
       host, log: [], chat: [], logId: 0, seq: 0,
       hexes: {}, harbors: {}, verts: {}, edges: {}, robber: null, pirate: null,
       order: [], turn: 0, turnNo: 0, ts: {}, pend: { discard: {}, gold: {} }, trade: null,
@@ -432,13 +438,13 @@ class Game {
     if (n === 7) {
       this.bump(pid, 'sevens');
       let any = false;
-      const lim = S.settings.handLimit;
+      const lim = S.settings.handLimit, wall = [0, 'standard'].includes(ST.devLimits(S.settings.limits.dev).stadtmauer) ? '' : ' (+1 je Stadtmauer)';
       for (const p of S.players) {
-        const sz = this.handSize(p.id);
-        if (lim !== null && sz > lim) { S.pend.discard[p.id] = Math.floor(sz / 2); any = true; }
+        const sz = this.handSize(p.id), pl = this.handLimit(p.id);
+        if (pl !== null && sz > pl) { S.pend.discard[p.id] = Math.floor(sz / 2); any = true; }
       }
       const who = S.settings.robber === 'auto' ? 'wird der Räuber automatisch versetzt' : 'versetzt der Würfler Räuber oder Pirat';
-      this.log(any ? `Eine 7! Wer mehr als ${lim} Karten hat, wirft die Hälfte ab. Dann ${who}.` : `Eine 7! Niemand muss abwerfen. ${who[0].toUpperCase() + who.slice(1)}.`, 'roll');
+      this.log(any ? `Eine 7! Wer mehr als ${lim} Karten hat${wall}, wirft die Hälfte ab. Dann ${who}.` : `Eine 7! Niemand muss abwerfen. ${who[0].toUpperCase() + who.slice(1)}.`, 'roll');
       S.ts.sub = 'robber';
       return;
     }
@@ -737,6 +743,8 @@ class Game {
     return this.count(pid, 's') + 2 * this.count(pid, 'c') + p.svp + (S.longest === pid ? 2 : 0) + (S.largest === pid ? 2 : 0);
   }
   hiddenVp(pid) { return this.pl(pid).dev.filter((d) => d.type === 'siegpunkt').length; }
+  // Persönliches Handkarten-Limit: jede Stadtmauer (wirkt verdeckt ab dem Kauf, wie eine Siegpunktkarte) erlaubt eine Karte mehr
+  handLimit(pid) { const l = this.S.settings.handLimit; return l === null ? null : l + this.pl(pid).dev.filter((d) => d.type === 'stadtmauer').length; }
   checkWin() {
     const S = this.S;
     this.updateAwards();

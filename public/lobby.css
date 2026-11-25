@@ -107,6 +107,7 @@ li.speaking, .pc.speaking { border-color: #4ee08a; }
 .sgroup h4 { margin: 4px 0 6px; font: 700 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold2); }
 .srow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; flex-wrap: wrap; }
 .srow .sl { flex: 1 1 150px; position: relative; }
+.sl .sli { display: flex; align-items: center; gap: 6px; }
 .srow.chg .sl::before { content: ''; position: absolute; left: -9px; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
 .srow.inactive { opacity: .45; }
 .srow.mini { display: grid; grid-template-columns: 1fr; gap: 3px; padding: 4px 6px; border-radius: 10px; background: rgba(255, 255, 255, .04); }

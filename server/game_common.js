@@ -6,17 +6,16 @@ const B = require('./board');
 const ST = require('./settings');
 const AV = require('../shared/avatars');
 
-const { RES, COLORS, COST } = require('../shared/rules');
+const { RES, COLORS, COST, DEV, DEV_STD } = require('../shared/rules');
 const RES_DE = { holz: 'Holz', lehm: 'Lehm', wolle: 'Wolle', getreide: 'Getreide', erz: 'Erz' };
 const TERR_DE = { wald: 'Wald', huegel: 'Hügel', weide: 'Weide', acker: 'Acker', gebirge: 'Gebirge', wueste: 'Wüste', gold: 'Goldfeld', meer: 'Meer' };
-const DEV_DE = { ritter: 'Ritter', siegpunkt: 'Siegpunkt', strassenbau: 'Straßenbau', erfindung: 'Erfindung', monopol: 'Monopol' };
+const DEV_DE = { ritter: 'Ritter', siegpunkt: 'Siegpunkt', strassenbau: 'Straßenbau', erfindung: 'Erfindung', monopol: 'Monopol', stadtmauer: 'Stadtmauer' };
 const MIN_P = 2, MAX_P = 6;
 // Digitaler Spieltisch: Plätze am Rand (b/t = unten/oben Mitte, l/r = links/rechts Mitte, Ecken: bl, br, tl, tr) und ihre Reihenfolge im Uhrzeigersinn
 // Spieltisch: acht Plätze – an den langen Bildschirmseiten (unten/oben) je drei, an den kurzen (links/rechts) einer – und ihre Reihenfolge im Uhrzeigersinn.
 // Jeder Tischspieler wählt seinen Platz beim Spielstart.
 const SEATS = ['bl', 'b', 'br', 'tl', 't', 'tr', 'l', 'r'];
 const SEAT_CLOCK = ['br', 'b', 'bl', 'l', 'tl', 't', 'tr', 'r'];
-const DEV_MIX = { ritter: 14, siegpunkt: 5, strassenbau: 2, erfindung: 2, monopol: 2 }; // Mischungsverhältnis
 const UNLIMITED = 999; // so zeigt die Sicht unbegrenzte Vorräte an
 
 class GameError extends Error {}
@@ -36,4 +35,4 @@ function cleanCards(c, what) {
   return out;
 }
 
-module.exports = { crypto, G, B, ST, AV, RES, COLORS, COST, RES_DE, TERR_DE, DEV_DE, MIN_P, MAX_P, SEATS, SEAT_CLOCK, DEV_MIX, UNLIMITED, GameError, fail, emptyHand, sum, fmt, cleanCards };
+module.exports = { crypto, G, B, ST, AV, RES, COLORS, COST, RES_DE, TERR_DE, DEV_DE, MIN_P, MAX_P, SEATS, SEAT_CLOCK, DEV, DEV_STD, UNLIMITED, GameError, fail, emptyHand, sum, fmt, cleanCards };

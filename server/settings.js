@@ -1,11 +1,26 @@
 'use strict';
 // Spieleinstellungen: Standardwerte (= bisheriges Verhalten) und Validierung von Teiländerungen.
 const R = require('../shared/rules');
-const RES = R.RES, TERRAINS = R.TERRAINS;
+const RES = R.RES, TERRAINS = R.TERRAINS, DEV = R.DEV;
 const CHIPS = R.CHIPS.map(String); // Schlüssel in den Einstellungen
 const VARIANTS = ['klassisch', 'nebel', 'inseln', 'archipel'];
 
 const nullMap = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
+// Entwicklungskarten je Art: 'standard' (Grundspiel bzw. ab 5 Spielern die Erweiterung) oder Anzahl. Die Zahlen bestimmen auch das
+// Verhältnis beim Ziehen mit Zurücklegen (Einstellung devReturn); sonst wird der Stapel wie im Original leer.
+// Ältere Spielstände speichern nur einen Wert für den ganzen Stapel ('standard', Gesamtzahl oder null = früher unbegrenzt) – der wird hier umgerechnet.
+const devStd = (k) => (k === 'stadtmauer' ? 0 : 'standard');
+function devLimits(v) {
+  if (isObj(v)) return Object.fromEntries(DEV.map((k) => [k, v[k] === undefined || v[k] === null ? devStd(k) : v[k]]));
+  if (v === 'standard' || v === null) return Object.fromEntries(DEV.map((k) => [k, devStd(k)]));
+  const std = R.DEV_STD[4], tot = DEV.reduce((a, k) => a + std[k], 0); // Gesamtzahl im Grundspiel-Verhältnis aufteilen
+  const raw = DEV.map((k) => ({ k, x: (v * std[k]) / tot }));
+  raw.forEach((r) => { r.c = Math.floor(r.x); });
+  let rest = v - raw.reduce((a, r) => a + r.c, 0);
+  raw.sort((a, b) => (b.x - b.c) - (a.x - a.c));
+  for (let i = 0; rest > 0; i = (i + 1) % raw.length, rest--) raw[i].c++;
+  return Object.fromEntries(DEV.map((k) => [k, raw.find((r) => r.k === k).c]));
+}
 
 function defaults() {
   return {
@@ -14,9 +29,9 @@ function defaults() {
     winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
     islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3,
     goldHome: true, goldStart: false, goldRate: 3,
-    leaver: 'uebernahme', vanishRounds: 5,
+    leaver: 'uebernahme', vanishRounds: 5, devReturn: false,
     limits: {
-      road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
+      road: 15, ship: 15, settlement: 5, city: 4, dev: devLimits('standard'),
       bank: nullMap(RES), fogTerrain: nullMap(TERRAINS), fogChips: nullMap(CHIPS),
     },
   };
@@ -58,13 +73,21 @@ function merge(cur, patch) {
       case 'goldStart': if (typeof v !== 'boolean') bad('Erstsiedlung am Goldfluss: ja/nein erwartet.'); s.goldStart = v; break;
       case 'goldRate': s.goldRate = int(v, 1, 5, 'Ertragsrate Goldfluss'); break;
       case 'leaver': s.leaver = oneOf(v, ['uebernahme', 'verschwinden'], 'Verhalten bei Verlassen'); break;
+      case 'devReturn': if (typeof v !== 'boolean') bad('Entwicklungskarten zurücklegen: ja/nein erwartet.'); s.devReturn = v; break;
       case 'vanishRounds': s.vanishRounds = int(v, 1, 30, 'Runden bis zum Verschwinden'); break;
       case 'limits': {
         if (!isObj(v)) bad('Limits: Objekt erwartet.');
         for (const lk of Object.keys(v)) {
           const lv = v[lk];
           if (['road', 'ship', 'settlement', 'city'].includes(lk)) s.limits[lk] = intOrNull(lv, 1, 99, 'Figurenlimit');
-          else if (lk === 'dev') s.limits.dev = lv === 'standard' ? 'standard' : intOrNull(lv, 1, 99, 'Entwicklungskarten');
+          else if (lk === 'dev') {
+            if (!isObj(lv)) { s.limits.dev = devLimits(lv === 'standard' ? lv : int(lv, 1, 99, 'Entwicklungskarten')); continue; }
+            s.limits.dev = devLimits(s.limits.dev);
+            for (const x of Object.keys(lv)) {
+              if (!DEV.includes(x)) bad(`Entwicklungskarten: unbekannte Art „${x}“.`);
+              s.limits.dev[x] = lv[x] === 'standard' ? 'standard' : int(lv[x], 0, 99, 'Entwicklungskarten');
+            }
+          }
           else if (lk === 'bank' || lk === 'fogTerrain' || lk === 'fogChips') {
             if (!isObj(lv)) bad(`${lk}: Objekt erwartet.`);
             const keys = lk === 'bank' ? RES : lk === 'fogTerrain' ? TERRAINS : CHIPS;
@@ -83,4 +106,4 @@ function merge(cur, patch) {
   return s;
 }
 
-module.exports = { defaults, merge, SettingsError, RES, TERRAINS, CHIPS, VARIANTS };
+module.exports = { defaults, merge, devLimits, SettingsError, RES, TERRAINS, CHIPS, VARIANTS };

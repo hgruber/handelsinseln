@@ -52,7 +52,8 @@
         `<tr><td>${A.dev('strassenbau', 30)}</td><th>Straßenbau</th><td>Zwei Straßen (oder Schiffe) kostenlos bauen.</td></tr>` +
         `<tr><td>${A.dev('erfindung', 30)}</td><th>Erfindung</th><td>Zwei beliebige Rohstoffe aus der Bank nehmen.</td></tr>` +
         `<tr><td>${A.dev('monopol', 30)}</td><th>Monopol</th><td>Alle Mitspieler geben dir ihre Karten einer Sorte.</td></tr>` +
-        `<tr><td>${A.dev('siegpunkt', 30)}</td><th>Siegpunkt</th><td>Bleibt verdeckt, zählt automatisch.</td></tr></table>` +
+        `<tr><td>${A.dev('siegpunkt', 30)}</td><th>Siegpunkt</th><td>Bleibt verdeckt, zählt automatisch.</td></tr>` +
+        (s.limits && s.limits.dev && ![0, 'standard', undefined].includes(s.limits.dev.stadtmauer) ? `<tr><td>${A.dev('stadtmauer', 30)}</td><th>Stadtmauer</th><td>Bleibt verdeckt; jede erlaubt bei einer 7 eine Handkarte mehr.</td></tr>` : '') + '</table>' +
         `<p class="rl-note">Pro Zug darf eine Karte gespielt werden, aber nicht die im selben Zug gekaufte.</p>`) +
       sec('Handelsinseln', `<ul class="rl-ul"><li><b>Inseln:</b> Die erste Siedlung auf einer neuen Insel bringt Sonderpunkte (bis zur Obergrenze der Einstellungen).</li>` +
         `<li><b>Nebel:</b> Wer mit Straße oder Schiff an ein Nebelfeld anlegt, deckt es auf – bei Rohstoffen gibt es eine Karte.</li>` +

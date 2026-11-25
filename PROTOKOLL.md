@@ -21,7 +21,7 @@ Bei jedem Fehlerfall ändert sich der Zustand nicht. Alle Texte sind deutsch.
 ## Bezeichner
 - Ressourcen `RES = ['holz','lehm','wolle','getreide','erz']`. Gold ist keine Karte.
 - Gelände: `wald`(Holz) `huegel`(Lehm) `weide`(Wolle) `acker`(Getreide) `gebirge`(Erz) `wueste` `gold` `meer`.
-- Entwicklungskarten: `ritter`, `siegpunkt`, `strassenbau`, `erfindung`, `monopol`.
+- Entwicklungskarten: `ritter`, `siegpunkt`, `strassenbau`, `erfindung`, `monopol`, `stadtmauer` (Hausregel, standardmäßig nicht im Stapel; bleibt wie `siegpunkt` verdeckt und ist nie `playable`).
 - Farben: `rot`, `blau`, `orange`, `weiss`, `gruen`, `violett`. Spieler-ID `pid` = Index 0..5 in `players`.
 - Schlüssel: Hex `"q,r"`, Kante `"h|h"`, Ecke `"h|h|h"` — siehe `shared/geom.js` (Pixelposition/Nachbarn: dort).
   Der Client berechnet daraus Positionen selbst (`Geom.hexCenter/vertPos/edgePos`). Axial, pointy-top.
@@ -49,7 +49,7 @@ Bei jedem Fehlerfall ändert sich der Zustand nicht. Alle Texte sind deutsch.
  verts: { Ecke: {p:pid, k:'s'|'c'} },            // Siedlung/Stadt
  edges: { Kante: {p:pid, k:'r'|'s'} },           // Straße/Schiff
  robber: 'q,r', pirate: 'q,r'|null,
- me: { hand:{holz:n,...}, dev:[{id, type, playable:bool, fresh:bool}], hiddenVp:n },   // nur eigene Daten
+ me: { hand:{holz:n,...}, dev:[{id, type, playable:bool, fresh:bool}], hiddenVp:n, handLimit:n|null },   // nur eigene Daten; handLimit = Einstellung + 1 je Stadtmauer
  afford: { road, ship, settlement, city, dev: bool },                                 // genug Rohstoffe (und Figuren übrig)
  legal: { settlement:[Ecke], city:[Ecke], road:[Kante], ship:[Kante],
           shipFrom:[Kante], shipTo:{Kante:[Kante]},   // verschiebbare Schiffe und deren Ziele
@@ -140,9 +140,12 @@ settings: {                   // gilt in Lobby und im Spiel; änderbar durch den
   islandBonus: 2, islandBonusMax: 2,   // Sonderpunkte je neuer Insel / für höchstens so viele Inseln pro Spieler
   longestMin: 5, armyMin: 3,
   leaver: 'uebernahme'|'verschwinden', vanishRounds: 5,   // Verhalten bei verlassenem Spiel (siehe Auto-Modus)
+  devReturn: false,                    // Entwicklungskarten mit Zurücklegen ziehen (Stapel nie leer, bank.dev = 999; Verhältnis aus limits.dev)
   limits: {
     road:15, ship:15, settlement:5, city:4,   // Zahl 1..99 oder null = unbegrenzt
-    dev: 'standard'|Zahl 1..99|null,          // Entwicklungskarten: Standardstapel (25, ab 5 Spielern 34) / Stapelgröße / unbegrenzt (Ziehen mit Zurücklegen)
+    dev: {ritter:'standard', siegpunkt:'standard', strassenbau:'standard', erfindung:'standard', monopol:'standard', stadtmauer:0},
+      // Entwicklungskarten je Art: 'standard' (Grundspiel 14/5/2/2/2, ab 5 Spielern Erweiterung 20/5/3/3/3; Stadtmauer 0), Zahl 0..99.
+      // Teiländerungen je Art möglich; eine Gesamtzahl 1..99 oder 'standard' (älteres Format) gilt für den ganzen Stapel.
     bank: {holz:null, lehm:null, wolle:null, getreide:null, erz:null},   // Rohstoff-Vorrat der Bank je Sorte: Zahl 1..99 oder null=unbegrenzt
     fogTerrain: {wald:null, huegel:null, weide:null, acker:null, gebirge:null, gold:null, wueste:null, meer:null},  // Vorrat an aufdeckbaren Feldern je Sorte (null = unbegrenzt)
     fogChips: {"2":null,"3":null,…,"12":null}   // Vorrat an Wertechips je Zahl für aufgedeckte Felder (null = unbegrenzt)

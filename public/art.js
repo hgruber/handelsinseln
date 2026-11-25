@@ -11,7 +11,7 @@
   const RES_COLORS = { holz: '#3f8a4e', lehm: '#c8622e', wolle: '#8fcf5a', getreide: '#e8b93c', erz: '#7d8aa0' };
   const RES_NAMES = { holz: 'Holz', lehm: 'Lehm', wolle: 'Wolle', getreide: 'Getreide', erz: 'Erz' };
   const TERRAIN_NAMES = { wald: 'Wald', huegel: 'Hügelland', weide: 'Weideland', acker: 'Ackerland', gebirge: 'Gebirge', wueste: 'Wüste', gold: 'Goldfluss', meer: 'Meer' };
-  const DEV_NAMES = { ritter: 'Ritter', siegpunkt: 'Siegpunkt', strassenbau: 'Straßenbau', erfindung: 'Erfindung', monopol: 'Monopol' };
+  const DEV_NAMES = { ritter: 'Ritter', siegpunkt: 'Siegpunkt', strassenbau: 'Straßenbau', erfindung: 'Erfindung', monopol: 'Monopol', stadtmauer: 'Stadtmauer' };
 
   function mix(a, b, t) {
     const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);

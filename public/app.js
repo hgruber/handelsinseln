@@ -11,6 +11,7 @@
     strassenbau: 'Straßenbau: baue 2 Wege (Straße/Schiff) kostenlos.',
     erfindung: 'Erfindung: nimm 2 beliebige Rohstoffe aus der Bank.',
     monopol: 'Monopol: alle Mitspieler geben dir ihre Karten einer Sorte.',
+    stadtmauer: 'Stadtmauer: bleibt verdeckt, du darfst bei einer 7 eine Handkarte mehr haben.',
   };
   const NS = 'http://www.w3.org/2000/svg';
   const $ = (id) => document.getElementById(id);
@@ -858,12 +859,13 @@
       prevHand[r] = n;
       return `<div class="rcard${n ? '' : ' zero'}${gain ? ' gain' : ''}" data-res="${r}" style="--rc:${Art.RES_COLORS[r]}" title="${RN[r]}: ${n}"><div class="sk s${Math.min(n, 4)}"></div><div class="face">${Art.res(r, 42)}<span class="rn">${RN[r]}</span></div><b class="cnt">${n}</b></div>`;
     }).join('');
-    const lim = setg().handLimit === null ? Infinity : setg().handLimit || 7, tot = sumO(hand);
+    const ml = v.me.handLimit !== undefined ? v.me.handLimit : setg().handLimit; // persönlich (mit Stadtmauern), ältere Server: Einstellung
+    const lim = ml === null ? Infinity : ml || 7, tot = sumO(hand);
     const warn = tot > lim ? `<span class="handwarn" title="Du hast ${tot} Karten (Limit ${lim}). Bei einer 7 musst du die Hälfte abwerfen.">⚠ ${tot}/${lim}</span>` : '';
     setHTML($('resRow'), res + warn);
     const cards = v.me.dev.map((d) => {
-      const why = d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
-      return `<button class="dcard${d.playable ? ' play' : ''}${d.fresh ? ' fresh' : ''}${d.type === 'siegpunkt' ? ' vpc' : ''}" data-a="dev" data-type="${d.type}" data-id="${esc(d.id)}" title="${esc(Art.DEV_NAMES[d.type] + ' – ' + why)}" ${d.playable ? '' : 'aria-disabled="true"'}>` +
+      const why = d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.type === 'stadtmauer' ? 'Stadtmauer – bleibt verdeckt und erlaubt bei einer 7 eine Handkarte mehr.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
+      return `<button class="dcard${d.playable ? ' play' : ''}${d.fresh ? ' fresh' : ''}${d.type === 'siegpunkt' || d.type === 'stadtmauer' ? ' vpc' : ''}" data-a="dev" data-type="${d.type}" data-id="${esc(d.id)}" title="${esc(Art.DEV_NAMES[d.type] + ' – ' + why)}" ${d.playable ? '' : 'aria-disabled="true"'}>` +
         `${Art.dev(d.type, 34)}<span>${Art.DEV_NAMES[d.type]}</span>${d.fresh ? '<i class="new">neu</i>' : ''}</button>`;
     }).join('');
     setHTML($('devRow'), cards || '<span class="muted small">Keine Entwicklungskarten</span>');
@@ -1027,7 +1029,7 @@
     switch (w.type) {
       case 'discard': {
         const left = w.n - sumDraft();
-        return `<h2>Die 7 – Räuber!</h2><p class="lead">Du hast mehr als ${setg().handLimit || 7} Karten und musst <b>${w.n}</b> abwerfen.</p>` + mgrid('d', st.draft, hand) +
+        return `<h2>Die 7 – Räuber!</h2><p class="lead">Du hast mehr als ${(v.me && v.me.handLimit) || setg().handLimit || 7} Karten und musst <b>${w.n}</b> abwerfen.</p>` + mgrid('d', st.draft, hand) +
           `<p class="cnt-line ${left === 0 ? 'ok' : ''}">${left > 0 ? `Noch <b>${left}</b> wählen` : left < 0 ? `<b>${-left}</b> zu viel` : 'Genau richtig'}</p>` +
           `<div class="mact"><button class="btn ghostb" data-m="refill">Automatisch</button><button class="btn gold${left === 0 ? '' : ' dis'}" data-m="discard" ${left === 0 ? '' : 'aria-disabled="true"'}>Abwerfen bestätigen</button></div>`;
       }
@@ -1137,7 +1139,7 @@
       }
       case 'dev': {
         const t = b.dataset.type;
-        if (t === 'siegpunkt') break;
+        if (t === 'siegpunkt' || t === 'stadtmauer') break;
         if (t === 'ritter') await act('play_knight');
         else if (t === 'strassenbau') await act('play_roadbuilding');
         else if (t === 'erfindung') { st.modal = 'yop'; st.draftKey = ''; renderModal(v); }

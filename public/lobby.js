@@ -157,9 +157,9 @@
   // ======================================================================================
   const DEF = {
     dense: true, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
-    islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, goldHome: true, goldStart: false, goldRate: 3, leaver: 'uebernahme', vanishRounds: 5,
+    islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, goldHome: true, goldStart: false, goldRate: 3, leaver: 'uebernahme', vanishRounds: 5, devReturn: false,
     limits: {
-      road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard',
+      road: 15, ship: 15, settlement: 5, city: 4, dev: Object.fromEntries(window.Rules.DEV.map((k) => [k, k === 'stadtmauer' ? 0 : 'standard'])),
       bank: Object.fromEntries(RES.map((r) => [r, null])),
       fogTerrain: Object.fromEntries(TER.map((t) => [t, null])),
       fogChips: Object.fromEntries(CHIPS.map((c) => [c, null])),
@@ -199,12 +199,17 @@
         { path: 'limits.ship', type: 'num', label: 'Schiffe', min: 1, max: 99, inf: true },
         { path: 'limits.settlement', type: 'num', label: 'Siedlungen', min: 1, max: 99, inf: true },
         { path: 'limits.city', type: 'num', label: 'Städte', min: 1, max: 99, inf: true },
-        { path: 'limits.dev', type: 'num', label: 'Entwicklungskarten', tip: 'Standard: 25 Karten (ab 5 Spielern 34). ∞: Ziehen mit Zurücklegen.', min: 1, max: 99, inf: true, std: true },
       ], subs: [
         { title: 'Bank-Vorrat je Rohstoff', note: '∞ = die Bank geht nie leer.', rows: RES.map((r) => ({ path: 'limits.bank.' + r, type: 'num', label: Art.RES_NAMES[r], icon: Art.res(r, 22), min: 1, max: 99, inf: true, mini: true })) },
         { title: 'Nebel-Felder je Gelände', note: 'Wie viele Felder der Sorte aufgedeckt werden können (∞ = beliebig viele).', rows: TER.map((t) => ({ path: 'limits.fogTerrain.' + t, type: 'num', label: Art.TERRAIN_NAMES[t] || t, min: 1, max: 99, inf: true, mini: true })) },
         { title: 'Nebel-Wertechips je Zahl', note: 'Wie oft jede Zahl beim Aufdecken vergeben wird.', rows: CHIPS.map((c) => ({ path: 'limits.fogChips.' + c, type: 'num', label: String(c), min: 1, max: 99, inf: true, mini: true })) },
       ] },
+      { id: 'karten', title: 'Entwicklungskarten', rows: [{ path: 'devReturn', type: 'seg', label: 'Stapel', tip: 'Wird leer: gezogene Karten sind weg (Original). Mit Zurücklegen: der Stapel wird nie leer, die Zahlen je Art bestimmen das Verhältnis beim Ziehen.', opts: [[false, 'Wird leer'], [true, 'Mit Zurücklegen']] }].concat(window.Rules.DEV.map((k) => {
+        const a = window.Rules.DEV_STD[4][k], b = window.Rules.DEV_STD[6][k];
+        return k === 'stadtmauer'
+          ? { path: 'limits.dev.' + k, type: 'num', label: Art.DEV_NAMES[k], icon: Art.dev(k, 22), tip: 'Hausregel (standardmäßig aus): Jede Stadtmauer auf der Hand erlaubt bei einer 7 eine Handkarte mehr. Sie wirkt ab dem Kauf und wird nicht ausgespielt.', min: 0, max: 99 }
+          : { path: 'limits.dev.' + k, type: 'num', label: Art.DEV_NAMES[k], icon: Art.dev(k, 22), tip: `Standard: ${a} Karten${a === b ? '' : ` (ab 5 Spielern ${b}, Erweiterung)`}. 0: Art kommt nicht vor.`, min: 0, max: 99, std: true, stdVal: a, stdHint: a === b ? String(a) : `${a}, ab 5 Spielern ${b}` };
+      })) },
       { id: 'verlassen', title: 'Verlassen', rows: [
         { path: 'leaver', type: 'seg', label: 'Wenn jemand geht', tip: 'Übernahme: Mitspieler dürfen Teile seiner Infrastruktur übernehmen. Verschwinden: alles wird nach einigen Runden entfernt.', opts: [['uebernahme', 'Übernahme'], ['verschwinden', 'Verschwinden']] },
         { path: 'vanishRounds', type: 'num', label: 'Verschwinden nach … Runden', min: 1, max: 99, dep: 'leaver=verschwinden' },
@@ -217,7 +222,7 @@
     if (r.type === 'seg') {
       return `<div class="ctl seg" data-path="${r.path}" data-type="seg" role="radiogroup" aria-label="${C.esc(r.label)}">${r.opts.map(([v, l]) => `<button type="button" role="radio" data-val="${v}" aria-checked="false">${l}</button>`).join('')}</div>`;
     }
-    return `<div class="ctl num${r.mini ? ' mini' : ''}" data-path="${r.path}" data-type="num" data-min="${r.min}" data-max="${r.max}" data-def="${defv === null ? 'inf' : defv}" data-mode="num">` +
+    return `<div class="ctl num${r.mini ? ' mini' : ''}" data-path="${r.path}" data-type="num" data-min="${r.min}" data-max="${r.max}" data-def="${defv === null ? 'inf' : defv}"${r.stdVal !== undefined ? ` data-std="${r.stdVal}"` : ''} data-mode="num">` +
       `<button type="button" class="stp" data-s="-1" aria-label="weniger">−</button>` +
       `<input type="number" inputmode="numeric" min="${r.min}" max="${r.max}" step="1" aria-label="${C.esc(r.label)}">` +
       `<button type="button" class="stp" data-s="1" aria-label="mehr">+</button>` +
@@ -228,11 +233,11 @@
   function defHint(r) {
     const d = getp(DEF, r.path);
     if (r.type === 'seg') { const o = r.opts.find((x) => String(x[0]) === String(d)); return o ? o[1] : ''; }
-    return d === null ? '∞' : d === 'standard' ? 'Standard' : String(d) + (r.suffix || '');
+    return d === null ? '∞' : d === 'standard' ? (r.stdHint || 'Standard') : String(d) + (r.suffix || '');
   }
   function rowHTML(r) {
     if (r.mini) return `<div class="srow mini" data-row="${r.path}"><span class="sl">${r.icon || ''}${C.esc(r.label)}</span>${ctlHTML(r)}</div>`;
-    return `<div class="srow" data-row="${r.path}"${r.dep ? ` data-dep="${r.dep}"` : ''}><span class="sl" ${r.tip ? `title="${C.esc(r.tip)}"` : ''}>${C.esc(r.label)}<small>Standard: ${C.esc(defHint(r))}</small></span>${ctlHTML(r)}</div>`;
+    return `<div class="srow" data-row="${r.path}"${r.dep ? ` data-dep="${r.dep}"` : ''}><span class="sl" ${r.tip ? `title="${C.esc(r.tip)}"` : ''}>${r.icon ? `<span class="sli">${r.icon}${C.esc(r.label)}</span>` : C.esc(r.label)}<small>Standard: ${C.esc(defHint(r))}</small></span>${ctlHTML(r)}</div>`;
   }
   function panelHTML(game) {
     return `<details class="setpanel"><summary><span>Spieleinstellungen</span><small id="setHint"></small></summary><div class="setbody">` +
@@ -313,11 +318,11 @@
       let val;
       if (st) {
         let base = readCtl(ctl);
-        if (base === null || base === 'standard' || Number.isNaN(base)) { const d = ctl.dataset.def; base = d === 'inf' || d === 'standard' ? (path === 'limits.dev' ? 25 : Number(ctl.dataset.min)) : Number(d); if (path === 'limits.dev' && ctl.dataset.mode === 'std') base = 25; }
+        if (base === null || base === 'standard' || Number.isNaN(base)) { const d = ctl.dataset.def; base = d === 'inf' || d === 'standard' ? (ctl.dataset.std ? Number(ctl.dataset.std) : Number(ctl.dataset.min)) : Number(d); if (ctl.dataset.std && ctl.dataset.mode === 'std') base = Number(ctl.dataset.std); }
         val = clamp(ctl, base + Number(st.dataset.s));
       } else if (tg) {
         const k = tg.dataset.tg, mode = ctl.dataset.mode;
-        if (mode === k) { const d = ctl.dataset.def; val = d === 'inf' || d === 'standard' ? (path === 'limits.dev' ? 25 : clamp(ctl, 10)) : Number(d); }
+        if (mode === k) { const d = ctl.dataset.def; val = d === 'inf' || d === 'standard' ? (ctl.dataset.std ? Number(ctl.dataset.std) : clamp(ctl, 10)) : Number(d); }
         else val = k === 'inf' ? null : 'standard';
       } else return;
       paintCtl(ctl, val); queue(path, val);

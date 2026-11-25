@@ -1,7 +1,7 @@
 'use strict';
 // Spiellogik, Teilbereich: Lobby, Spieler, Einstellungen, Spielstart und Spielende.
 // Die Methoden werden in game.js an Game.prototype gehängt (this = das Spiel).
-const { crypto, B, ST, AV, COLORS, MIN_P, MAX_P, SEATS, SEAT_CLOCK, DEV_MIX, UNLIMITED, fail, emptyHand } = require('./game_common');
+const { crypto, B, ST, AV, COLORS, MIN_P, MAX_P, SEATS, SEAT_CLOCK, DEV, DEV_STD, UNLIMITED, fail, emptyHand } = require('./game_common');
 
 class GameLobby {
   // ---------- Lobby ----------
@@ -188,11 +188,7 @@ class GameLobby {
         S.supply[sk][x] = b === null ? null : a === null ? b : Math.max(0, (S.supply[sk][x] || 0) + b - a);
       }
     }
-    if (old.limits.dev !== ns.limits.dev && S.stats) {
-      const drawn = S.stats.players.reduce((a, p) => a + (p.built.dev || 0), 0);
-      this.buildDeck(S.players.length);
-      if (!S.deckUnlimited) S.deck = S.deck.slice(0, Math.max(0, S.deck.length - drawn));
-    }
+    if ((JSON.stringify(ST.devLimits(old.limits.dev)) !== JSON.stringify(ns.limits.dev) || !!old.devReturn !== ns.devReturn) && S.stats) this.rebuildDeck();
     const msg = 'Der Spielleiter hat die Spieleinstellungen geändert.';
     const last = S.log[S.log.length - 1];
     if (!last || last.text !== msg) this.log(msg, 'sys');
@@ -211,32 +207,21 @@ class GameLobby {
     return tok;
   }
 
-  // Vorrat an Entwicklungskarten nach Einstellung
+  // Vorrat an Entwicklungskarten nach Einstellung (je Art: Standard oder Anzahl); mit devReturn wird gezogen und zurückgelegt
   buildDeck(n) {
-    const S = this.S, d = S.settings.limits.dev;
-    S.deckUnlimited = false; S.deck = [];
-    const mk = (t, c) => { for (let i = 0; i < c; i++) S.deck.push(t); };
-    if (d === 'standard') {
-      if (n >= 5) { mk('ritter', 20); mk('siegpunkt', 5); mk('strassenbau', 3); mk('erfindung', 3); mk('monopol', 3); }
-      else { mk('ritter', 14); mk('siegpunkt', 5); mk('strassenbau', 2); mk('erfindung', 2); mk('monopol', 2); }
-    } else if (d === null) S.deckUnlimited = true;
-    else {
-      const tot = 25, keys = Object.keys(DEV_MIX);
-      const raw = keys.map((k) => ({ k, x: (d * DEV_MIX[k]) / tot }));
-      raw.forEach((r) => { r.c = Math.floor(r.x); });
-      let rest = d - raw.reduce((a, r) => a + r.c, 0);
-      raw.sort((a, b) => (b.x - b.c) - (a.x - a.c));
-      for (let i = 0; rest > 0; i = (i + 1) % raw.length, rest--) raw[i].c++;
-      raw.forEach((r) => mk(r.k, r.c));
-    }
+    const S = this.S, lim = ST.devLimits(S.settings.limits.dev), std = DEV_STD[n >= 5 ? 6 : 4];
+    S.deck = [];
+    for (const k of DEV) { const c = lim[k] === 'standard' ? std[k] : lim[k]; for (let i = 0; i < c; i++) S.deck.push(k); }
     S.deck = B.shuffle(S.deck, this.rnd);
   }
-  drawDev() {
-    const S = this.S;
-    if (S.deckUnlimited) { const keys = Object.keys(DEV_MIX); let x = this.rnd() * 25; for (const k of keys) { x -= DEV_MIX[k]; if (x <= 0) return k; } return 'ritter'; }
-    return S.deck.pop();
+  // Nach einer Änderung im laufenden Spiel: neuer Stapel, ohne Zurücklegen fehlen die schon gezogenen Karten
+  rebuildDeck() {
+    const S = this.S, drawn = S.stats.players.reduce((a, p) => a + (p.built.dev || 0), 0);
+    this.buildDeck(S.players.length);
+    if (!S.settings.devReturn) S.deck = S.deck.slice(0, Math.max(0, S.deck.length - drawn));
   }
-  devLeft() { return this.S.deckUnlimited ? UNLIMITED : this.S.deck.length; }
+  drawDev() { const S = this.S; return S.settings.devReturn ? S.deck[Math.floor(this.rnd() * S.deck.length)] : S.deck.pop(); }
+  devLeft() { return this.S.settings.devReturn && this.S.deck.length ? UNLIMITED : this.S.deck.length; }
 
   start(pid) {
     const S = this.S;

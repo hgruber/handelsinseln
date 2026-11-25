@@ -105,7 +105,7 @@ class GameView {
         return { e, kind: S.harbors[e].kind, land, sea: land === a ? b : a };
       }),
       verts: S.verts, edges: S.edges, robber: S.robber, pirate: S.pirate,
-      me: me ? { hand: me.hand, dev: me.dev.map((d) => ({ id: d.id, type: d.type, playable: d.type !== 'siegpunkt' && d.bought < S.turnNo && !S.ts.devPlayed && S.phase === 'main' && !S.sbp && pid === S.turn, fresh: d.bought >= S.turnNo })), hiddenVp: this.hiddenVp(pid) } : { hand: {}, dev: [], hiddenVp: 0 },
+      me: me ? { hand: me.hand, dev: me.dev.map((d) => ({ id: d.id, type: d.type, playable: d.type !== 'siegpunkt' && d.type !== 'stadtmauer' && d.bought < S.turnNo && !S.ts.devPlayed && S.phase === 'main' && !S.sbp && pid === S.turn, fresh: d.bought >= S.turnNo })), hiddenVp: this.hiddenVp(pid), handLimit: this.handLimit(pid) } : { hand: {}, dev: [], hiddenVp: 0 },
       afford: { road: false, ship: false, settlement: false, city: false, dev: false },
       legal: this.legal(pid),
       rates: this.ratesFor(pid),

@@ -110,10 +110,12 @@ const out = {};
 // Einstellungen (Standardwerte laut PROTOKOLL.md, v2)
 const RESN = ['holz', 'lehm', 'wolle', 'getreide', 'erz'];
 const nul = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
+const DEVN = ['ritter', 'siegpunkt', 'strassenbau', 'erfindung', 'monopol', 'stadtmauer'];
+const devStd = (over) => Object.assign(Object.fromEntries(DEVN.map((k) => [k, k === 'stadtmauer' ? 0 : 'standard'])), over || {});
 const defSettings = (over) => Object.assign({
   variant: 'klassisch', plannedPlayers: 4, dice: 'manuell', robber: 'manuell', winPoints: 14, handLimit: 7, bankRate: 4, playerTrade: true,
-  islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5,
-  limits: { road: 15, ship: 15, settlement: 5, city: 4, dev: 'standard', bank: nul(RESN), fogTerrain: nul(['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer']), fogChips: nul([2, 3, 4, 5, 6, 8, 9, 10, 11, 12]) },
+  islandBonus: 2, islandBonusMax: 2, longestMin: 5, armyMin: 3, leaver: 'uebernahme', vanishRounds: 5, devReturn: false,
+  limits: { road: 15, ship: 15, settlement: 5, city: 4, dev: devStd(), bank: nul(RESN), fogTerrain: nul(['wald', 'huegel', 'weide', 'acker', 'gebirge', 'gold', 'wueste', 'meer']), fogChips: nul([2, 3, 4, 5, 6, 8, 9, 10, 11, 12]) },
 }, over || {});
 // Anmeldung: /api/games-Mock
 const gamesMock = { games: [
@@ -131,7 +133,7 @@ const lobbyBase = (you, over) => Object.assign({ v: 3, phase: 'lobby', step: 'lo
   log: [], chat: [{ id: 1, p: 0, text: 'Hallo zusammen!' }, { id: 2, p: 1, text: 'Moin <script>alert(1)</script>' }],
   hexes, fog, harbors, verts: {}, edges: {}, robber: '1,-1', pirate: null, settings: defSettings({ plannedPlayers: 3 }) }, over || {});
 out.lobby = lobbyBase(0);
-out.lobby_gast = lobbyBase(1, { closed: true, settings: defSettings({ plannedPlayers: 3, variant: 'inseln', dice: 'auto', playerTrade: false, handLimit: null, limits: Object.assign(defSettings().limits, { road: null, dev: 40, bank: { holz: 19, lehm: 19, wolle: null, getreide: 19, erz: 19 } }) }) });
+out.lobby_gast = lobbyBase(1, { closed: true, settings: defSettings({ plannedPlayers: 3, variant: 'inseln', dice: 'auto', playerTrade: false, handLimit: null, limits: Object.assign(defSettings().limits, { road: null, dev: devStd({ ritter: 20, stadtmauer: 3 }), bank: { holz: 19, lehm: 19, wolle: null, getreide: 19, erz: 19 } }) }) });
 out.lobby_leer = lobbyBase(0, { players: [{ id: 0, name: 'Anna', color: 'rot', connected: true, auto: false }], hexes: [], fog: [], harbors: [], chat: [], settings: defSettings({ plannedPlayers: 2 }) });
 // Aufbau
 const empty = { verts: {}, edges: {} };
@@ -169,7 +171,7 @@ out.auto = base({ gameId: 'g1', gameName: 'Käpt\'n Annas Runde', settings: defS
   legal: Object.assign({}, base().legal, { takeover: { edges: claraE.slice(0, 3), verts: claraV.slice(0, 2) } }) });
 out.auto_wurf = Object.assign({}, out.auto, { step: 'roll', dice: null, prompt: 'Der Server würfelt automatisch …' });
 // Unbegrenzte Limits (999)
-out.unbegrenzt = base({ settings: defSettings({ limits: Object.assign(defSettings().limits, { road: null, ship: null, settlement: null, city: null, dev: null }), handLimit: null }), bank: { dev: 999 },
+out.unbegrenzt = base({ settings: defSettings({ limits: Object.assign(defSettings().limits, { road: null, ship: null, settlement: null, city: null }), handLimit: null, devReturn: true }), bank: { dev: 999 },
   players: fallbackPlayers().map((p) => Object.assign({}, p, { left: { road: 999, ship: 999, settlement: p.id === 1 ? 0 : 999, city: 999 } })) });
 // Statistik
 const histVp = []; for (let r = 1; r <= 24; r++) histVp.push({ round: r, vp: [Math.min(14, 2 + Math.floor(r * .5) + (r > 14 ? 1 : 0)), Math.min(11, 2 + Math.floor(r * .38)), Math.min(8, 2 + Math.floor(r * .25)), Math.min(7, 2 + Math.floor(r * .2))] });
