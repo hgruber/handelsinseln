@@ -274,9 +274,17 @@
   const settlement = (c, ohneSchatten) => (ohneSchatten ? '' : vertShadow('settlement')) + stone('siedlung', -23, -40, 46, 44.5, c);
   // Stadt ohne Bodenplatte: Bild endet an der Gebaeudeunterkante, die auf y=0 steht
   const city = (c, ohneSchatten) => (ohneSchatten ? '' : vertShadow('city')) + stone('stadt', -30.3, -69.6, 58.8, 69.6, c);
-  // Strasse; l/r kuerzen das linke/rechte Ende (an Ecken mit Gebaeude, damit sie nicht darunter laeuft)
-  const road = (c, l = 0, r = 0) => `<ellipse cx="${f((l - r) / 2)}" cy="6" rx="${f(44 - (l + r) / 2)}" ry="5" fill="#000" opacity=".3"/>` +
-    stone('strasse', f(-42 + l), -11, f(84 - l - r), 16.2, c);
+  // Strasse: in Blender je Ausrichtung gerendert (public/img/stein-strasse-<ausrichtung>-<enden>.webp), damit
+  // Ober- und Seitenflaeche in jeder Lage stimmen. Ausrichtung = Kantenwinkel (0 nur fuer das Bau-Symbol);
+  // Enden = Gebaeude am linken/rechten Ende ('0' keins, 's' Siedlung, 'c' Stadt) -> dort ist der Stein gekuerzt.
+  // ROADS[name] = [x, y, w, h, Kuerzung links, Kuerzung rechts] relativ zur Kantenmitte.
+  const ROADS = {"0-00":[-42.2,-11.27,84.4,15.33,0,0],"90-00":[-5.27,-48.2,10.53,89.33,0,0],"p30-00":[-37.27,-29.8,74.53,52.4,0,0],"p30-0s":[-37.27,-29.8,55.07,41.2,0,22.5],"p30-0c":[-37.27,-29.8,48.13,37.2,0,30.5],"p30-s0":[-24.73,-22.47,62.0,45.07,14.5,0],"p30-ss":[-24.73,-22.47,42.53,33.87,14.5,22.5],"p30-sc":[-24.73,-22.47,35.6,29.87,14.5,30.5],"p30-c0":[-28.2,-24.47,65.47,47.07,10.5,0],"p30-cs":[-28.2,-24.47,46.0,35.87,10.5,22.5],"p30-cc":[-28.2,-24.47,39.07,31.87,10.5,30.5],"m30-00":[-37.27,-29.8,74.53,52.4,0,0],"m30-0s":[-37.27,-21.27,59.87,43.87,0,17],"m30-0c":[-37.27,-21.53,60.27,44.13,0,16.5],"m30-s0":[-17.8,-29.8,55.07,41.2,22.5,0],"m30-ss":[-17.8,-21.27,40.4,32.67,22.5,17],"m30-sc":[-17.8,-21.53,40.8,32.93,22.5,16.5],"m30-c0":[-12.6,-29.8,49.87,38.13,28.5,0],"m30-cs":[-12.6,-21.27,35.2,29.6,28.5,17],"m30-cc":[-12.6,-21.53,35.6,29.87,28.5,16.5]};
+  function road(c, ang = 0, ends = '00') {
+    const a = Math.round(ang), o = a === 0 ? '0' : Math.abs(a) === 90 ? '90' : a > 0 ? 'p30' : 'm30';
+    const n = o + '-' + (o === '0' || o === '90' ? '00' : ends), [x, y, w, h, l, r] = ROADS[n] || ROADS['0-00'];
+    return `<ellipse transform="translate(0,3) rotate(${o === '90' ? 90 : o === '0' ? 0 : a})" cx="${f((l - r) / 2)}" rx="${f(44 - (l + r) / 2)}" ry="5.5" fill="#000" opacity=".3"/>` +
+      stone('strasse-' + n, x, y, w, h, c);
+  }
   function ship(c) {
     return `<ellipse cy="11" rx="38" ry="6.5" fill="#000" opacity=".3"/><g class="bob">` +
       `<path class="wake" d="M-34,10 q8,-5 16,0 M-38,15 q10,-6 20,0" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>` +

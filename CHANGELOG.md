@@ -18,7 +18,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ### Behoben
 - **Auswertung, Runden:** „Runden“ zeigte die Zahl der Züge (bei 6 Spielern etwa sechsmal zu viel); jetzt die echten Runden.
 - **Stadt schwebte:** Das Stadt-Steinchen stand auf einer Bodenplatte, deren Unterkante über der Ecke lag, sodass das Gebäude über seinem Schatten schwebte. Die Platte ist entfernt, die Gebäudeunterkante steht jetzt auf der Ecke, und das Steinchen ist 40 % größer.
-- **Straßen an Siedlung/Stadt:** Straßen liefen unter bzw. hinter das Gebäude und lagen im Gebäudeschatten. Jetzt enden sie vor dem Gebäude (je Richtung passend zur Silhouette gekürzt), und der Gebäudeschatten liegt unter den Straßen. Die Siedlung sitzt tiefer auf ihrer Ecke.
+- **Straßen an Siedlung/Stadt:** Straßen liefen unter bzw. hinter das Gebäude und lagen im Gebäudeschatten. Jetzt enden sie vor dem Gebäude (je Richtung passend zur Silhouette gekürzt; eine senkrecht nach hinten führende Straße behält ihre volle Länge und verschwindet hinter dem Gebäude), und der Gebäudeschatten liegt unter den Straßen. Die Siedlung sitzt tiefer auf ihrer Ecke.
+- **Straßen je Ausrichtung gerendert:** Die Straße war ein schräg von vorn gemalter Stein, der einfach gedreht wurde – senkrecht lag seine Seitenwand dann seitlich und er wirkte schmal. Jetzt ist der Stein in Blender als 3D-Körper je Kantenrichtung gerendert (`public/img/stein-strasse-<richtung>-<enden>.webp`, weiterhin in Spielerfarbe eingefärbt): Oberseite hell, Seitenwand dunkler und immer unten. Die Kürzung vor Siedlung/Stadt steckt als abgerundetes Ende im Bild.
 
 ## [1.7.2] - 2026-11-25
 

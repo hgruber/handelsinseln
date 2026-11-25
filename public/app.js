@@ -436,25 +436,19 @@
         L.edge.map.delete(g); L.edge.map.set(nk, c);
       }
     }
-    // Strassen enden vor Siedlung/Stadt: Kuerzung je Richtung (Grad, von der Ecke weg), aus den Bild-Silhouetten
-    // berechnet (3 Abstand), damit eine Strasse nie unter oder hinter dem Gebaeude liegt
-    const CUT = { s: { '-150': 23, '-90': 34, '-30': 22.5, '30': 7.5, '90': 0, '150': 11 },
-      c: { '-150': 31, '-90': 30, '-30': 29, '30': 1, '90': 0, '150': 5.5 } };
-    const cutAt = (x, y) => {
-      const d = v.verts && v.verts[x]; if (!d || !CUT[d.k]) return 0;
-      const px = vpos(x), py = vpos(y), deg = Math.atan2(py.y - px.y, py.x - px.x) * 180 / Math.PI;
-      return CUT[d.k][Math.round((deg - 30) / 60) * 60 + 30] || 0;
-    };
+    // Strassen: je Ausrichtung eigenes gerendertes Bild (nicht gedreht); an Ecken mit Siedlung/Stadt endet die
+    // Strasse vor dem Gebaeude – die Kuerzung steckt im Bild, hier wird nur der Gebaeudetyp je Ende bestimmt
+    const endKind = (x) => { const d = v.verts && v.verts[x]; return d && (d.k === 's' || d.k === 'c') ? d.k : '0'; };
     syncLayer(L.edge, edges.map(([e, d]) => {
       const ship = d.k === 's';
       const p = ship ? shipPos(e, d.p, v) : epos(e), col = v.players[d.p] ? v.players[d.p].color : 'rot';
-      let l = 0, r = 0;
+      let ends = '00';
       if (!ship) {
         const [a, b] = Geom.edgeVerts(e), pa = vpos(a);
         const aLeft = (pa.x - p.x) * Math.cos(p.ang * Math.PI / 180) + (pa.y - p.y) * Math.sin(p.ang * Math.PI / 180) < 0;
-        [l, r] = aLeft ? [cutAt(a, b), cutAt(b, a)] : [cutAt(b, a), cutAt(a, b)];
+        ends = aLeft ? endKind(a) + endKind(b) : endKind(b) + endKind(a);
       }
-      return { key: e, sig: ship ? 's' + d.p : 'r' + d.p + '|' + l + ',' + r, make: () => piece(ship ? 'ship' : 'road', p.x, p.y, p.ang, ship ? Art.ship(col) : Art.road(col, l, r)) };
+      return { key: e, sig: ship ? 's' + d.p : 'r' + d.p + '|' + ends, make: () => ship ? piece('ship', p.x, p.y, p.ang, Art.ship(col)) : piece('road', p.x, p.y, 0, Art.road(col, p.ang, ends)) };
     }), 'pop');
 
     // Ecken; Gebaeudeschatten in eigener Ebene unter den Strassen
