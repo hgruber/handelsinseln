@@ -47,10 +47,8 @@
   // ======================================================================================
   const MOTIFS = ['wald', 'huegel', 'weide', 'acker', 'gebirge', 'wueste', 'gold', 'meer', 'nebel'];
   const BASE = { wald: '#3f8a4e', huegel: '#c8763f', weide: '#8fcf5a', acker: '#e8c34a', gebirge: '#8c96a4', wueste: '#e8d49a', gold: '#d8ac3a', meer: '#2f6f95', nebel: '#aab8c4' };
-  const ROTATABLE = { wald: 1, weide: 1, acker: 1, meer: 1, nebel: 1 }; // Motive ohne „oben“ dürfen gedreht werden
   const TEXN = 384, TEXC = TEXN / 2, TEXR = 186;
   const tex = {};
-  let PS = 1; // Pixel-Skalierung des Ziels (Gerätepixel pro CSS-Pixel)
 
   function hexPath(g, x, y, r, rotDeg) {
     const a0 = (rotDeg || 0) * Math.PI / 180;
@@ -70,26 +68,18 @@
     }
     return pts;
   }
-  // Textur-Ecke j (im 384er Quadrat), verdreht/gespiegelt für mehr Abwechslung
-  function texCorner(j, rot, mir) {
-    const k = mir ? (rot - j + 12) % 6 : (rot + j) % 6;
-    const a = Math.PI / 2 + k * TAU / 6;
-    return [TEXC + Math.cos(a) * TEXR, TEXC + Math.sin(a) * TEXR];
-  }
-  // affine Abbildung Textur->Bild aus drei Punktpaaren
-  function affine(a0, a1, a2, b0, b1, b2) {
-    const dx1 = a1[0] - a0[0], dy1 = a1[1] - a0[1], dx2 = a2[0] - a0[0], dy2 = a2[1] - a0[1];
-    const ex1 = b1[0] - b0[0], ey1 = b1[1] - b0[1], ex2 = b2[0] - b0[0], ey2 = b2[1] - b0[1];
-    const det = dx1 * dy2 - dx2 * dy1 || 1e-6;
-    const m11 = (ex1 * dy2 - ex2 * dy1) / det, m12 = (ex2 * dx1 - ex1 * dx2) / det;
-    const m21 = (ey1 * dy2 - ey2 * dy1) / det, m22 = (ey2 * dx1 - ey1 * dx2) / det;
-    return [m11, m21, m12, m22, b0[0] - (m11 * a0[0] + m12 * a0[1]), b0[1] - (m21 * a0[0] + m22 * a0[1])];
-  }
-  function drawTexturedHex(g, image, pts, rot, mir) {
-    const m = affine(texCorner(0, rot, mir), texCorner(1, rot, mir), texCorner(2, rot, mir), pts[0], pts[1], pts[2]);
+  // Bild mittig und aufrecht ins Hex, gleichmäßig skaliert – wie im Spiel (nur gespiegelt).
+  // Keine Drehung und keine Scherung: Sonst kippen die Motive schief in der Kachel.
+  function drawTexturedHex(g, image, pts, mir) {
+    let cx = 0, cy = 0;
+    for (const p of pts) { cx += p[0] / 6; cy += p[1] / 6; }
+    let rad = 0;
+    for (const p of pts) rad += Math.hypot(p[0] - cx, p[1] - cy) / 6;
+    const s = rad / TEXR;
     g.save();
-    g.setTransform(m[0] * PS, m[1] * PS, m[2] * PS, m[3] * PS, m[4] * PS, m[5] * PS);
-    g.drawImage(image, 0, 0);
+    g.translate(cx, cy);
+    g.scale(mir ? -s : s, s);
+    g.drawImage(image, -TEXC, -TEXC);
     g.restore();
   }
 
@@ -116,10 +106,9 @@
     }));
   }
   const texOf = (m, v) => tex[m + v] || null;
-  // Drehung/Spiegelung je Tile: flache Motive dürfen frei rotieren, Berge nur gespiegelt
-  function lookOf(q, k, seed, motif) {
-    const rot = ROTATABLE[motif] ? Math.floor(h2(q, k, seed + 21) * 6) : 0;
-    return { rot, mir: h2(q, k, seed + 22) > 0.5 };
+  // Spiegelung je Tile (wie im Spiel); gedreht wird nicht, damit die Motive aufrecht bleiben
+  function lookOf(q, k, seed) {
+    return { mir: h2(q, k, seed + 22) > 0.5 };
   }
 
   // Gelände aus dem Rauschen: offenes Meer, Sandstrand, Weide, Acker, Wald, Hügel, Gebirge
@@ -175,23 +164,27 @@
     const R = 115, HC = 4.4;                 // Kugelradius und Augenhöhe (in Hex-Radien)
     const PITCH = 0.36;                      // Neigung der Kamera nach unten
     const F = Math.max(W * 0.56, H * 0.78);  // Brennweite (Weitwinkel)
-    const hy = H * 0.405;                    // gewünschte Horizonthöhe
+    const hy = H * 0.405;                    // gewünschte Horizonthöhe in der Bildmitte
     const alpha = Math.acos(R / (R + HC));
     const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
     const cx = W * 0.5, cy = hy - F * Math.tan(alpha - PITCH);
+    // Die Kugel wölbt sich: der Horizont fällt zu den Rändern ab, statt ein gerader Streifen zu sein.
+    const BEND = H * 0.085;
+    const bend = (x) => BEND * Math.pow((x - cx) / (W * 0.5), 2);
     const proj = (u, v) => {
       const ph = u / R, th = v / R;
       const X = R * Math.sin(ph) * Math.cos(th);
       const y0 = R * Math.cos(ph) * Math.cos(th) - (R + HC), z0 = R * Math.sin(th);
       const Y = y0 * cp + z0 * sp, Z = -y0 * sp + z0 * cp;
       if (Z < 0.03) return null;
-      return [cx + F * X / Z, cy - F * Y / Z, Z];
+      const px = cx + F * X / Z;
+      return [px, cy - F * Y / Z + bend(px), Z];
     };
 
     // ---- Himmel ----
     g.fillStyle = '#e8ad7c'; g.fillRect(0, 0, W, H); // warmer Grund, falls unten Lücken bleiben
     const sky = tex.__sky;
-    const skyBottom = hy + H * 0.05;
+    const skyBottom = hy + BEND + H * 0.06;
     if (sky) {
       const s = Math.max(W / sky.width, skyBottom / sky.height);
       const dw = sky.width * s, dh = sky.height * s;
@@ -236,7 +229,7 @@
     g.beginPath();
     if (hz.length) { g.moveTo(hz[0][0], hz[0][1]); for (let i = 1; i < hz.length; i++) g.lineTo(hz[i][0], hz[i][1]); }
     else { g.moveTo(0, hy); g.lineTo(W, hy); }
-    g.lineTo(W + 8, H + 8); g.lineTo(-8, H + 8); g.closePath();
+    g.lineTo(W + 8, H + BEND + 80); g.lineTo(-8, H + BEND + 80); g.closePath();
     const bg = g.createLinearGradient(0, hy - H * 0.02, 0, H);
     bg.addColorStop(0, '#c99a68'); bg.addColorStop(0.12, '#7d7548');
     bg.addColorStop(0.5, '#4c5c34'); bg.addColorStop(1, '#2b3a26');
@@ -282,10 +275,11 @@
         g.fillStyle = BASE[t.m]; g.fill();
         const image = texOf(t.m, t.v);
         if (image && size > 4.5) {
-          const lk = lookOf(q, k, seed, t.m);
-          if (size > H * 0.34) g.filter = 'blur(1.3px)';
-          drawTexturedHex(g, image, pts, lk.rot, lk.mir);
-          if (size > H * 0.34) g.filter = 'none';
+          const lk = lookOf(q, k, seed);
+          g.save(); g.clip();
+          if (size > H * 0.42) g.filter = 'blur(0.8px)';
+          drawTexturedHex(g, image, pts, lk.mir);
+          g.restore();
         }
         // leichte Helligkeitsstreuung, damit die Wiederholung nicht auffällt
         if (size > 7) {
@@ -298,14 +292,22 @@
       }
     }
 
-    // ---- Atmosphäre: weicher Dunstgürtel am Horizont ----
-    const fog = g.createLinearGradient(0, hy - H * 0.14, 0, hy + H * 0.55);
-    fog.addColorStop(0, 'rgba(244,198,154,0)');
-    fog.addColorStop(0.17, 'rgba(244,198,154,.82)');
-    fog.addColorStop(0.32, 'rgba(222,170,124,.5)');
-    fog.addColorStop(0.62, 'rgba(180,146,110,.16)');
-    fog.addColorStop(1, 'rgba(150,130,100,0)');
-    g.fillStyle = fog; g.fillRect(0, hy - H * 0.14, W, H * 0.7);
+    // ---- Atmosphäre: der Dunst folgt der Wölbung des Horizonts ----
+    const fogBand = (o1, o2, col, a) => {
+      g.beginPath();
+      for (let x = -10; x <= W + 10; x += 8) {
+        const y = hy + bend(x) + o1 * H;
+        x > -10 ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      for (let x = W + 10; x >= -10; x -= 8) g.lineTo(x, hy + bend(x) + o2 * H);
+      g.closePath(); g.fillStyle = rgba(col, a); g.fill();
+    };
+    for (let i = 0; i < 18; i++) {
+      const t = i / 18, t2 = (i + 1) / 18;
+      const o0 = -0.11 + 0.56 * t, o1 = -0.11 + 0.56 * t2, om = (o0 + o1) / 2;
+      const a = 0.62 * Math.exp(-Math.pow((om - 0.03) / 0.13, 2)) + 0.02;
+      fogBand(o0, o1, mix('#f6cba0', '#a8835f', Math.min(1, Math.max(0, om / 0.55))), a * 0.10);
+    }
     g.save(); g.globalCompositeOperation = 'soft-light';
     glow(g, W * 0.34, H * 0.2, H * 0.95, '#ffd6a0', 0.5);
     g.restore();
@@ -354,7 +356,7 @@
         hexPath(g, x, y, r, rot);
         g.fillStyle = BASE[t.m]; g.fill();
         const image = texOf(t.m, t.v);
-        if (image) { g.save(); hexPath(g, x, y, r, rot); g.clip(); drawTexturedHex(g, image, pts, lookOf(q, k, seed, t.m).rot, lookOf(q, k, seed, t.m).mir); g.restore(); }
+        if (image) { g.save(); hexPath(g, x, y, r, rot); g.clip(); drawTexturedHex(g, image, pts, lookOf(q, k, seed).mir); g.restore(); }
         // Rand und Glanzkante
         g.strokeStyle = 'rgba(28,14,4,.8)'; g.lineWidth = 2.6; hexPath(g, x, y, r, rot); g.stroke();
         g.strokeStyle = 'rgba(255,226,176,.20)'; g.lineWidth = 1.1; hexPath(g, x, y, r * 0.93, rot); g.stroke();
@@ -418,13 +420,13 @@
       g.fillStyle = mix('#a28a5c', BASE[t.m], 0.3); g.fill();
       const image = texOf(t.m, t.v);
       if (image) {
-        const lk = lookOf(q, k, seed, t.m);
-        g.save(); g.globalAlpha = 0.62; drawTexturedHex(g, image, pts, lk.rot, lk.mir); g.restore();
+        const lk = lookOf(q, k, seed);
+        g.save(); g.globalAlpha = 0.62; drawTexturedHex(g, image, pts, lk.mir); g.restore();
       }
       // Küstenlinie zu Wasser hin
       g.strokeStyle = 'rgba(66,46,22,.42)'; g.lineWidth = 1.3; hexPath(g, x, y, r * 0.985, rot); g.stroke();
       const nb = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
-      g.strokeStyle = 'rgba(44,30,14,.9)'; g.lineWidth = 5; g.beginPath();
+      g.strokeStyle = 'rgba(44,30,14,.9)'; g.lineWidth = 3.6; g.beginPath();
       for (let i = 0; i < 6; i++) {
         if (isLand(q + nb[i][0], k + nb[i][1])) continue;
         g.moveTo(pts[i][0], pts[i][1]); g.lineTo(pts[(i + 1) % 6][0], pts[(i + 1) % 6][1]);
@@ -492,9 +494,9 @@
         g.fillStyle = t.m === 'meer' ? '#071a2c' : mix('#0a1727', BASE[t.m], 0.16); g.fill();
         const image = texOf(t.m, t.v);
         if (image) {
-          const lk = lookOf(q, k, seed, t.m);
+          const lk = lookOf(q, k, seed);
           g.save(); hexPath(g, x, y, r); g.clip(); g.globalAlpha = t.m === 'meer' ? 0.22 : 0.34;
-          drawTexturedHex(g, image, hexPoints(x, y, r), lk.rot, lk.mir);
+          drawTexturedHex(g, image, hexPoints(x, y, r), lk.mir);
           g.restore();
         }
         g.strokeStyle = 'rgba(104,148,198,.12)'; g.lineWidth = 1; hexPath(g, x, y, r * 0.99); g.stroke();
@@ -560,7 +562,6 @@
 
   function render() {
     if (!cv || !g) return;
-    PS = RS;
     g.setTransform(RS, 0, 0, RS, 0, 0);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.filter = 'none';
     const sc = SCENES[cur] || SCENES.erde;
@@ -588,9 +589,7 @@
     const pg = c.getContext('2d');
     const sc = SCENES[id];
     pg.fillStyle = sc.tint; pg.fillRect(0, 0, 480, 270);
-    const old = PS; PS = 1;
     try { sc.draw(pg, 480, 270); } catch (e) { /* Vorschau ist optional */ }
-    PS = old;
     return c;
   }
   function openChooser() {
