@@ -46,13 +46,18 @@ def wait_until(cond, timeout=10, step=0.1):
         time.sleep(step)
 
 
+BIN = os.path.join(ROOT, 'rust', 'target', 'release', 'handelsinseln')
+
+
 def start_server(port=None, **env):
-    """Startet server/server.js mit eigenem Port und Datenverzeichnis (https aus, falls nicht anders gesetzt).
+    """Startet den Rust-Server mit eigenem Port und Datenverzeichnis (TLS aus, falls nicht anders gesetzt).
     Kehrt zurück, sobald der Server antwortet: (Prozess, Basis-URL)."""
+    if not os.path.exists(BIN):
+        raise RuntimeError(f'Rust-Server fehlt: {BIN} – bitte cargo build --release --manifest-path rust/Cargo.toml')
     port = port or free_port()
-    e = dict(os.environ, PORT=str(port), DATA_DIR=tempfile.mkdtemp(prefix='handelsinseln-data-'), HTTPS_PORT='0')
+    e = dict(os.environ, PORT=str(port), DATA_DIR=tempfile.mkdtemp(prefix='handelsinseln-data-'), HTTPS_PORT='0', ROOT_DIR=ROOT, SSE_PING_MS='500')
     e.update({k: str(v) for k, v in env.items()})
-    proc = subprocess.Popen(['node', os.path.join(ROOT, 'server/server.js')], env=e)
+    proc = subprocess.Popen([BIN], env=e)
     wait_port(port)
     if e['HTTPS_PORT'] != '0': wait_port(int(e['HTTPS_PORT']))
     return proc, f'http://127.0.0.1:{port}'

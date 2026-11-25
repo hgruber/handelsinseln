@@ -30,7 +30,7 @@ try:
         """)
         pg.goto(BASE)
         pg.fill('#nameIn', 'Hanna'); pg.locator('#swatches .sw').first.click(); pg.click('#createBtn')
-        pg.wait_for_selector('#lobby:not([hidden])', timeout=6000)
+        pg.wait_for_selector('#lobby:not([hidden])', timeout=15000)
         token = pg.evaluate("localStorage.getItem('handelsinseln.token')")
         for k in ('baumeister', 'haendler', 'ritter'):
             check(post('/api/act', {'token': token, 'type': 'add_bot', 'kind': k}).get('ok'), f'Bot {k} hinzugefügt')

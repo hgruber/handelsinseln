@@ -1,8 +1,8 @@
 // HTTP-Server: statische Dateien, SSE, Aktions-API, Spieleverwaltung und WebRTC-Signalweg.
-// Portierung von server/server.js (ohne TLS und ohne gzip – der Client kommt mit beidem zurecht).
+// HTTP/HTTPS, SSE, API und Persistenz; TLS-Konfiguration in tls.rs (gzip für SSE gibt es nicht).
 use std::collections::HashMap;
 use std::io::{self, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -1045,8 +1045,13 @@ fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
     );
     let _ = stream.write_all(&initial);
     let _ = stream.flush();
+    let ping_ms = std::env::var("SSE_PING_MS")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(20_000)
+        .max(50);
     loop {
-        match rx.recv_timeout(Duration::from_secs(20)) {
+        match rx.recv_timeout(Duration::from_millis(ping_ms)) {
             Ok(msg) => {
                 if stream.write_all(&msg).is_err() || stream.flush().is_err() {
                     break;

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Führt die Tests parallel aus und fasst das Ergebnis zusammen.
-#   tests/run_all.sh          volle Suite (Node + Browser; Browser-Tests brauchen Playwright + Chromium), für Release/CI
-#   tests/run_all.sh schnell  nur Regel-, Funktions- und E2E-Tests (keine Browser, unter einer Minute), für jeden Commit
+#   tests/run_all.sh          volle Suite (API, TLS und Browser-Tests; Browser brauchen Playwright + Chromium)
+#   tests/run_all.sh schnell  nur API- und TLS-Tests (keine Browser, unter einer Minute)
 # JOBS=n begrenzt die Parallelität (Standard: Zahl der CPU-Kerne), PLAY_SECS die Dauer der Spiel-Dauerläufe (Standard 50 s).
 # Logs und Screenshots je Test unter $SHOTS/<test>/.
 cd "$(dirname "$0")/.." || exit 1
@@ -10,31 +10,30 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 STUFE="${1:-voll}"
 case "$STUFE" in schnell|voll) ;; *) echo "Aufruf: $0 [schnell|voll]" >&2; exit 2 ;; esac
 
+echo "== Rust-Server bauen =="
+cargo build --release --locked --manifest-path rust/Cargo.toml || exit 1
+
 # Name|Befehl – die längsten zuerst, damit sich die Jobs gut verteilen
 ALLE=(
   "Browser Spielen|python3 tests/browser_play.py 4 ${PLAY_SECS:-50}"
   "Browser Spielen auto|python3 tests/browser_play.py 3 $(( ${PLAY_SECS:-50} * 4 / 5 )) auto"
   "Browser Dauerlauf 6|python3 tests/browser_soak.py 6 $(( ${PLAY_SECS:-50} * 9 / 10 ))"
-  "Simulation 2|node tests/sim.js ${SIM_SEEDS:-2}"
+  "API|node tests/api.js"
   "Browser Lobby|python3 tests/browser_lobby.py"
   "Browser Spieltisch|python3 tests/browser_table.py"
   "Browser Übergabe|python3 tests/browser_handover.py"
   "Browser Vorschau|python3 tests/browser_lobby_preview.py"
   "Browser Zuschauer|python3 tests/browser_watch.py"
   "Browser Mobil+Lobbyzoom|python3 tests/browser_mobile.py"
-  "E2E HTTP|node tests/e2e.js"
-  "Bot-Turnier 3|node tests/bots.js 3"
-  "Funktionstests|node tests/features.js"
   "Browser Controller|python3 tests/browser_controller.py"
   "Browser Gemischt|python3 tests/browser_mixed.py"
   "Browser Sprachchat|python3 tests/browser_voice.py"
   "Browser Bots+Avatare|python3 tests/browser_bots.py"
   "Browser Kartenanimation|python3 tests/browser_fx.py"
   "Browser https+Mikro|python3 tests/browser_https_voice.py"
-  "Browser Übernahme|python3 tests/browser_takeover.py"
-  "Regeltests|node tests/rules.js"
+  "TLS|node tests/tls.js"
 )
-SCHNELL='^(E2E HTTP|Funktionstests|Regeltests)\|'
+SCHNELL='^(API|TLS)\|'
 TESTS=()
 for t in "${ALLE[@]}"; do [[ "$STUFE" == voll || "$t" =~ $SCHNELL ]] && TESTS+=("$t"); done
 

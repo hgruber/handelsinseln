@@ -16,7 +16,7 @@ def lan_ip():
         s.close()
 
 ip = lan_ip()
-srv, _ = start_server(port=HP, HTTPS_PORT=SP)
+srv, _ = start_server(port=HP, HTTPS_PORT=SP, TLS_HOSTS=ip)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch(args=['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--disable-features=WebRtcHideLocalIpsWithMdns'])

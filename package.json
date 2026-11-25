@@ -5,13 +5,13 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "start": "node server/server.js",
-    "dev": "DATA_DIR=/tmp/handelsinseln-dev PORT=8090 HTTPS_PORT=0 node --watch server/server.js",
+    "start": "bash scripts/start.sh",
+    "dev": "bash scripts/dev.sh",
+    "build": "cargo build --release --locked --manifest-path rust/Cargo.toml",
     "test": "bash tests/run_all.sh",
     "test:schnell": "bash tests/run_all.sh schnell",
     "lint": "eslint .",
-    "release": "bash scripts/release.sh",
-    "test:diff": "bash scripts/diff.sh"
+    "release": "bash scripts/release.sh"
   },
   "engines": {
     "node": ">=20"

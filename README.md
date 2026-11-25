@@ -65,43 +65,50 @@ Kartenanimation (eine Karte fliegt vom Feld in die eigene Hand):
 
 ![Kartenanimation](docs/screenshots/kartenanimation.webp)
 
-**Neu erzeugen:** Spielansichten, Statistik, Kartenleiste und iPhone-Ansichten mit `node tests/mock/readme.js && node tests/mock/serve.js &` und dann
-`python3 tests/mock/readme_shots.py` (iPhone 15 emuliert: Touch, iOS-Kennung; Anmeldung: `?mock=anmeldung`); Lobby mit Bots und Spieltisch fotografieren
-`tests/browser_bots.py` und `tests/browser_table.py` mit gesetztem `SHOTS=<Verzeichnis>`. Die PNGs werden mit `cwebp -q 82` nach WebP umgewandelt.
+**Screenshots und Mock-Ansichten:** Die Bilder liegen unter `docs/screenshots`. Die Mock-Zustände (`tests/mock/*.json`) erzeugt `node tests/mock/gen.js`; ansehen lässt
+sich die Oberfläche ohne laufende Partie mit `node tests/mock/serve.js` (`?mock=<name>`). Lobby, Bots und Spieltisch fotografieren `tests/browser_bots.py` und
+`tests/browser_table.py` mit gesetztem `SHOTS=<Verzeichnis>`; die PNGs werden mit `cwebp -q 82` nach WebP umgewandelt.
 
 ## Starten
 
 ```bash
-podman build -t handelsinseln -f Containerfile .
+podman build -t handelsinseln .
 podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 -v handelsinseln-data:/data handelsinseln
-# Browser: http://<rechner>:8080
+# Browser: http://<rechner>:8080 – oder https://<rechner>:8443 (Zertifikatswarnung einmal bestätigen)
 ```
+
+Der Server ist ein statisch gelinktes Rust-Binary im `scratch`-Container (rund 4,8 MB, keine Shell, keine Laufzeit-Abhängigkeiten). TLS ist eingebaut:
+ohne weitere Angabe lauscht er zusätzlich auf 8443 mit einem selbstsignierten Zertifikat; Namen und IP-Adressen für das Zertifikat kommen aus `TLS_HOSTS`
+(z. B. `-e TLS_HOSTS=handelsinseln.lan,<LAN-Adresse>`). Hinter einem Reverse-Proxy `-e HTTPS_PORT=0` setzen und nur 8080 veröffentlichen.
 
 Dauerbetrieb mit systemd-Quadlet: Vorlage `deploy/handelsinseln.container` (Image `localhost/handelsinseln`, Volume `handelsinseln`, TLS übernimmt ein
 Reverse-Proxy, daher `HTTPS_PORT=0`).
 Neue Version auf einen anderen Rechner ausrollen: `podman build -t localhost/handelsinseln:latest . && podman save localhost/handelsinseln:latest | ssh <host> podman load && ssh <host> systemctl restart handelsinseln.service`.
 
 **Release:** Die Version steht in `package.json`. Neue Funktionen kommen in `CHANGELOG.md` unter „Unveröffentlicht“. Zum Veröffentlichen auf `master`:
-`./scripts/release.sh 1.0.0 --build` (oder `npm run release -- 1.0.0`) – prüft Branch und sauberen Arbeitsbaum, führt `tests/run_all.sh` aus, setzt Version und CHANGELOG-Abschnitt,
-committet „Release 1.0.0“, setzt das Tag `v1.0.0` und baut mit `--build` das Image `localhost/handelsinseln:1.0.0` (+ `latest`). Gepusht wird nie automatisch; das Skript nennt die nächsten Befehle.
-`--schnell` führt nur die Node-Tests aus (wenn die CI den Commit schon voll geprüft hat), `--skip-tests` gar keine. Ein gepushtes Tag `vX.Y.Z` legt auf GitHub automatisch ein Release mit dem CHANGELOG-Abschnitt an (`.github/workflows/release.yml`).
+`./scripts/release.sh 1.0.0 --build` (oder `npm run release -- 1.0.0`) – prüft Branch und sauberen Arbeitsbaum, baut den Rust-Server, führt `tests/run_all.sh` aus,
+setzt Version und CHANGELOG-Abschnitt, committet „Release 1.0.0“, setzt das Tag `v1.0.0` und baut mit `--build` das Image `localhost/handelsinseln:1.0.0` (+ `latest`).
+Gepusht wird nie automatisch; das Skript nennt die nächsten Befehle. `--schnell` führt nur die schnellen API-/TLS-Tests aus (wenn die CI den Commit schon voll geprüft hat),
+`--skip-tests` gar keine. Ein gepushtes Tag `vX.Y.Z` legt auf GitHub automatisch ein Release mit dem CHANGELOG-Abschnitt an (`.github/workflows/release.yml`).
 
-Lokal ohne Container: `node server/server.js`. Zum Entwickeln: `npm run dev` (Port 8090, nur http, Spielstand in `/tmp/handelsinseln-dev`, Neustart des Servers bei Änderungen;
-Änderungen in `public/` genügt ein Neuladen im Browser, ggf. „Bypass for network“ für den Service Worker). Umgebungsvariablen: `PORT`, `DATA_DIR` (Spielstand), `ABSENT_MS` (Abwesenheit bis Auto-Modus, 60000),
-`LISTEN` (Adresse:Port des http-Listeners, z. B. `127.0.0.1:8080`; sonst `PORT`), `MAX_GAMES` (gleichzeitige Spiele, 3), `BOT_MS` (Takt der Bots, 800), `TICK_MS` (Takt der Zeitprüfung, 2000), `GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000), `HTTPS_PORT` (8443), `TLS_CERT`/`TLS_KEY`/`TLS_HOSTS`, `STUN_URL` (optional, für Sprachchat über Netzgrenzen), `LOG_LEVEL` (`error`/`warn`/`info`/`debug`/`silent`, Standard `info`).
-
-**Rust-Server:** `rust/` enthält eine vollständige Portierung des Servers (gleiches Protokoll, gleiche Sichten, Bots, Tisch/Controller/Übergabe). Bauen: `cargo build --manifest-path rust/Cargo.toml --release`, starten: `./rust/target/release/handelsinseln` (gleiche Umgebungsvariablen). TLS ist eingebaut: standardmäßig zusätzlich auf 8443 mit selbstsigniertem Zertifikat (Namen über `TLS_HOSTS`, z. B. `TLS_HOSTS=handelsinseln.lan,192.168.0.20`; hinter einem Proxy `HTTPS_PORT=0`). Statischer Container: `podman build -f Containerfile.rust -t handelsinseln-rust .` (rund 4,8 MB, ohne Shell). Mit `RNG_SEED=<zahl>` erzeugen Node- und Rust-Server denselben Zufallsstrom; `bash scripts/diff.sh` (`npm run test:diff`) spielt beide Server Schritt für Schritt gegen dieselben Aktionen und vergleicht alle Sichten. Offen ist nur noch gzip für den Ereignisstrom; Details in `docs/rust-server.md`.
+Lokal ohne Container: `cargo build --release --locked --manifest-path rust/Cargo.toml` und `./rust/target/release/handelsinseln`; bequem `npm start`.
+Zum Entwickeln: `npm run dev` (Port 8090, nur http, Spielstand in `/tmp/handelsinseln-dev`). Änderungen in `public/` genügt ein Neuladen im Browser (ggf.
+„Bypass for network“ für den Service Worker); Rust-Änderungen brauchen einen Neustart. Umgebungsvariablen: `PORT`, `DATA_DIR` (Spielstand), `ABSENT_MS`
+(Abwesenheit bis Auto-Modus, 60000), `LISTEN` (Adresse:Port des http-Listeners, z. B. `127.0.0.1:8080`; sonst `PORT`), `MAX_GAMES` (gleichzeitige Spiele, 3),
+`BOT_MS` (Takt der Bots, 800), `TICK_MS` (Takt der Zeitprüfung, 2000), `GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000),
+`HTTPS_PORT` (8443; `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`, `STUN_URL` (optional, für Sprachchat über Netzgrenzen), `RNG_SEED` (fester Zufallsstrom für
+reproduzierbare Partien), `LOG_LEVEL` (`error`/`warn`/`info`/`debug`/`silent`, Standard `info`).
 
 **Logging:** Der Server schreibt ein Betriebslog auf stdout (eine Zeile je Ereignis, Rotation übernimmt journald bzw. der Container-Logtreiber): Start/Stopp,
 Räume (angelegt, gelöscht mit Grund), Partien (Start, Ende, Fortsetzung, neue Runde), Spieler (Beitritt, Verlassen, Entfernen, Platzverlust in der Lobby,
-abwesend → Auto-Modus, wieder da), Kontrollübergabe, Zuschauer und Fehler. Einzelne Spielzüge und jedes Neuverbinden (Tab neu laden) stehen nicht darin.
-Mit `LOG_LEVEL=debug` kommen jede Verbindung sowie gekürzte Tokens und IP-Adressen (`X-Forwarded-For` hinter dem Reverse-Proxy) dazu.
+abwesend → Auto-Modus, wieder da), Kontrollübergabe, Zuschauer und Fehler. Einzelne Spielzüge und jedes Neuverbinden (Tab neu laden) stehen nicht darin;
+anders als beim früheren Node-Server enthält das Debug-Log keine IP-Adressen oder Tokens.
 Jede beendete oder abgebrochene Partie hängt zusätzlich einen Abschlussbericht als JSON-Zeile an `DATA_DIR/partien.jsonl` an (Spieler, Ergebnis, Einstellungen, Statistik, Punkteverlauf je Runde).
 
-**Sprachchat und https:** Browser erlauben das Mikrofon nur unter `https://` oder `http://localhost`. Der Server startet deshalb zusätzlich auf Port 8443 mit https und
-erzeugt dafür selbst ein Zertifikat (gespeichert in `DATA_DIR/tls`). Beim ersten Öffnen von `https://<rechner>:8443` muss der Browser-Warnhinweis einmal bestätigt werden
-(selbstsigniert); danach meldet man sich dort an. Die Lobby verweist bei `http://` automatisch darauf. Ports: `podman run … -p 8080:8080 -p 8443:8443 …`.
-Weitere Namen/IPs für das Zertifikat: `TLS_HOSTS=handelsinseln.lan,192.168.0.20`; eigenes Zertifikat: `TLS_CERT`/`TLS_KEY`; https abschalten: `HTTPS_PORT=0`.
+**Sprachchat und https:** Browser erlauben das Mikrofon nur unter `https://` oder `http://localhost`. Der Server startet deshalb zusätzlich auf Port 8443 mit
+https und erzeugt dafür selbst ein Zertifikat (gespeichert in `DATA_DIR/tls/tls.json`; Namen und IPs aus `TLS_HOSTS`). Beim ersten Öffnen von
+`https://<rechner>:8443` muss der Browser-Warnhinweis einmal bestätigt werden (selbstsigniert); danach meldet man sich dort an. Die Lobby verweist bei `http://`
+automatisch darauf. Ports: `podman run … -p 8080:8080 -p 8443:8443 …`. Eigenes Zertifikat: `TLS_CERT`/`TLS_KEY`; https abschalten: `HTTPS_PORT=0`.
 Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-talk mit Leertaste); bei Echo Kopfhörer nutzen.
 
 ## Handy und iPhone
@@ -168,23 +175,21 @@ Gezeichnet wird im Browser (`public/background.js`, Canvas), die Texturen für H
 
 ## Tests
 
-Die Node-Tests brauchen nur Node ≥ 20. Statische Prüfung: `npm install` (einmalig, nur Dev-Abhängigkeit ESLint) und `npm run lint`. Für die Browser-Tests (Python 3 + Playwright mit Chromium) einmalig:
-`pip install -r requirements.txt && python3 -m playwright install chromium`.
-Auf GitHub laufen die Tests automatisch (`.github/workflows/tests.yml`): bei jedem Push erst die schnelle Stufe, dann die volle Suite mit Browsern, nachts mit langen Spiel-Dauerläufen; bei Fehlern hängen Logs und Screenshots als Artefakt am Lauf.
+Die Tests laufen ausschließlich gegen den Rust-Server. Voraussetzungen: eine Rust-Toolchain (das Testskript baut das Release-Binary), Node ≥ 20 für die
+Testskripte und ESLint, Python 3 + Playwright mit Chromium für die Browser-Tests (`pip install -r requirements.txt && python3 -m playwright install chromium`).
+Statische Prüfung: `npm install` (einmalig, nur Dev-Abhängigkeit ESLint) und `npm run lint`.
+Auf GitHub laufen die Tests automatisch (`.github/workflows/tests.yml`): bei jedem Push erst die schnelle Stufe, dann die volle Suite mit Browsern, nachts mit
+langen Spiel-Dauerläufen; bei Fehlern hängen Logs und Screenshots als Artefakt am Lauf.
 
 ```bash
-node tests/rules.js      # gezielte Regeltests (Basisspiel + Erweiterung)
-node tests/features.js   # Einstellungen, Varianten, Vorräte, Auto-Modi, Übernahme, Statistik, Spieleverwaltung
-node tests/sim.js 6      # Testspieler spielen vollständige Partien (2–6 Spieler), Invarianten werden geprüft
-node tests/e2e.js        # echtes HTTP/SSE: parallele Spiele, Verlassen, Tab schließen, Signalweg, ganze Partien
+node tests/api.js        # HTTP/SSE: Spiele, Lobby, Rechte, Signalweg, Kick, Verlassen, Auto-Modus, ganze Partien
+node tests/tls.js        # HTTPS: /api/config, Zertifikats-SANs aus TLS_HOSTS, SSE über TLS, HTTP parallel
 python3 tests/browser_lobby.py       # drei echte Browser: Lobby, Variante, Entfernen, Verlassen, Beenden, Statistik
 python3 tests/browser_play.py 4 120 [auto]  # Browser-Spieler klickt Aufbau, Würfeln, Bauen, Handeln selbst
 python3 tests/browser_soak.py 6 90   # echte Browser sehen eine ganze Partie, Konsolenfehler werden geprüft
 python3 tests/browser_voice.py       # Sprachchat (WebRTC) mit Fake-Mikrofon gegen den echten Server
 python3 tests/browser_fx.py          # Kartenanimation: Karten fliegen versetzt vom Feld/der Bank zu den Spielern, nichts wird nachgespielt
 python3 tests/browser_bots.py        # Avatar-Auswahl (nie doppelt) und Bots in Lobby und Spiel in echten Browsern
-node tests/bots.js 8                 # Bot-Turnier: Baumeister/Händler/Ritter gegen Zufallsspieler und untereinander (Siege, Hänger)
-python3 tests/browser_takeover.py    # Übernahme der Infrastruktur eines Verlassenen in der echten Oberfläche
 python3 tests/browser_lobby_preview.py  # Gäste sehen die Brettvorschau des Spielleiters, Nebelring, abweichende Regeln
 python3 tests/browser_https_voice.py    # Mikrofon im LAN: Hinweis auf http, Sprachverbindung über das erzeugte https-Zertifikat
 python3 tests/browser_mobile.py         # Handy hoch/quer und Desktop: kompakte Ansicht, Schubladen, Lobby-Zoom, Manifest und Icons
@@ -194,8 +199,7 @@ python3 tests/browser_watch.py          # Zuschauer: „Spiel ansehen“, öffen
 python3 tests/browser_handover.py       # Kontrollübergabe: lange drücken, Nummer, Hamburger am Tisch, Bestätigung, Rückgabe, Bot, Spielleiter-Platz
 python3 tests/browser_controller.py     # Controller-Ansicht: Handy gibt frei, Tisch zeigt Ziele, Auswahl, Bestätigung am Handy
 tests/run_all.sh                        # volle Suite parallel (JOBS=n begrenzt, Standard = Kerne); Logs je Test in $SHOTS
-tests/run_all.sh schnell                # nur Node-Tests ohne Browser (< 1 Min), auch: npm run test:schnell
-bash scripts/diff.sh                    # Rust-Server: Logik, Bots, HTTP/SSE und Tisch/Übergabe gegen den Node-Server
+tests/run_all.sh schnell                # nur API- und TLS-Tests (< 1 Min), auch: npm run test:schnell
 ```
 
 ## Regeln (Quellen: offizielle Regel 2015, 5-6-Spieler-Erweiterung)

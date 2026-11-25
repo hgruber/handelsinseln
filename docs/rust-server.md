@@ -2,7 +2,7 @@
 
 `rust/` ist eine vollständige Portierung des Servers aus `server/` nach Rust. Beide sprechen dasselbe
 Protokoll (siehe `PROTOKOLL.md`) und liefern dieselben Sichten; der Browser merkt keinen Unterschied.
-Der Node-Server bleibt als Referenz und für die bestehenden Tests erhalten.
+Die frühere Node-Portierung diente beim Vergleich als Referenz und ist inzwischen entfernt.
 
 ## Bauen und starten
 
@@ -11,7 +11,7 @@ cargo build --manifest-path rust/Cargo.toml --release
 ./rust/target/release/handelsinseln      # PORT=8080, DATA_DIR=<repo>/data
 ```
 
-Gleiche Umgebungsvariablen wie beim Node-Server, soweit sie den Kern betreffen: `PORT`, `LISTEN`,
+Umgebungsvariablen: `PORT`, `LISTEN`,
 `DATA_DIR`, `APP_VERSION`, `LOG_LEVEL`, `STUN_URL`, `MAX_GAMES`, `BOT_MS`, `TICK_MS`, `GRACE_MS`,
 `ABSENT_MS`, `HANDOVER_MS`, `RNG_SEED`, `HTTPS_PORT` (Standard 8443, `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`,
 zusätzlich `ROOT_DIR` (Verzeichnis mit `public/` und `shared/`;
@@ -37,40 +37,23 @@ Der Zustand wird wie bisher als JSON in `DATA_DIR/state.json` gespeichert (entpr
 `.tmp` und `rename`); Abschlussberichte gehen als Zeilen an `DATA_DIR/partien.jsonl`. SIGTERM/SIGINT
 speichern den Zustand und beenden den Prozess sofort.
 
-## Gleichheit prüfen
+## Tests
 
-Der Node-Server kann mit `RNG_SEED=<zahl>` einen festen Zufallsstrom verwenden (mulberry32); ohne die
-Variable bleibt es bei `Math.random`. Der Rust-Server versteht dieselbe Variable und dieselbe Folge.
-Damit lassen sich beide Server mit identischen Brettern, Würfen, Diebstählen und Kartenstapeln
-betreiben.
+Der Rust-Server wird über die API und im Browser geprüft:
 
-```bash
-bash scripts/diff.sh      # oder: npm run test:diff
-```
+- `node tests/api.js` – HTTP/SSE: statische Dateien/ETag, Spiele, Lobby und Rechte, Signalweg, Kick, Verlassen,
+  Auto-Modus, ganze Partien (Aktionen aus der Sicht gewählt).
+- `node tests/tls.js` – HTTPS, `/api/config`, Zertifikats-SANs aus `TLS_HOSTS`, SSE über TLS, HTTP parallel.
+- `tests/browser_*.py` – echte Browser (Playwright) über `tests/lib.py`; `tests/drive.js` treibt Mitspieler über die API.
+- `bash tests/run_all.sh [schnell]` – baut den Release-Server und führt die Suite parallel aus.
 
-`scripts/diff.sh` baut die Rust-Binaries im Release-Profil; damit ist die Suite insgesamt rund drei Mal schneller als mit dem Debug-Build (der HTTP-Vergleich rund fünf Mal). Die Skripte unter `tests/diff/` starten beide Server getrennt (eigene Ports und Datenverzeichnisse):
-
-- `logic.js` – spielt eine Partie im Node-Server, zeichnet die Aktionen auf, lässt den Rust-Server
-  dieselben Aktionen nachspielen und vergleicht nach jedem Schritt die Sichten aller Spieler und der
-  Zuschauer (kanonisch, ohne Zeit- und Zufallsschlüssel). Mit `--bot=play` spielen beide Seiten
-  stattdessen autonom mit denselben Bot-Persönlichkeiten und demselben Bot-Zufall; verglichen werden
-  die Sichten nach jeder Bot-Aktion.
-- `http.js` – dasselbe über echtes HTTP/SSE: Beitritt, Einstellungen, Start, Zuschauer, Aktionsfolge;
-  nach jeder Aktion werden alle Sichten verglichen.
-- `table.js` – Tisch-Partie: Tischspieler, Platzwahl, Handeln „als“, Controller-Ansicht (`arm`/`pick`),
-  Kontrollübergabe an ein Handy und Rückgabe.
-- `api.js` – Signalweg (Sprachchat), Kick und Verlassen samt Fehlerfällen (unbekannter Token, entfernter
-  Spieler).
-- `tests/tls.js` – HTTPS, `/api/config`, Zertifikats-SANs aus `TLS_HOSTS`, SSE über TLS, HTTP parallel.
-
-Die Tests decken 2–6 Spieler, alle Kartenvarianten, automatisches Würfeln/Räuberversetzen,
-Bank- und Entwicklungskarten-Einstellungen sowie komplette Partien bis zum Spielende ab. Beim
-Vergleich werden nur `gameId` (pro Raum zufällig) und `durationSec` (Uhrzeit) neutralisiert.
+Während der Portierung liefen zusätzlich Differenztests gegen den damaligen Node-Server (gleiche Aktionen, gleiche Sichten,
+Bots, Tisch, Signalweg). Mit dessen Entfernung sind sie entfallen. `RNG_SEED=<zahl>` macht Partien reproduzierbar.
 
 ## Container
 
 ```bash
-podman build -f Containerfile.rust -t handelsinseln-rust .
+podman build -t handelsinseln .
 ```
 
 Mehrstufiger Bau: `rust:1-alpine` kompiliert mit musl und `-C target-feature=+crt-static` (nur für das
@@ -93,7 +76,7 @@ Interface-Erkennung wertlos (Container-IP), deshalb dort die LAN-Adresse bzw. de
 
 ```bash
 podman run -p 8080:8080 -p 8443:8443 -e HTTPS_PORT=8443 \
-  -e TLS_HOSTS=handelsinseln.lan,192.168.0.20 handelsinseln-rust
+  -e TLS_HOSTS=handelsinseln.lan,<LAN-Adresse> handelsinseln
 ```
 
 Der Browser zeigt beim ersten Aufruf die Warnung für das selbstsignierte Zertifikat; danach bleibt sie
@@ -101,15 +84,13 @@ weg, solange dasselbe Zertifikat verwendet wird (also `DATA_DIR` bleibt). Sprach
 im LAN ohne Reverse-Proxy. Hinter einem TLS-Proxy `HTTPS_PORT=0` setzen; der Container lauscht dann nur
 auf 8080. `/api/config` meldet den aktiven HTTPS-Port; die Lobby verweist automatisch darauf.
 
-## Unterschiede zum Node-Server
+## Betriebshinweise
 
 - **Kein gzip für den Ereignisstrom.** Der Client versteht beide Varianten; ohne gzip sind die
   SSE-Nachrichten größer. (Komprimierung ließe sich mit `flate2` nachrüsten, kostet Binary-Größe.)
-- **Log ohne IP-Adressen.** Die Diagnosefelder des Node-Servers (`LOG_LEVEL=debug`: gekürzter Token,
-  IP aus `X-Forwarded-For`) entfallen; Ereignisse und Feldnamen sind sonst gleich.
+- **Log ohne IP-Adressen.** Ereignisse und Feldnamen sind wie gehabt; Tokens/IPs werden nicht protokolliert.
 - **`--health`** als eigener Modus (siehe oben).
-- Persistenzformat: `state.json` und `partien.jsonl` werden weiter geschrieben; sehr alte
-  Node-Spielstände ohne einzelne Einstellungsfelder werden beim Laden nicht migriert.
+- Persistenz: `state.json` (ganzer Hub, entprellt) und `partien.jsonl` (eine Zeile je Partie).
 
 ## SQLite-Untersuchung
 

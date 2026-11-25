@@ -16,14 +16,14 @@ const DATA = path.resolve(process.env.DATA_DIR || '/tmp/handelsinseln-dev');
 const STATE = path.join(DATA, 'state.json');
 const ROOT = path.resolve(__dirname, '..');
 
-// Server-Prozesse (auch node --watch) finden, die in dieses Datenverzeichnis speichern
+// Server-Prozesse (Rust-Binary) finden, die in dieses Datenverzeichnis speichern
 function serverPids() {
   const pids = [];
   for (const d of fs.readdirSync('/proc')) {
     if (!/^\d+$/.test(d) || +d === process.pid) continue;
     try {
       const cmd = fs.readFileSync(`/proc/${d}/cmdline`, 'utf8').split('\0');
-      if (!/(^|\/)node[-\d.]*$/.test(cmd[0]) || !cmd.some((a) => /(^|\/)server\/server\.js$/.test(a))) continue;
+      if (!/(^|\/)handelsinseln$/.test(cmd[0])) continue;
       const env = fs.readFileSync(`/proc/${d}/environ`, 'utf8').split('\0').find((e) => e.startsWith('DATA_DIR='));
       const cwd = fs.readlinkSync(`/proc/${d}/cwd`);
       const dir = env ? path.resolve(cwd, env.slice(9)) : path.join(ROOT, 'data');

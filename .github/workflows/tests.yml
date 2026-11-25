@@ -1,5 +1,5 @@
-# Tests: bei jedem Push und Pull Request erst die schnelle Stufe (Node, ohne Browser), danach die volle Suite mit
-# echten Browsern. Nachts zusätzlich mit langen Spiel-Dauerläufen. Logs und Screenshots liegen bei Fehlern als Artefakt bei.
+# Tests: bei jedem Push und Pull Request erst die schnelle Stufe (API/TLS ohne Browser), danach die volle Suite
+# mit echten Browsern. Nachts zusätzlich mit langen Spiel-Dauerläufen. Logs und Screenshots liegen bei Fehlern als Artefakt bei.
 name: Tests
 
 on:
@@ -16,13 +16,17 @@ concurrency:
 jobs:
   schnell:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
       - run: npm ci
       - run: npm run lint
       - run: bash tests/run_all.sh schnell
@@ -43,6 +47,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

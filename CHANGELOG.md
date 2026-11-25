@@ -5,12 +5,15 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
-- **Rust-Server:** `rust/` ist eine vollständige Portierung des Servers – Spiellogik, Kartengenerierung, Sichten, Handel, Auto-Modus, Auszeichnungen, Bots, Räume, Ereignisstrom, Controller-Ansicht und Kontrollübergabe. Er spricht dasselbe Protokoll und liefert dieselben Sichten wie der Node-Server; der Browser merkt keinen Unterschied. Statischer Container (`Containerfile.rust`, Laufzeit `scratch`): rund 4,8 MB, eigenes `--health` für den Container-Healthcheck, Zustand speichern und beenden bei SIGTERM/SIGINT. TLS auf Port 8443 mit selbstsigniertem Zertifikat (Namen aus `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY` möglich; hinter einem Proxy `HTTPS_PORT=0`) – damit funktioniert der Sprachchat auch im LAN ohne Reverse-Proxy. Offen bleibt nur gzip für den Ereignisstrom; Details in `docs/rust-server.md`.
-- **Deterministischer Zufall für Vergleiche:** `RNG_SEED=<zahl>` stellt beide Server auf denselben mulberry32-Strom (Bretter, Würfe, Diebstähle, Kartenstapel, Bots). Ohne die Variable bleibt es beim bisherigen Zufall.
-- **Differenztests:** `tests/diff/` vergleicht Node- und Rust-Server Schritt für Schritt – Spiellogik und Sichten, autonome Bot-Partien, echtes HTTP/SSE mit Zuschauer, Spieltisch mit Platzwahl, Handeln „als“, Controller-Ansicht und Kontrollübergabe, Signalweg (Sprachchat), Kick und Verlassen. Aufruf: `bash scripts/diff.sh` bzw. `npm run test:diff`.
+- **Rust-Server:** `rust/` ist die vollständige Server-Implementierung – Spiellogik, Kartengenerierung, Sichten, Handel, Auto-Modus, Auszeichnungen, Bots, Räume, Ereignisstrom, Controller-Ansicht, Kontrollübergabe und TLS. Er spricht dasselbe Protokoll und liefert dieselben Sichten wie der bisherige Node-Server; der Browser merkt keinen Unterschied. Statischer Container (`Containerfile`, Laufzeit `scratch`): rund 4,8 MB, eigenes `--health` für den Container-Healthcheck, Zustand speichern und beenden bei SIGTERM/SIGINT. TLS auf Port 8443 mit selbstsigniertem Zertifikat (Namen aus `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY` möglich; hinter einem Proxy `HTTPS_PORT=0`) – damit funktioniert der Sprachchat auch im LAN ohne Reverse-Proxy. Offen bleibt nur gzip für den Ereignisstrom; Details in `docs/rust-server.md`.
+- **Deterministischer Zufall:** `RNG_SEED=<zahl>` setzt den Zufallsstrom des Rust-Servers fest (mulberry32); ohne die Variable bleibt es zufällig. Grundlage für reproduzierbare Partien und Tests.
+- **Tests über den Rust-Server:** `tests/api.js` (HTTP/SSE: Spiele, Lobby, Rechte, Signalweg, Kick, Verlassen, Auto-Modus, ganze Partien) und `tests/tls.js` (HTTPS, Zertifikats-SANs aus `TLS_HOSTS`, SSE über TLS); die Browser-Tests starten ebenfalls den Rust-Server. Aufruf: `bash tests/run_all.sh [schnell]` bzw. `npm run test:schnell`.
 
 ### Geändert
-- `tests/sim.js` nutzt den gemeinsamen Zufallsgenerator aus `server/rng.js`.
+- **Nur noch ein Server:** `npm start`/`npm run dev`, `tests/run_all.sh` und der Container bauen und starten den Rust-Server. `Containerfile` baut jetzt das statische Rust-Image; das Node-Image und `Containerfile.rust` entfallen. Die Testskripte (`tests/drive.js`, `tests/lib.py`) treiben den Rust-Server ausschließlich über die API an.
+
+### Entfernt
+- Node-Server (`server/`), die Node-internen Tests (`rules.js`, `features.js`, `sim.js`, `bots.js`, `e2e.js`), die Differenztests gegen den Node-Server, der Browser-Test der Übernahme samt Node-Vorbereitungsserver sowie der Node-Screenshot-Generator (`tests/mock/readme.js` samt `readme_shots.py`). Regel- und Funktionstests dafür werden in Rust neu aufgebaut (siehe `BACKLOG.md`).
 
 ## [1.7.3] - 2026-11-25
 

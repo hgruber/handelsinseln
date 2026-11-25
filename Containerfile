@@ -1,15 +1,27 @@
-FROM docker.io/library/node:20-slim
-WORKDIR /app
-COPY package.json ./
-COPY server ./server
-COPY shared ./shared
-COPY public ./public
-RUN mkdir /data && chown node:node /data
+# Rust-Server als statisch gelinktes Binary – Laufzeit-Image ohne Shell und Bibliotheken.
+FROM docker.io/library/rust:1-alpine AS build
+RUN apk add --no-cache musl-dev
+WORKDIR /src
+COPY rust/Cargo.toml rust/Cargo.lock ./
+COPY rust/src ./src
+# Statisches Linken nur für das Endprogramm (proc-macros der Abhängigkeiten bleiben dynamisch).
+RUN cargo rustc --release --locked --bin handelsinseln -- -C target-feature=+crt-static \
+ && mkdir -p /empty
+
+FROM scratch
 ARG APP_VERSION=
-ENV APP_VERSION=$APP_VERSION
-ENV PORT=8080 DATA_DIR=/data NODE_ENV=production
-VOLUME /data
-USER node
+WORKDIR /app
+COPY --from=build /src/target/release/handelsinseln /app/handelsinseln
+COPY package.json /app/package.json
+COPY public /app/public
+COPY shared /app/shared
+COPY --from=build --chown=10001:10001 /empty /data
+ENV APP_VERSION=$APP_VERSION \
+    PORT=8080 \
+    DATA_DIR=/data \
+    LOG_LEVEL=info
+USER 10001:10001
 EXPOSE 8080 8443
-HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://127.0.0.1:8080/api/lobby').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "server/server.js"]
+VOLUME /data
+HEALTHCHECK --interval=30s --timeout=3s CMD ["/app/handelsinseln", "--health"]
+CMD ["/app/handelsinseln"]

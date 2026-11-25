@@ -4,59 +4,86 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Projekt
 
-„Die Handelsinseln“ – Mehrspieler-Brettspiel im Browser (brettspielartig, Schiffe/Nebel/Gold). Node ≥ 20, **keine Laufzeit-Abhängigkeiten** (nur ESLint als Dev-Abhängigkeit), Vanilla-JS im Client (kein Build-Schritt, kein Framework). Alle Texte, Bezeichner im Spiel und Commit-Messages sind deutsch. Details zu Funktionen/Einstellungen: `README.md`; Wire-Protokoll: `PROTOKOLL.md`; Änderungshistorie: `CHANGELOG.md`; offene Ideen: `BACKLOG.md`.
+„Die Handelsinseln“ – Mehrspieler-Brettspiel im Browser (brettspielartig, Schiffe/Nebel/Gold). Der Server ist ein statisch
+gelinktes Rust-Binary (`rust/`), der Client ist Vanilla-JS ohne Build-Schritt und ohne Framework. Zur Laufzeit gibt es keine
+externen Dienste; Node ≥ 20 wird nur für die Testskripte und ESLint gebraucht. Alle Texte, Bezeichner im Spiel und
+Commit-Messages sind deutsch. Details zu Funktionen/Einstellungen: `README.md`; Wire-Protokoll: `PROTOKOLL.md`;
+Änderungshistorie: `CHANGELOG.md`; offene Ideen: `BACKLOG.md`.
 
 ## Befehle
 
 ```bash
-npm run dev                  # Port 8090, nur http, Spielstand in /tmp/handelsinseln-dev, Server-Neustart bei Änderungen (public/ nur Neuladen, ggf. Service Worker umgehen)
-npm start                    # node server/server.js (PORT 8080, HTTPS_PORT 8443 mit selbstsigniertem Zertifikat)
-node tests/rules.js          # Regeltests (handgebautes Brett, schnell) – eine einzelne Testdatei = ein Skript
-node tests/features.js       # Einstellungen, Varianten, Auto-Modi, Übernahme, Statistik
-node tests/sim.js 6          # Bot-Partien mit Invarianten-Prüfung
-node tests/e2e.js            # echtes HTTP/SSE
+npm run dev                  # Rust, Port 8090, nur http, Spielstand /tmp/handelsinseln-dev; Rust-Änderung = Neustart
+npm start                    # Rust, PORT 8080, TLS 8443 (selbstsigniert; TLS_HOSTS für die Namen)
+cargo build --release --locked --manifest-path rust/Cargo.toml
+node tests/api.js            # HTTP/SSE: Spiele, Lobby, Rechte, Signalweg, Auto-Modus, ganze Partien
+node tests/tls.js            # HTTPS, Zertifikats-SANs, SSE über TLS
 python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requirements.txt && python3 -m playwright install chromium
-bash tests/run_all.sh        # volle Suite parallel (~4 Min auf 4 Kernen, JOBS=n, PLAY_SECS=n); Logs/Screenshots je Test in $SHOTS
-npm run test:schnell         # nur Regel-, Funktions- und E2E-Tests ohne Browser (< 1 Min) – nach jeder Änderung
-node scripts/rohstoffe.js <Name>   # Testhilfe: Spieler bekommt je 20 Rohstoffe (beendet vorher den Server mit DATA_DIR, Standard /tmp/handelsinseln-dev)
+bash tests/run_all.sh        # volle Suite parallel (JOBS=n, PLAY_SECS=n); Logs/Screenshots je Test in $SHOTS
+npm run test:schnell         # nur API- und TLS-Tests (< 1 Min) – nach jeder Änderung; baut den Rust-Server
+node scripts/rohstoffe.js <Name>   # Testhilfe: Spieler bekommt je 20 Rohstoffe (beendet den Server mit DATA_DIR)
 ```
 
-CI: `.github/workflows/tests.yml` (schnell → voll mit Playwright; nachts `PLAY_SECS=120`).
+CI: `.github/workflows/tests.yml` (Rust bauen, schnell → voll mit Playwright; nachts `PLAY_SECS=120`).
 
-Rust-Server: `cargo build --manifest-path rust/Cargo.toml` (Release: `--release`), `bash scripts/diff.sh` vergleicht Node- und Rust-Server.
-
-Linter: `npm run lint` (ESLint, nur Fehlerklassen wie undefinierte/ungenutzte Namen, keine Stilregeln; einmalig `npm install` für die Dev-Abhängigkeiten – zur Laufzeit gibt es weiterhin keine). Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter; `rules.js`/`features.js` zählen intern `✓`/`✗`). Browser-Tests holen sich freie Ports und können parallel laufen.
+Linter: `npm run lint` (ESLint, nur Fehlerklassen wie undefinierte/ungenutzte Namen, keine Stilregeln; einmalig `npm install`).
+Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter). Browser-Tests holen sich freie Ports und
+können parallel laufen.
 
 ## Release
 
-`npm run release -- X.Y.Z [--build] [--schnell]` (= `scripts/release.sh`): nur auf `master`, sauberer Baum, verlangt Eintrag unter „Unveröffentlicht“ in `CHANGELOG.md`, führt `tests/run_all.sh` aus, setzt Version in `package.json`, committet „Release X.Y.Z“ + Tag (das gepushte Tag wird per `.github/workflows/release.yml` zum GitHub-Release). Pusht nie. Deploy der eigenen Installation ist betreiberspezifisch und liegt bewusst außerhalb des Repos (keine Hostnamen, IPs oder Netzdetails ins Repo). Neue Funktionen = Minor, Fixes = Patch.
+`npm run release -- X.Y.Z [--build] [--schnell]` (= `scripts/release.sh`): nur auf `master`, sauberer Baum, verlangt Eintrag
+unter „Unveröffentlicht“ in `CHANGELOG.md`, baut den Rust-Server, führt `tests/run_all.sh` aus, setzt Version in
+`package.json`, committet „Release X.Y.Z“ + Tag (das gepushte Tag wird per `.github/workflows/release.yml` zum
+GitHub-Release). Pusht nie. Deploy der eigenen Installation ist betreiberspezifisch und liegt bewusst außerhalb des Repos
+(keine Hostnamen, IPs oder Netzdetails ins Repo). Neue Funktionen = Minor, Fixes = Patch.
 
 ## Architektur
 
 **Server ist maßgeblich**; der Client rendert nur den vom Server gelieferten Zustand.
 
-- `server/game.js` – Spiellogik in der Klasse `Game` (Kern: Zustand, Aufbau, Würfeln/Erträge, Bauen, Karten, Räuber, Zugablauf, Auszeichnungen). Weitere Teilbereiche als Klassen in `server/game_lobby.js`, `game_trade.js`, `game_auto.js` (Auto-Modus, Übernahme), `game_view.js` (Sichten, `legal`, `prompt`); ihre Methoden hängt `game.js` an `Game.prototype` (doppelte Namen werfen beim Laden). Gemeinsame Hilfen/Konstanten: `game_common.js`. Zustand `g.S` ist reines JSON (speicherbar). Aktionen laufen über `act(pid, {type, …})` – phasenunabhängige in der Tabelle `ANYTIME`, sonst `setupAct`/`mainAct`; Regelverstöße werfen `GameError` mit deutschem Text (der Client zeigt ihn als Toast, der Zustand bleibt unverändert). `view(pid)` baut die spielerspezifische Sicht (keine fremden Handkarten); es gibt außerdem eine öffentliche Zuschauer-Sicht.
-- `server/board.js` + `shared/geom.js` – Kartengenerierung (Varianten klassisch/nebel/inseln/archipel, unbegrenzt entdeckbarer Nebel) und Hex-Geometrie (axial, pointy-top; Schlüssel Hex `"q,r"`, Kante `"h|h"`, Ecke `"h|h|h"`). `shared/` wird vom Server auch an den Browser ausgeliefert, damit beide dieselbe Geometrie nutzen.
-- `server/settings.js` – Standardwerte (= Originalregeln) und Validierung von Einstellungs-Patches; neue Einstellung muss hier, in `game.js` (`setSettings`/`changeSettings`) und in der Lobby-UI (`public/lobby.js`, Seitenleiste „Regeln“ listet Abweichungen) berücksichtigt werden.
-- `server/hub.js` – verwaltet mehrere parallele Spiele („Räume“, `room.game`), Beitritt, Aufräumen, Abwesenheit → Auto-Modus, Bot-Takt (`BOT_MS`).
-- `server/log.js` – Betriebslog auf stdout (`log.info(ereignis, felder, debugFelder)`; Tokens/IPs nur als `debugFelder`, `LOG_LEVEL`, eingebettet in Tests nur `warn`). Aufrufe nur in `hub.js`/`server.js`, nicht in der Spiellogik; Partie-Start/-Ende erkennt `broadcast()` am Phasenwechsel und schreibt dann den Abschlussbericht nach `DATA_DIR/partien.jsonl`.
-- `server/server.js` – HTTP(S), statische Dateien aus `public/` und `/shared`, SSE-Zustandsstrom (`/api/events`), `POST /api/act`, Signalweg für WebRTC-Sprachchat, Persistenz nach `DATA_DIR` (entprellt via `save()`).
-- `server/bot.js` (Autopilot für Abwesende, Testspieler) und `server/botplay.js` (Bots mit Persönlichkeit: Baumeister/Händler/Ritter) – nutzen nur öffentliche Informationen. `botAct`/`botPlay` führen je Aufruf höchstens **eine** Aktion aus.
-- `server/arm.js` und `server/handover.js` – Controller-Ansicht („arm/pick“-Freigabe am Handy, Ziel am Tisch antippen) und Kontrollübergabe an ein Handy. Ihr Zustand liegt am **Raum** (`room.arm`, `room.handovers`), nicht in `g.S`, und wird nicht gespeichert.
+- `rust/src/game*.rs` – Spiellogik (Zustand, Aufbau, Würfeln/Erträge, Bauen, Karten, Räuber, Zugablauf, Auszeichnungen) in
+  der `Game`-Klasse, verteilt auf `game.rs` (Kern), `game_lobby.rs`, `game_trade.rs`, `game_build.rs`, `game_auto.rs`
+  (Auto-Modus, Übernahme), `game_actions.rs` (Aktionen/Zug), `game_awards.rs`; `view.rs` baut Sichten, `legal` und `prompt`.
+  Der Zustand `S` ist serde-JSON (speicherbar). Aktionen laufen über `act(pid, {type, …})`; Regelverstöße sind `GameError`
+  mit deutschem Text (der Client zeigt ihn als Toast, der Zustand bleibt unverändert). `view(pid)` liefert keine fremden
+  Handkarten; es gibt eine öffentliche Zuschauer-Sicht.
+- `rust/src/board.rs` – Kartengenerierung (klassisch/nebel/inseln/archipel, unbegrenzt entdeckbarer Nebel). Die
+  Hex-Geometrie (axial, pointy-top; Schlüssel Hex `"q,r"`, Kante `"h|h"`, Ecke `"h|h|h"`) liegt in `rust/src/geom.rs` und
+  `shared/geom.js`; `shared/` wird vom Server an den Browser ausgeliefert.
+- `rust/src/settings.rs` – Standardwerte (= Originalregeln) und Validierung von Einstellungs-Patches. Eine neue Einstellung
+  muss hier, in `game_lobby.rs` (`set_settings`/`change_settings`) und in der Lobby-UI (`public/lobby.js`, Seitenleiste
+  „Regeln“) berücksichtigt werden.
+- `rust/src/hub.rs` – mehrere parallele Spiele („Räume“), Beitritt, Aufräumen, Abwesenheit → Auto-Modus, Bot-Takt
+  (`BOT_MS`). `rust/src/server.rs`/`http.rs` – HTTP/HTTPS, statische Dateien aus `public/` und `/shared`, SSE
+  (`/api/events`), `POST /api/act`, Signalweg, Persistenz (`DATA_DIR/state.json`, `partien.jsonl`). `rust/src/tls.rs` –
+  selbstsigniertes Zertifikat (oder `TLS_CERT`/`TLS_KEY`) in `DATA_DIR/tls`.
+- `rust/src/bot.rs` (Autopilot für Abwesende) und `botplay.rs` (Baumeister/Händler/Ritter) – nutzen nur öffentliche
+  Informationen und führen je Aufruf höchstens **eine** Aktion aus.
+- `rust/src/arm.rs` und `handover.rs` – Controller-Ansicht („arm/pick“) und Kontrollübergabe an ein Handy. Ihr Zustand liegt
+  am **Raum** (`room.arm`, `room.handovers`), nicht in `S`, und wird nicht gespeichert.
 
-Client (`public/`, klassische Skripte ohne Module, über `window` verbunden): `app.js` ist der Kern (Zustand, SSE, SVG-Brett mit Diff-Rendering, HUD); `lobby.js`, `table.js` (Digitaler Spieltisch/Zuschauer-Anzeige, Sicht aller Spieler über SSE-Event `table`), `trade.js`, `menu.js`, `voice.js` (WebRTC), `fx.js` (Kartenanimation), `art.js` (Grafikbezeichner), `background.js` (vier wählbare Hintergründe für `#sea` aus den Gelände-Tiles, lokal in `localStorage`), `sw.js` (Service Worker/PWA). Die Modi Spieler / Tischspieler / Zuschauer / Controller-Ansicht teilen sich dieselbe View; Verhalten hängt am Server-gelieferten Zustand.
+Client (`public/`, klassische Skripte ohne Module, über `window` verbunden): `app.js` ist der Kern (Zustand, SSE, SVG-Brett
+mit Diff-Rendering, HUD); `lobby.js`, `table.js` (Digitaler Spieltisch/Zuschauer-Anzeige, SSE-Event `table`), `trade.js`,
+`menu.js`, `voice.js` (WebRTC), `fx.js`, `art.js`, `background.js`, `sw.js` (Service Worker/PWA). Die Modi Spieler /
+Tischspieler / Zuschauer / Controller-Ansicht teilen sich dieselbe View.
 
-Spielkonstanten (Rohstoffe `holz lehm wolle getreide erz`, Gelände, Wertechips, Farben, Entwicklungskarten, Baukosten) stehen einmal in `shared/rules.js` – Server per `require`, Browser als `window.Rules` (in `index.html` vor den übrigen Skripten). Nicht erneut kopieren. Spieler-ID `pid` = Index in `players`.
-
-## Rust-Server
-
-`rust/` ist eine vollständige Portierung von `server/` (gleiches Protokoll, gleiche Sichten, Bots, Tisch/Controller/Übergabe); die Node-Dateien bleiben Referenz. `RNG_SEED` setzt in beiden Servern denselben Zufallsstrom (mulberry32, `server/rng.js`). TLS auf 8443 (`HTTPS_PORT`, `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`, Zertifikat in `DATA_DIR/tls`); bewusste Abweichung: kein gzip für den Ereignisstrom, kein IP-Debug im Log. Container `Containerfile.rust` (statisch, `scratch`, Ports 8080/8443). Details und die SQLite-Untersuchung: `docs/rust-server.md`.
+**Doppelte Konstanten:** `shared/rules.js` (Browser: `window.Rules`) und `rust/src/rules.rs` müssen dieselben Werte haben;
+ebenso `shared/geom.js` und `rust/src/geom.rs` (Schlüssel/Reihenfolge) und `shared/avatars.js` zu `rust/src/avatars.rs`.
+Der Server liefert `shared/` aus, damit der Browser dieselbe Geometrie nutzt. Spieler-ID `pid` = Index in `players`.
 
 ## Tests
 
-`tests/mock/` enthält Mock-Zustände (`*.json`) und `serve.js`, mit dem sich Oberfläche ohne laufende Partie ansehen lässt (`?mock=<name>`); `readme.js`/`readme_shots.py` erzeugen die README-Screenshots neu. `tests/drive.js` treibt Spieler eines laufenden Servers per Bot-Logik an (für Browser-Tests). Gemeinsamer Rahmen der Browser-Tests: `tests/lib.py` (`start_server(**env)` mit freiem Port und eigenem Datenverzeichnis, `poster`, `sse_event`, `check`, `finish`) – neue Browser-Tests darauf aufbauen.
+`tests/api.js` und `tests/tls.js` prüfen den Rust-Server direkt (HTTP/SSE/TLS, ganze Partien). Die Browser-Tests nutzen
+`tests/lib.py` (`start_server(**env)` startet das Release-Binary mit freiem Port und eigenem Datenverzeichnis, `poster`,
+`sse_event`, `check`, `finish`); `tests/drive.js` treibt Spieler über die API an, indem es Aktionen aus der jeweiligen Sicht
+wählt. `tests/mock/` enthält Mock-Zustände (`gen.js` erzeugt sie, `serve.js` zeigt sie unter `?mock=<name>`), unabhängig
+vom Server. Neue Browser-Tests auf `lib.py` aufbauen.
 
 ## Projektregeln
 
-- Fachbegriffe exakt verwenden (Spielleiter, Tischspieler, Zuschauer, Controller-Ansicht, Kontrolle übergeben …) wie in README/CHANGELOG.
-- Jede benutzerrelevante Änderung: Eintrag in `CHANGELOG.md` unter „Unveröffentlicht“ (Keep a Changelog, deutsch) + ggf. README/`PROTOKOLL.md`; Commit auf `master`; nie ungefragt pushen.
+- Fachbegriffe exakt verwenden (Spielleiter, Tischspieler, Zuschauer, Controller-Ansicht, Kontrolle übergeben …) wie in
+  README/CHANGELOG.
+- Jede benutzerrelevante Änderung: Eintrag in `CHANGELOG.md` unter „Unveröffentlicht“ (Keep a Changelog, deutsch) + ggf.
+  README/`PROTOKOLL.md`; bei neuen Regeln zuerst die Rust-Seite und die JS-Konstanten abgleichen.
+- Commit auf `master` nur auf ausdrückliche Ansage; nie ungefragt pushen.

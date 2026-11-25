@@ -1,4 +1,4 @@
-// Einstiegspunkt: liest die Umgebung wie server/server.js und startet den HTTP-Server.
+// Einstiegspunkt: liest die Umgebung und startet den HTTP/HTTPS-Server.
 use std::path::{Path, PathBuf};
 
 use handelsinseln::log;

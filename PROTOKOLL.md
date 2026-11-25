@@ -1,10 +1,9 @@
 # Protokoll Client ⇄ Server
 
-Server: `node server/server.js` (Port 8080, keine Laufzeit-Abhängigkeiten). Statische Dateien aus `public/`, dazu `shared/` unter `/shared/`
-(`geom.js`, `rules.js`, `avatars.js`); alle mit `ETag`/`Last-Modified` und `Cache-Control: no-cache` (unverändert → `304`).
-Der Server führt beliebig viele Spiele parallel (siehe „Erweiterung v2“); dieser erste Teil beschreibt das Grundprotokoll.
-Eine vollständige Rust-Implementierung liegt in `rust/` und spricht dasselbe Protokoll; sie liefert den Ereignisstrom unkomprimiert
-und kann selbst TLS (Port 8443, selbstsigniert, `TLS_HOSTS`).
+Server: `rust/target/release/handelsinseln` (Port 8080, optional TLS auf 8443 mit selbstsigniertem Zertifikat). Statische Dateien aus
+`public/`, dazu `shared/` unter `/shared/` (`geom.js`, `rules.js`, `avatars.js`); alle mit `ETag`/`Last-Modified` und
+`Cache-Control: no-cache` (unverändert → `304`). Der Server führt beliebig viele Spiele parallel (siehe „Erweiterung v2“);
+dieser erste Teil beschreibt das Grundprotokoll. Der Ereignisstrom wird unkomprimiert geliefert.
 
 ## Transport
 - `GET  /api/games` (Alias `/api/lobby`) → Liste der Spiele (ohne Anmeldung), Felder siehe „Mehrere parallele Spiele“.
@@ -13,8 +12,7 @@ und kann selbst TLS (Port 8443, selbstsigniert, `TLS_HOSTS`).
 - `GET  /api/events?token=T[&table=1]` → Server-Sent-Events (mit `table=1` und `settings.table`, nur Spielleiter: zusätzlich Event `table` {views:[View je Spieler]}; `act` darf dann `as:<Spieler>` mitsenden = Handeln im Namen eines Mitspielers). Event `state` (JSON = View, siehe unten) bei jeder Änderung,
   sofort nach Verbindungsaufbau einmal. Event `ping` alle 20 s. `EventSource` verbindet selbst neu.
   Ist der Token unbekannt (Spiel beendet o. Ä.), antwortet der Server mit HTTP 401 → Client zurück zum Anmeldebildschirm.
-  Sendet der Client `Accept-Encoding: gzip` (Browser, `fetch`), ist der Strom gzip-komprimiert (`Content-Encoding: gzip`), mit Flush nach jedem
-  Ereignis; das Wörterbuch gilt für den ganzen Strom, aufeinanderfolgende Sichten kosten daher nur wenige hundert Bytes.
+  Der Ereignisstrom wird unkomprimiert geliefert (der Client versteht auch gzip; die Rust-Implementierung komprimiert derzeit nicht).
 - `POST /api/act` `{token, type, ...params}` → `{ok:true}` oder `{error:"deutscher Text"}` (HTTP 400, als Toast zeigen).
 - `POST /api/leave` `{token}` → Spieler verlässt die Lobby (im laufenden Spiel nur "getrennt").
 
@@ -184,4 +182,5 @@ wird alle Infrastruktur und Hand eines Verlassenen nach `vanishRounds` seiner Z�
 - `POST /api/signal {token, to:pid|'all', data:{…}}` → Server leitet an die Mitspieler desselben Spiels als SSE-Event `signal` `{from:pid, data}` weiter (≤ 16 KB, Ratenbegrenzung).
   Genutzt für `hello`/`bye`, SDP `offer`/`answer` und ICE-Kandidaten. Ablauf-Vorschlag: wer den Sprachchat betritt, sendet `{t:'hello'}` an `'all'`;
   jeder Empfänger mit aktiver Sprache antwortet mit `{t:'hello'}` an den Absender; der mit der kleineren pid sendet das Offer.
-- `getUserMedia` funktioniert nur in sicherem Kontext (https oder localhost). Der Server kann mit `TLS_CERT`/`TLS_KEY` selbst https sprechen.
+- `getUserMedia` funktioniert nur in sicherem Kontext (https oder localhost). Der Server kann selbst https sprechen (`HTTPS_PORT`, Standard 8443;
+  `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`; Zertifikat in `DATA_DIR/tls`).
