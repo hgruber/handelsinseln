@@ -1,0 +1,31 @@
+[package]
+name = "handelsinseln"
+version = "0.1.0"
+edition = "2021"
+description = "Die Handelsinseln – Server (Rust)"
+license = "MIT"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = { version = "2", features = ["serde"] }
+
+[[bin]]
+name = "handelsinseln"
+path = "src/main.rs"
+
+[[bin]]
+name = "boarddump"
+path = "src/bin/boarddump.rs"
+
+[[bin]]
+name = "tracecheck"
+path = "src/bin/tracecheck.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

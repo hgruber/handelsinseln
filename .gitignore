@@ -4,3 +4,5 @@ data/
 tests/mock/readme_*.json
 __pycache__/
 .claude/worktrees/
+
+rust/target/

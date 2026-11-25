@@ -11,6 +11,7 @@ const Handover = require('./handover');
 const { Hub } = require('./hub');
 const selfsigned = require('./selfsigned');
 const log = require('./log');
+const { fromEnv: rngFromEnv } = require('./rng');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 8080;
@@ -31,7 +32,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
   '.webmanifest': 'application/manifest+json; charset=utf-8' };
 
 function createServer(opts = {}) {
-  const hub = opts.hub || new Hub({ graceMs: opts.graceMs ?? (+process.env.GRACE_MS || undefined), absentMs: opts.absentMs ?? (+process.env.ABSENT_MS || undefined), rnd: opts.rnd });
+  const hub = opts.hub || new Hub({ graceMs: opts.graceMs ?? (+process.env.GRACE_MS || undefined), absentMs: opts.absentMs ?? (+process.env.ABSENT_MS || undefined), rnd: opts.rnd ?? rngFromEnv() });
   const clients = new Map(); // token -> Set(res)
   const rate = new Map();    // token -> {n, t} für den Signalweg
   let saveTimer = null, saving = false, saveAgain = false;
@@ -378,7 +379,7 @@ function createServer(opts = {}) {
 }
 
 function loadHub() {
-  const hub = new Hub({ graceMs: +process.env.GRACE_MS || undefined, absentMs: +process.env.ABSENT_MS || undefined, maxGames: +process.env.MAX_GAMES || 3 });
+  const hub = new Hub({ graceMs: +process.env.GRACE_MS || undefined, absentMs: +process.env.ABSENT_MS || undefined, maxGames: +process.env.MAX_GAMES || 3, rnd: rngFromEnv() });
   try {
     hub.load(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')), 300000);
     log.info('spielstand_geladen', { spiele: hub.rooms.size });
