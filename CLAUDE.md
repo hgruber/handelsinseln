@@ -18,6 +18,7 @@ node tests/e2e.js            # echtes HTTP/SSE
 python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requirements.txt && python3 -m playwright install chromium
 bash tests/run_all.sh        # volle Suite parallel (~4 Min auf 4 Kernen, JOBS=n, PLAY_SECS=n); Logs/Screenshots je Test in $SHOTS
 npm run test:schnell         # nur Regel-, Funktions- und E2E-Tests ohne Browser (< 1 Min) – nach jeder Änderung
+node scripts/rohstoffe.js <Name>   # Testhilfe: Spieler bekommt je 20 Rohstoffe (beendet vorher den Server mit DATA_DIR, Standard /tmp/handelsinseln-dev)
 ```
 
 CI: `.github/workflows/tests.yml` (schnell → voll mit Playwright; nachts `PLAY_SECS=120`).
