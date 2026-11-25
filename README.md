@@ -129,7 +129,7 @@ Browser) und ändert nichts am Spiel.
 - **Seekarte** – die Tiles als gemalte Karte auf gealtertem Pergament, mit Küstenlinien, Handelsrouten und Windrose.
 - **Nebelmeer** – Inseln und Siedlungslichter im nächtlichen Nebel.
 
-Gezeichnet wird im Browser (`public/background.js`, Canvas), die Texturen für Himmel, Holz und Pergament liegen in `public/img/bg/`.
+Gezeichnet wird im Browser (`public/background.js`, Canvas), die Texturen für Himmel, Holz und Pergament liegen in `public/img/bg/` (mit Flux erzeugt).
 
 ## Spiele, Lobby, Einstellungen
 
