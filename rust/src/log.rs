@@ -1,7 +1,8 @@
 // Betriebslog – gleiches Zeilenformat wie server/log.js.
-use std::sync::atomic::{AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
 
 static LEVEL: AtomicI8 = AtomicI8::new(1); // warn, bis main "info" setzt
+static SHOW_TIME: AtomicBool = AtomicBool::new(true);
 
 pub fn set_level(name: &str) {
     let v = match name {
@@ -19,6 +20,11 @@ pub fn is_debug() -> bool {
     LEVEL.load(Ordering::Relaxed) >= 3
 }
 
+/// Zeitstempel im Log ein-/ausschalten. Unter systemd/journald aus (journald schreibt ihn selbst).
+pub fn set_time(on: bool) {
+    SHOW_TIME.store(on, Ordering::Relaxed);
+}
+
 fn esc(v: &str) -> String {
     let plain = !v.is_empty()
         && v.chars().all(|c| c.is_alphanumeric() || "_.:-/@+".contains(c));
@@ -33,11 +39,12 @@ fn line(level: &str, lv: i8, ev: &str, fields: &[(&str, String)]) {
     if lv > LEVEL.load(Ordering::Relaxed) {
         return;
     }
-    let mut parts = vec![
-        crate::http::iso_time(crate::game::now_ms()),
-        format!("{:<5}", level.to_uppercase()),
-        ev.to_string(),
-    ];
+    let mut parts = Vec::new();
+    if SHOW_TIME.load(Ordering::Relaxed) {
+        parts.push(crate::http::iso_time(crate::game::now_ms()));
+    }
+    parts.push(format!("{:<5}", level.to_uppercase()));
+    parts.push(ev.to_string());
     for (k, v) in fields {
         if v.is_empty() {
             continue;

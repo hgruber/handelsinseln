@@ -13,7 +13,7 @@ cargo build --manifest-path rust/Cargo.toml --release
 
 Umgebungsvariablen: `PORT`, `LISTEN`,
 `DATA_DIR`, `APP_VERSION`, `LOG_LEVEL`, `STUN_URL`, `MAX_GAMES`, `BOT_MS`, `TICK_MS`, `GRACE_MS`,
-`ABSENT_MS`, `HANDOVER_MS`, `RNG_SEED`, `HTTPS_PORT` (Standard 8443, `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`,
+`ABSENT_MS`, `HANDOVER_MS`, `RNG_SEED`, `LOG_TIMESTAMP` (`0`/`off` = ohne Zeitstempel im Log), `HTTPS_PORT` (Standard 8443, `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`,
 zusätzlich `ROOT_DIR` (Verzeichnis mit `public/` und `shared/`;
 sonst wird es neben bzw. oberhalb des Programms gesucht) und `NO_SAVE=1` für Tests.
 
@@ -89,6 +89,7 @@ auf 8080. `/api/config` meldet den aktiven HTTPS-Port; die Lobby verweist automa
 - **Kein gzip für den Ereignisstrom.** Der Client versteht beide Varianten; ohne gzip sind die
   SSE-Nachrichten größer. (Komprimierung ließe sich mit `flate2` nachrüsten, kostet Binary-Größe.)
 - **Log ohne IP-Adressen.** Ereignisse und Feldnamen sind wie gehabt; Tokens/IPs werden nicht protokolliert.
+- **Zeitstempel unter systemd:** Mit `LOG_TIMESTAMP=0` beginnt jede Zeile mit der Stufe (`INFO  start …`); den Zeitstempel schreibt journald. Die Quadlet-Vorlage setzt die Variable.
 - **`--health`** als eigener Modus (siehe oben).
 - Persistenz: `state.json` (ganzer Hub, entprellt) und `partien.jsonl` (eine Zeile je Partie).
 

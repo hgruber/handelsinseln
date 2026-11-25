@@ -16,6 +16,7 @@ Environment=TZ=Europe/Berlin
 Environment=PORT=8080
 Environment=HTTPS_PORT=0
 Environment=MAX_GAMES=3
+Environment=LOG_TIMESTAMP=0
 
 [Service]
 Restart=always

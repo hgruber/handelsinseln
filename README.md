@@ -97,12 +97,12 @@ Zum Entwickeln: `npm run dev` (Port 8090, nur http, Spielstand in `/tmp/handelsi
 (Abwesenheit bis Auto-Modus, 60000), `LISTEN` (Adresse:Port des http-Listeners, z. B. `127.0.0.1:8080`; sonst `PORT`), `MAX_GAMES` (gleichzeitige Spiele, 3),
 `BOT_MS` (Takt der Bots, 800), `TICK_MS` (Takt der Zeitprüfung, 2000), `GRACE_MS` (Kulanz, bis ein Spiel ohne verbundenen Menschen endet, 20000),
 `HTTPS_PORT` (8443; `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`, `STUN_URL` (optional, für Sprachchat über Netzgrenzen), `RNG_SEED` (fester Zufallsstrom für
-reproduzierbare Partien), `LOG_LEVEL` (`error`/`warn`/`info`/`debug`/`silent`, Standard `info`).
+reproduzierbare Partien), `LOG_LEVEL` (`error`/`warn`/`info`/`debug`/`silent`, Standard `info`), `LOG_TIMESTAMP` (`0`/`off` schaltet den Zeitstempel im Server-Log ab – sinnvoll unter systemd/journald, das selbst einen schreibt).
 
 **Logging:** Der Server schreibt ein Betriebslog auf stdout (eine Zeile je Ereignis, Rotation übernimmt journald bzw. der Container-Logtreiber): Start/Stopp,
 Räume (angelegt, gelöscht mit Grund), Partien (Start, Ende, Fortsetzung, neue Runde), Spieler (Beitritt, Verlassen, Entfernen, Platzverlust in der Lobby,
 abwesend → Auto-Modus, wieder da), Kontrollübergabe, Zuschauer und Fehler. Einzelne Spielzüge und jedes Neuverbinden (Tab neu laden) stehen nicht darin;
-anders als beim früheren Node-Server enthält das Debug-Log keine IP-Adressen oder Tokens.
+anders als beim früheren Node-Server enthält das Debug-Log keine IP-Adressen oder Tokens. Unter systemd/Quadlet `LOG_TIMESTAMP=0` setzen; dann kommt der Zeitstempel nur von journald. Die Vorlage `deploy/handelsinseln.container` setzt das bereits.
 Jede beendete oder abgebrochene Partie hängt zusätzlich einen Abschlussbericht als JSON-Zeile an `DATA_DIR/partien.jsonl` an (Spieler, Ergebnis, Einstellungen, Statistik, Punkteverlauf je Runde).
 
 **Sprachchat und https:** Browser erlauben das Mikrofon nur unter `https://` oder `http://localhost`. Der Server startet deshalb zusätzlich auf Port 8443 mit

@@ -10,6 +10,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Tests über den Rust-Server:** `tests/api.js` (HTTP/SSE: Spiele, Lobby, Rechte, Signalweg, Kick, Verlassen, Auto-Modus, ganze Partien) und `tests/tls.js` (HTTPS, Zertifikats-SANs aus `TLS_HOSTS`, SSE über TLS); die Browser-Tests starten ebenfalls den Rust-Server. Aufruf: `bash tests/run_all.sh [schnell]` bzw. `npm run test:schnell`.
 
 ### Geändert
+- **Log ohne doppelten Zeitstempel:** `LOG_TIMESTAMP=0` (oder `off`) schaltet den Zeitstempel im Server-Log ab; unter systemd/journald schreibt journald ihn selbst. Die Quadlet-Vorlage `deploy/handelsinseln.container` setzt die Variable.
 - **Nur noch ein Server:** `npm start`/`npm run dev`, `tests/run_all.sh` und der Container bauen und starten den Rust-Server. `Containerfile` baut jetzt das statische Rust-Image; das Node-Image und `Containerfile.rust` entfallen. Die Testskripte (`tests/drive.js`, `tests/lib.py`) treiben den Rust-Server ausschließlich über die API an.
 
 ### Entfernt

@@ -65,6 +65,10 @@ fn main() {
         health();
     }
     log::set_level(&std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".into()));
+    let log_time = std::env::var("LOG_TIMESTAMP")
+        .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "0" | "off" | "false" | "no" | "aus"))
+        .unwrap_or(true);
+    log::set_time(log_time);
     let root = find_root();
     let data_dir = std::env::var("DATA_DIR")
         .map(PathBuf::from)
