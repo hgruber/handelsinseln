@@ -32,7 +32,7 @@ try:
                 pg.goto(MOCK + q); pg.wait_for_timeout(1500)
                 return pg
             pg = page('mittel_frei')
-            check(pg.locator('#camBtns button').count() == 3 and pg.locator('#btnMenu').is_visible(), 'nur Hamburger und die zwei Dreh-Knöpfe sind übrig')
+            check(pg.locator('#camBtns button').count() == 1 and pg.locator('#btnMenu').is_visible(), 'nur der Hamburger ist übrig (Drehen im Menü)')
             check(all(pg.locator(f'#{i}').count() == 0 for i in ('btnFit', 'btnIn', 'btnOut', 'btnHelp', 'hudMic')), 'Zoom-, Zentrier-, Hilfe- und Mikrofon-Knopf sind entfernt')
             r = pg.evaluate(RECTS)
             check(r['sw'] <= r['W'], 'keine horizontale Seitenverschiebung')

@@ -94,9 +94,15 @@ try:
         # Zoom bleibt stehen, nur ein Doppelklick zentriert
         k0 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
         pg.mouse.move(1000, 300)
+        def settled():  # warten, bis die Kamera stillsteht (unter Last laufen nur wenige Animationsframes)
+            t, end = None, time.time() + 12
+            while time.time() < end:
+                pg.wait_for_timeout(400); u = pg.evaluate("document.getElementById('world').getAttribute('transform')")
+                if u == t: return u
+                t = u
+            return t
         for _ in range(6): pg.mouse.wheel(0, 400)
-        pg.wait_for_timeout(500)
-        k1 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
+        k1 = settled()
         check(k1 != k0, 'Zoomen ist möglich')
         pg.wait_for_timeout(3200)
         k2 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
@@ -106,8 +112,7 @@ try:
         n1, n2 = nums(k1), nums(k2)
         check(abs(n2[3] - n1[3]) <= n1[3] * 0.05 and abs(n2[3] - n0[3]) > n0[3] * 0.1, f'Zoom bleibt stehen, die Ansicht springt nicht von selbst zurück ({k0} → {k1} → {k2})')
         pg.evaluate("document.getElementById('board').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))")
-        pg.wait_for_timeout(1500)
-        k3 = pg.evaluate("document.getElementById('world').getAttribute('transform')")
+        k3 = settled()
         n3 = nums(k3)
         close = all(abs(a - b) <= max(3, abs(a) * 0.03) for a, b in zip(n0[:2], n3[:2])) and abs(n0[3] - n3[3]) <= n0[3] * 0.03
         check(close, f'Doppelklick zentriert: ganzes Spielfeld wieder sichtbar ({k0} → {k3})')
@@ -168,7 +173,13 @@ try:
                 check(pg.locator('.seat.active .secret .rc.short').count() == 1, 'der fehlende Rohstoffstapel blinkt rot')
                 check(pg.locator('#tradeDock [data-do="confirm"]').count() == 0, 'der Anbieter kann nur zurückziehen (kein Handeln-Knopf)')
         # Spielende: Statistik wie gewohnt, der Tisch räumt auf
-        pg.click('#btnMenu'); pg.locator('[data-mi="end"]').click(); pg.click('#dlgRoot [data-d="yes"]')
+        pg.click('#btnMenu')
+        mp = pg.evaluate("""(() => { const m = document.querySelector('.menu-pop'), s = m && m.closest('.seat'), b = m.getBoundingClientRect(), r = s && getComputedStyle(s).transform;
+          return { host: s ? s.dataset.pid : null, items: m.querySelectorAll('[data-mi]').length, rot: r, inView: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight, toCenter: m.offsetTop + m.offsetHeight <= 0 }; })()""")
+        check(mp['host'] == '0' and mp['inView'] and mp['toCenter'], f'Hamburger-Menü öffnet im Platz des Spielleiters, in seiner Blickrichtung zur Tischmitte und ganz im Bild ({mp})')
+        check(pg.locator('.menu-pop [data-mi="rotL"]').count() == 1 and pg.locator('#btnRotL').count() == 0, 'Karte drehen nur über das Hamburger-Menü')
+        pg.wait_for_timeout(400); pg.screenshot(path=f'{SHOTS}/tisch-menue.png')
+        pg.locator('[data-mi="end"]').click(); pg.click('#dlgRoot [data-d="yes"]')
         pg.wait_for_selector('#stats:not([hidden])', timeout=8000)
         pg.wait_for_function("!document.body.classList.contains('table')", timeout=6000); time.sleep(1)
         check(pg.locator('.seat').count() == 0, 'nach Spielende sind die Tischplätze weg und die Statistik zu sehen')

@@ -701,7 +701,6 @@
     kick(snap);
   }
   const rotateBy = (d) => rotateTo(tgt.rot + d);
-  $('btnRotL').addEventListener('click', () => rotateBy(-60)); $('btnRotR').addEventListener('click', () => rotateBy(60));
   // Blickrichtung der Zahlenchips: Tisch = Sicht des Tischspielers am Zug (Bot/Online-Spieler: des folgenden Tischspielers), sonst aufrecht
   const SEAT_ANG = { b: 0, t: 180, l: 90, r: -90 };
   function chipSeat(slot) {

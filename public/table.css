@@ -56,6 +56,8 @@ body.table .seat #primary .btn { padding: 8px 10px; font-size: 13px; font-family
 .seat.turn .badgerow { display: flex; }
 .seat.turn .pubrow .badge.top { display: none; }
 .seathb { flex: none; } .seathb #camBtns { position: static; display: flex; z-index: 20; }
+/* Hamburger-Menü am Tisch: liegt im Platz des Spielleiters (dreht mit) und klappt nach oben, zur Tischmitte, auf */
+.seathb .menu-pop.in-seat { position: absolute; top: auto; left: auto; right: 0; bottom: calc(100% + 8px); max-height: 70vmin; overflow-y: auto; }
 
 .seatmenu { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .seatmenu:empty { display: none; }
