@@ -26,7 +26,9 @@ podman build -f Containerfile.pi -t localhost/handelsinseln:latest .   # Raspber
 node scripts/rohstoffe.js <Name>   # Testhilfe: Spieler bekommt je 20 Rohstoffe (beendet den Server mit DATA_DIR)
 ```
 
-CI: `.github/workflows/tests.yml` (Rust bauen, schnell → voll mit Playwright; nachts `PLAY_SECS=120`).
+CI: `.github/workflows/tests.yml` (Rust bauen, schnell → voll mit Playwright; nachts `PLAY_SECS=120`);
+`.github/workflows/image.yml` baut bei Push auf `master`/Tags das Multi-Arch-Image nach GHCR (`latest` für master),
+das die Quadlet-Vorlage mit `AutoUpdate=registry` nutzt.
 
 Linter: `npm run lint` (ESLint, nur Fehlerklassen wie undefinierte/ungenutzte Namen, keine Stilregeln; einmalig `npm install`).
 Einzelne Tests: das jeweilige Skript direkt aufrufen (kein Test-Runner, kein Filter). Browser-Tests holen sich freie Ports und

@@ -130,6 +130,16 @@ podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 \
 # https (für Sprachchat): https://<rechner>:8443 – Zertifikatswarnung einmal bestätigen
 ```
 
+Fertiges Multi-Arch-Image (amd64/arm64) aus GHCR:
+
+```bash
+podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 \
+  -v handelsinseln-data:/data ghcr.io/hgruber/handelsinseln:latest
+```
+
+Das Paket ist standardmäßig privat: entweder in den GitHub-Paketeinstellungen öffentlich machen oder auf dem Server
+`podman login ghcr.io` mit einem PAT (`read:packages`) ausführen.
+
 Der Server ist ein statisch gelinktes Rust-Binary im `scratch`-Container: rund **4,8 MB**, keine Shell, keine Laufzeit-Abhängigkeiten.
 TLS ist eingebaut: Ohne weitere Angabe lauscht er zusätzlich auf 8443 mit einem selbstsignierten Zertifikat. Namen und IP-Adressen für
 das Zertifikat kommen aus `TLS_HOSTS` (z. B. `-e TLS_HOSTS=handelsinseln.lan,<LAN-Adresse>`). Hinter einem Reverse-Proxy
@@ -164,7 +174,8 @@ brauchen einen Neustart.
 ### Dauerbetrieb
 
 Die Quadlet-Vorlage `deploy/handelsinseln.container` läuft unter systemd/podman mit Volume und `HTTPS_PORT=0` hinter einem
-Reverse-Proxy. Der Spielstand liegt in `DATA_DIR/state.json`, abgeschlossene Partien hängen als JSON-Zeile an `DATA_DIR/partien.jsonl`.
+Reverse-Proxy. Sie nutzt `ghcr.io/hgruber/handelsinseln:latest` mit `AutoUpdate=registry`; den Auto-Update-Timer aktivierst
+du mit `systemctl enable --now podman-auto-update.timer` (GHCR-Paket öffentlich oder `podman login ghcr.io`). Der Spielstand liegt in `DATA_DIR/state.json`, abgeschlossene Partien hängen als JSON-Zeile an `DATA_DIR/partien.jsonl`.
 Das Betriebslog geht nach stdout (eine Zeile je Ereignis; Rotation übernimmt journald). Unter systemd/Quadlet `LOG_TIMESTAMP=0` setzen,
 dann schreibt nur journald den Zeitstempel.
 

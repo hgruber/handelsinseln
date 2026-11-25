@@ -1,0 +1,10 @@
+.git
+.github
+data
+node_modules
+rust/target
+docs
+tests
+deploy
+scripts
+*.md

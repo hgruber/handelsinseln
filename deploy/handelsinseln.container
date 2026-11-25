@@ -1,4 +1,7 @@
 # Die Handelsinseln – Quadlet-Vorlage für systemd/podman (nach /etc/containers/systemd/ kopieren, dann systemctl daemon-reload).
+# Image aus GHCR (Multi-Arch). AutoUpdate=registry zieht neue :latest-Images; dafür `systemctl enable --now podman-auto-update.timer`.
+# Das GHCR-Paket ist standardmäßig privat: in den GitHub-Paketeinstellungen öffentlich machen oder auf dem Server
+# einmal `podman login ghcr.io` mit einem PAT (read:packages) ausführen.
 # Standard: TLS übernimmt ein Reverse-Proxy davor (HTTPS_PORT=0). Spielstand im Volume handelsinseln (/data/state.json).
 # Ohne Proxy im LAN (Sprachchat): Environment=HTTPS_PORT=8443 und Environment=TLS_HOSTS=<name>,<adresse> setzen und PublishPort=8443:8443 ergänzen.
 [Unit]
@@ -7,7 +10,8 @@ Wants=network-online.target
 After=network-online.target
 
 [Container]
-Image=localhost/handelsinseln:latest
+Image=ghcr.io/hgruber/handelsinseln:latest
+AutoUpdate=registry
 HostName=handelsinseln
 # Ohne Reverse-Proxy im selben Podman-Netz stattdessen den Port veröffentlichen:
 # PublishPort=8080:8080

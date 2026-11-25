@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **GHCR-Image mit Auto-Update:** `.github/workflows/image.yml` baut bei jedem Push auf `master` und bei Versionstags ein Multi-Arch-Image (amd64/arm64) nach `ghcr.io/hgruber/handelsinseln`; `master` erzeugt `latest`, Tags erzeugen die Versions-Tags. Die Quadlet-Vorlage nutzt `ghcr.io/hgruber/handelsinseln:latest` mit `AutoUpdate=registry`. Das GitHub-Paket ist standardmäßig privat: öffentlich machen oder auf dem Server `podman login ghcr.io` (PAT mit `read:packages`).
+
 ## [1.0.0] - 2026-11-26
 
 Erster öffentlicher Release. Die früheren 1.x-Versionen waren interne Entwicklungsstände; ihre Einträge stehen im [Changelog-Archiv](docs/CHANGELOG-archiv.md).

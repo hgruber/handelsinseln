@@ -78,6 +78,14 @@ Auf x86_64 mit qemu-user-static (langsamer, gleiches Ergebnis):
 podman build --platform linux/arm64 -f Containerfile.pi -t localhost/handelsinseln:pi .
 ```
 
+## GHCR-Image
+
+`.github/workflows/image.yml` baut bei jedem Push auf `master` und bei Tags ein Multi-Arch-Image
+(`linux/amd64`, `linux/arm64`) nach `ghcr.io/hgruber/handelsinseln`. `latest` folgt `master`, ein Tag
+`vX.Y.Z` erzeugt `X.Y.Z` und `vX.Y.Z`. Das Paket ist standardmäßig privat; für `AutoUpdate=registry`
+entweder in den Paketeinstellungen öffentlich machen oder auf dem Zielsystem `podman login ghcr.io`
+mit einem PAT (`read:packages`) ausführen.
+
 ## TLS (8443)
 
 Der Server spricht zusätzlich HTTPS auf `HTTPS_PORT` (Standard 8443, `0` schaltet ab). Er erzeugt beim
