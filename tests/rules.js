@@ -219,6 +219,21 @@ test('Inselbonus: erste Siedlung auf neuer Insel +2, zweite Siedlung dort nicht'
   assert.equal(g.pl(0).svp, 2);
 });
 
+test('Punkte nach Quellen (vpParts): Summe stimmt, fremde Siegpunktkarten bleiben verdeckt', () => {
+  const g = board(); const S = g.S;
+  S.hexes['9,0'] = { t: 'wald', n: 3 }; S.hexes['10,0'] = { t: 'weide', n: 5 };
+  g.pl(0).claimed['0,0'] = 1;
+  g.placeSettlement(0, V('9,0', '9,-1', '10,-1'), false); // neue Insel: +2
+  g.pl(0).knights = 3; g.updateAwards();
+  g.pl(0).dev.push({ type: 'siegpunkt' });
+  const x = g.view(0).players[0].vpParts;
+  const sum = x.settlements + 2 * x.cities + x.islands + x.longest + x.largest;
+  assert.equal(sum, g.vp(0));
+  assert.equal(x.islands, 2); assert.equal(x.largest, 2); assert.equal(x.cards, 1);
+  assert.equal(g.view(1).players[0].vpParts.cards, null);
+  assert.equal(g.watchView().players[0].vpParts.cards, null);
+});
+
 test('Bankhandel mit Hafenkursen', () => {
   const g = board(); const S = g.S;
   const e = G.hexEdges('0,0').find((x) => G.edgeHexes(x).some((h) => S.hexes[h].t === 'meer'));

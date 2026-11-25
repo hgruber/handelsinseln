@@ -34,7 +34,7 @@ Bei jedem Fehlerfall ändert sich der Zustand nicht. Alle Texte sind deutsch.
  you: pid,                         // eigene ID
  host: pid,                        // darf starten
  minPlayers: 2, maxPlayers: 6, winPoints: 14,
- players: [{ id, name, color, connected, vp /*öffentliche Punkte*/, svp /*Sonderpunkte (Inseln)*/,
+ players: [{ id, name, color, connected, vp /*öffentliche Punkte*/, svp /*Inselpunkte (Inselbonus)*/, vpParts /*{settlements,cities,islands,longest,largest,cards} – Punkte nach Quellen; cards nur eigene bzw. nach Spielende, sonst null; in der Lobby null*/,
              resCount, devCount, knightsPlayed, longestRoute /*Länge*/,
              hasLongest: bool, hasLargest: bool,
              left: {road, ship, settlement, city},        // noch verfügbare Figuren
@@ -154,7 +154,7 @@ unbegrenzte Limits erscheinen als 999 in `players[].left:{road,…}` – im Clie
 bank: { dev: Zahl (999 = unbegrenzt), stock: {holz:n,…} }   // Bank-Vorrat je Rohstoff (999 = unbegrenzt)
 phase 'lobby': hexes/fog/harbors/robber/pirate enthalten die VORSCHAU des Spielfelds (gleiche Struktur wie im Spiel) → Brett darstellen.
 stats: null | { durationSec, turns, aborted: bool, rolls:{"2":n,…,"12":n}, history:[{round, vp:[pid-Reihenfolge…]}],
-  players:[{id,name,color,vp,svp,built:{road,ship,settlement,city,dev},produced:{holz,lehm,wolle,getreide,erz,total},
+  players:[{id,name,color,vp,svp,vpParts,built:{road,ship,settlement,city,dev},produced:{holz,lehm,wolle,getreide,erz,total},
             tradesPlayer,tradesBank,stolenFrom,stolenBy,discarded,knights,maxRoute,discovered,robberMoves,sevens}] }   // nur phase 'ended'
 legal.takeover: {edges:[Kante…], verts:[Ecke…]}    // übernehmbare Infrastruktur verlassener Spieler (nur wenn du am Zug im Schritt 'main' bist und noch nichts versetzt/übernommen hast)
 ```

@@ -4,6 +4,11 @@
 const { G, B, RES, COST, MIN_P, MAX_P, UNLIMITED } = require('./game_common');
 
 class GameView {
+  // Siegpunkte nach Quellen (für den Hinweis an Punktestand und Rangliste); Siegpunktkarten nur, wenn sie sichtbar sein dürfen (eigene, Spielende)
+  vpParts(pid, cards) {
+    const S = this.S, p = this.pl(pid);
+    return { settlements: this.count(pid, 's'), cities: this.count(pid, 'c'), islands: p.svp, longest: S.longest === pid ? 2 : 0, largest: S.largest === pid ? 2 : 0, cards: cards ? this.hiddenVp(pid) : null };
+  }
   statsView() {
     const S = this.S, st = S.stats;
     if (!st || S.phase !== 'ended') return null;
@@ -13,7 +18,7 @@ class GameView {
       history: st.history,
       players: S.players.map((p) => {
         const x = st.players[p.id];
-        return { id: p.id, name: p.name, color: p.color, vp: this.vp(p.id) + this.hiddenVp(p.id), svp: p.svp, built: x.built,
+        return { id: p.id, name: p.name, color: p.color, vp: this.vp(p.id) + this.hiddenVp(p.id), svp: p.svp, vpParts: this.vpParts(p.id, true), built: x.built,
           produced: { ...x.produced, total: RES.reduce((a, r) => a + x.produced[r], 0) }, tradesPlayer: x.tradesPlayer, tradesBank: x.tradesBank,
           stolenFrom: x.stolenFrom, stolenBy: x.stolenBy, discarded: x.discarded, knights: p.knights, maxRoute: x.maxRoute,
           discovered: x.discovered, robberMoves: x.robberMoves, sevens: x.sevens };
@@ -86,6 +91,7 @@ class GameView {
       players: S.players.map((p) => ({
         id: p.id, name: p.name, color: p.color, avatar: p.avatar || null, bot: p.bot || null, seat: p.seat == null ? null : p.seat, tableGuest: !!p.tableGuest, connected: p.connected, auto: !!p.auto, gone: !!p.left, handover: !!p.handover,
         vp: S.phase === 'lobby' ? 0 : this.vp(p.id) + (S.phase === 'ended' ? this.hiddenVp(p.id) : 0), svp: p.svp,
+        vpParts: S.phase === 'lobby' ? null : this.vpParts(p.id, S.phase === 'ended' || p.id === pid),
         resCount: this.handSize(p.id), devCount: p.dev.length, knightsPlayed: p.knights, longestRoute: lens[p.id] || 0,
         hasLongest: S.longest === p.id, hasLargest: S.largest === p.id,
         left: S.phase === 'lobby' ? { road: this.lim('road') === Infinity ? UNLIMITED : this.lim('road'), ship: this.lim('ship') === Infinity ? UNLIMITED : this.lim('ship'), settlement: this.lim('settlement') === Infinity ? UNLIMITED : this.lim('settlement'), city: this.lim('city') === Infinity ? UNLIMITED : this.lim('city') } : this.left(p.id),

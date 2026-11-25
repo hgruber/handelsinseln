@@ -792,6 +792,20 @@
     setHTML($('banner'), `<div class="bn ${you ? 'mine' : 'wait'}">${avatar(v.turn, 28)}<span class="txt">${pre}${esc(txt)}${esc(mode)}${esc(dsc)}</span>${extra}</div>`);
   }
 
+  // Hinweis zum Punktestand: Aufschlüsselung nach Quellen (Siegpunktkarten nur eigene bzw. nach Spielende)
+  function vpTip(p) {
+    const x = p.vpParts; if (!x) return 'Siegpunkte';
+    const vis = p.vp + (x.cards && !(V() && V().phase === 'ended') ? x.cards : 0);
+    const L = [`Siegpunkte: ${vis}`];
+    if (x.settlements) L.push(`${x.settlements} ${x.settlements === 1 ? 'Siedlung' : 'Siedlungen'}: ${x.settlements}`);
+    if (x.cities) L.push(`${x.cities} ${x.cities === 1 ? 'Stadt' : 'Städte'}: ${2 * x.cities}`);
+    if (x.islands) L.push(`Inseln (Inselbonus): ${x.islands}`);
+    if (x.longest) L.push(`Längster Handelsweg: ${x.longest}`);
+    if (x.largest) L.push(`Stärkste Schutzmacht: ${x.largest}`);
+    if (x.cards) L.push(`Siegpunktkarten: ${x.cards}${V() && V().phase !== 'ended' ? ' (verdeckt, nur du siehst sie)' : ''}`);
+    else if (x.cards === null && V() && V().phase !== 'ended') L.push('Siegpunktkarten bleiben bis Spielende verdeckt');
+    return L.join('\n');
+  }
   function renderPlayers(v) {
     const html = v.order.map((pid) => {
       const p = v.players[pid]; const turn = v.turn === pid && v.phase !== 'ended';
@@ -805,7 +819,7 @@
         `<span title="Entwicklungskarten auf der Hand"><svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="1.5" width="10" height="13" rx="2" fill="#6a7bb0" stroke="#2c3560"/><path d="M8,5 l1,2 2,.3 -1.5,1.4 .4,2 -1.9,-1 -1.9,1 .4,-2 -1.5,-1.4 2,-.3z" fill="#ffe27a"/></svg>${p.devCount}</span>` +
         `<span title="Gespielte Ritter">${Art.dev('ritter', 14)}${p.knightsPlayed}</span>` +
         `<span title="Längster Handelsweg (Länge)">${Art.pieceIcon('road', p.color, 14)}${p.longestRoute}</span></div>${badges || duty ? `<div class="bd">${badges}${duty}</div>` : ''}</div>` +
-        `<div class="vp" title="Öffentliche Siegpunkte${p.svp ? ' (davon ' + p.svp + ' Sonderpunkte)' : ''}"><b>${p.vp}</b><i>★</i>${p.svp ? `<small>${p.svp} Sonder</small>` : ''}</div>${turn ? '<span class="arrow" aria-hidden="true"></span>' : ''}</div>`;
+        `<div class="vp" title="${esc(vpTip(p))}"><b>${p.vp}</b><i>★</i>${p.svp ? `<small>${p.svp} Insel</small>` : ''}</div>${turn ? '<span class="arrow" aria-hidden="true"></span>' : ''}</div>`;
     }).join('');
     setHTML($('players'), html);
   }
@@ -1136,7 +1150,7 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
+    const ctx = { vpTip, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });
