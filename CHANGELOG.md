@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.7.3] - 2026-11-25
+
 ### Hinzugefügt
 - **Entwicklungskarten einzeln einstellbar:** Die Spieleinstellungen haben eine eigene Gruppe „Entwicklungskarten“ mit einer Zeile je Art (Ritter, Siegpunkt, Straßenbau, Erfindung, Monopol, Stadtmauer), jeweils Standard oder eigene Anzahl (auch 0). Standard ist das Grundspiel (14/5/2/2/2), ab 5 Spielern wie in der Erweiterung für 5–6 Spieler (20/5/3/3/3). Der Schalter **Stapel** wählt zwischen „Wird leer“ (Original) und „Mit Zurücklegen“: Dann wird der Stapel nie leer, und die Zahlen je Art bestimmen das Verhältnis beim Ziehen. Das bisherige „∞“ für den ganzen Stapel entfällt; ältere Spielstände damit laufen mit Standardzahlen und Zurücklegen weiter, solche mit einer Gesamtzahl werden im Grundspiel-Verhältnis aufgeteilt.
 - **Stadtmauer (Hausregel, standardmäßig aus):** Neue Entwicklungskarte – sie bleibt verdeckt auf der Hand (wie eine Siegpunktkarte) und erlaubt bei einer 7 je Karte eine Handkarte mehr. Die Handkarten-Warnung und der Abwerfen-Dialog rechnen mit dem persönlichen Limit. Bild mit Flux gemalt (`public/img/dev-stadtmauer.webp`).
