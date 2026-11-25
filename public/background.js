@@ -74,7 +74,7 @@
     let cx = 0, cy = 0;
     for (const p of pts) { cx += p[0] / 6; cy += p[1] / 6; }
     let rad = 0;
-    for (const p of pts) rad += Math.hypot(p[0] - cx, p[1] - cy) / 6;
+    for (const p of pts) rad = Math.max(rad, Math.hypot(p[0] - cx, p[1] - cy));
     const s = rad / TEXR;
     g.save();
     g.translate(cx, cy);
@@ -91,10 +91,6 @@
     g.save(); g.clip();
     g.drawImage(img, TEXC - TEXR * 0.98, TEXC - TEXR * 0.98, TEXR * 1.96, TEXR * 1.96);
     g.restore();
-    const vg = g.createRadialGradient(TEXC, TEXC, TEXR * 0.35, TEXC, TEXC, TEXR * 1.02);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,.28)');
-    g.save(); hexPath(g, TEXC, TEXC, TEXR); g.clip(); g.fillStyle = vg; g.fillRect(0, 0, TEXN, TEXN); g.restore();
     tex[motif + variant] = c;
   }
   function loadTextures() {
@@ -113,7 +109,7 @@
 
   // Gelände aus dem Rauschen: offenes Meer, Sandstrand, Weide, Acker, Wald, Hügel, Gebirge
   function terrainAt(q, k, seed, water, extra) {
-    let h = fbm(q * 0.048 + 11.3, k * 0.048 + 4.7, seed, 4);
+    let h = fbm(q * 0.038 + 11.3, k * 0.038 + 4.7, seed, 3);
     if (extra) h = extra(q, k, h);
     const w = water == null ? 0.40 : water;
     let m;
@@ -122,7 +118,7 @@
     else if (h < 0.49) m = 'weide';
     else if (h < 0.555) m = 'acker';
     else if (h < 0.625) m = 'wald';
-    else if (h < 0.695) m = 'huegel';
+    else if (h < 0.72) m = 'huegel';
     else m = 'gebirge';
     if (m !== 'meer' && h2(q * 3 + 7, k * 5 + 2, seed + 9) > 0.988) m = 'gold';
     return { m, v: h2(q, k, seed + 3) > 0.5 ? 2 : 1, h };
@@ -169,7 +165,7 @@
     const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
     const cx = W * 0.5, cy = hy - F * Math.tan(alpha - PITCH);
     // Die Kugel wölbt sich: der Horizont fällt zu den Rändern ab, statt ein gerader Streifen zu sein.
-    const BEND = H * 0.085;
+    const BEND = H * 0.042;
     const bend = (x) => BEND * Math.pow((x - cx) / (W * 0.5), 2);
     const proj = (u, v) => {
       const ph = u / R, th = v / R;
@@ -186,9 +182,19 @@
     const sky = tex.__sky;
     const skyBottom = hy + BEND + H * 0.06;
     if (sky) {
-      const s = Math.max(W / sky.width, skyBottom / sky.height);
-      const dw = sky.width * s, dh = sky.height * s;
-      g.drawImage(sky, (W - dw) * 0.5, skyBottom - dh, dw, dh);
+      // Himmel in ein Zwischenbild, dann jede Spalte um die Wölbung versetzt zeichnen –
+      // so folgt auch der Wolkenhorizont der Kugel statt gerade zu bleiben.
+      const off = document.createElement('canvas');
+      off.width = Math.max(1, Math.round(W));
+      off.height = Math.max(1, Math.round(skyBottom + BEND));
+      const og = off.getContext('2d');
+      const sc = Math.max(off.width / sky.width, off.height / sky.height);
+      const dw = sky.width * sc, dh = sky.height * sc;
+      og.drawImage(sky, (off.width - dw) / 2, off.height - dh, dw, dh);
+      for (let x = 0; x < off.width; x++) {
+        const dy = bend(x + 0.5) - BEND;
+        g.drawImage(off, x, 0, 1, off.height, x, dy, 1, off.height);
+      }
     } else {
       const gr = g.createLinearGradient(0, 0, 0, skyBottom);
       gr.addColorStop(0, '#101a33');
@@ -214,8 +220,9 @@
         g.beginPath(); g.arc(x, y, 0.4 + a * 0.9, 0, TAU); g.fill();
       }
     }
-    glow(g, W * 0.58, hy + H * 0.01, H * 0.5, '#ffc98a', 0.5);
-    glow(g, W * 0.58, hy + H * 0.01, H * 0.16, '#ffe6b8', 0.8);
+    const sunX = W * 0.58, sunY = hy + bend(sunX) + H * 0.01;
+    glow(g, sunX, sunY, H * 0.5, '#ffc98a', 0.5);
+    glow(g, sunX, sunY, H * 0.16, '#ffe6b8', 0.8);
 
     // ---- Erdfläche als Untergrund bis zur Horizontkurve (füllt Lücken hinter den Tiles) ----
     const hz = [], uMaxH = R * alpha * 0.999;
@@ -237,13 +244,17 @@
 
     // ---- Tiles auf der Kugel ----
     // Die Komposition: eine Insel unter der Kamera, dahinter offenes Meer und ferne Eilande.
-    // Sanftes Plateau statt Summe: vor der Kamera liegt Land, dahinter offenes Meer.
+    // Komposition: eine Insel unter der Kamera, dahinter offenes Meer und ferne Eilande.
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
     const island = (q, k, h) => {
       const u = SQ3 * (q + k / 2), v = k * 1.5 - 1;
-      const near = Math.exp(-((u * u + (v - 5) * (v - 5)) / 150));
-      const far = 0.85 * Math.exp(-(((u + 24) ** 2 + (v - 26) ** 2) / 320));
-      const m = Math.min(1, near + far);
-      return h * (1 - m) + (0.505 + 0.04 * Math.sin(u * 0.7 + v * 0.5) + 0.035 * Math.sin(u * 0.31 - v * 0.23)) * m;
+      const wob = (fbm(u * 0.11 + 5, v * 0.11 + 9, seed + 4, 3) - 0.5) * 9;
+      const d = Math.hypot(u * 0.9, v - 2) + wob;
+      let m = 1 - clamp01((d - 3) / 7);
+      const e1 = 1 - clamp01((Math.hypot(u - 26, v - 23) - 2) / 5);
+      const e2 = 1 - clamp01((Math.hypot(u + 29, v - 18) - 1.5) / 4);
+      m = Math.max(m, e1 * 0.85, e2 * 0.8);
+      return h * 0.5 + 0.27 * m;
     };
     const vMax = R * alpha * 0.99;
     const uMax = R * alpha;
@@ -255,7 +266,7 @@
       for (let q = q0; q <= q1; q++) {
         const u = SQ3 * (q + k / 2);
         if (Math.abs(u) > umax) continue;
-        const t = terrainAt(q, k, seed, 0.41, island);
+        const t = terrainAt(q, k, seed, 0.43, island);
         const pts = [];
         let ok = true;
         for (let i = 0; i < 6; i++) {
@@ -277,7 +288,6 @@
         if (image && size > 4.5) {
           const lk = lookOf(q, k, seed);
           g.save(); g.clip();
-          if (size > H * 0.42) g.filter = 'blur(0.8px)';
           drawTexturedHex(g, image, pts, lk.mir);
           g.restore();
         }
