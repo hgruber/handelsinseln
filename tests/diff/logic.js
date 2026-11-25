@@ -8,6 +8,7 @@ const os = require('os');
 const path = require('path');
 const Game = require('../../server/game');
 const { botAct } = require('../../server/bot');
+const { botPlay } = require('../../server/botplay');
 const { mulberry32 } = require('../../server/rng');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -21,6 +22,10 @@ const args = Object.fromEntries(process.argv.slice(2).map((s) => {
 const n = +(args.n || 4);
 const seed = +(args.seed || 1);
 const maxSteps = +(args.max || 6000);
+const botMode = args.bot === 'play';
+const botSeed = (seed ^ 0x9e3779b9) >>> 0;
+const fixedNow = 1000;
+const personaFor = (pid) => ['baumeister', 'haendler', 'ritter'][pid % 3];
 const settings = args.settings ? JSON.parse(args.settings) : (args.variant ? { variant: args.variant } : null);
 
 // --- kanonischer Zustand (Objekt-Schlüssel sortiert, Tokens/Zeiten neutralisiert) ---
@@ -59,7 +64,7 @@ for (let i = 0; i < n; i++) {
   const r = g.join('Spieler' + (i + 1), COL[i]);
   players.push({ name: 'Spieler' + (i + 1), color: COL[i], token: r.token });
 }
-const trace = [{ kind: 'init', seed, players: players.map((p) => ({ name: p.name, color: p.color })) }];
+const trace = [{ kind: 'init', seed, players: players.map((p) => ({ name: p.name, color: p.color })), ...(settings ? { settings } : {}), ...(botMode ? { bot: true, botSeed, now: fixedNow, max: maxSteps } : {}) }];
 const hashes = [];
 let sent = null;
 const origAct = g.act.bind(g);
@@ -76,7 +81,7 @@ while (g.S.phase !== 'ended' && g.S.turnNo < 1200 && steps < maxSteps && Date.no
   for (let pid = 0; pid < n && g.S.phase !== 'ended'; pid++) {
     sent = null;
     let ok = false;
-    try { ok = botAct(g, pid, { rnd: botRnd }); } catch (e) { if (!(e instanceof Game.GameError)) throw e; ok = false; }
+    try { ok = botMode ? botPlay(g, pid, { as: personaFor(pid), rnd: botRnd, now: () => fixedNow }) : botAct(g, pid, { rnd: botRnd }); } catch (e) { if (!(e instanceof Game.GameError)) throw e; ok = false; }
     if (ok) { steps++; acted = true; record(pid); }
   }
   if (!acted) {

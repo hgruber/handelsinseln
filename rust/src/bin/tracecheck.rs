@@ -108,6 +108,61 @@ fn main() {
         }
     }
     let mut out = Vec::new();
+    let bot_mode = init.get("bot").and_then(|v| v.as_bool()).unwrap_or(false);
+    if bot_mode {
+        use handelsinseln::botplay::bot_play;
+        let bot_seed = init.get("botSeed").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        let now = init.get("now").and_then(|v| v.as_i64()).unwrap_or(1000);
+        let bot_rnd = Arc::new(Mutex::new(Rng::seeded(bot_seed)));
+        if let Some(settings) = init.get("settings") {
+            let a = json!({"type": "set_settings", "settings": settings});
+            if let Err(e) = g.act(0, &a) {
+                out.push(format!("ERR settings: {}", e.0));
+            } else {
+                out.push(hash_views(&mut g));
+            }
+        }
+        if let Err(e) = g.act(0, &json!({"type": "start"})) {
+            out.push(format!("ERR start: {}", e.0));
+        } else {
+            out.push(hash_views(&mut g));
+        }
+        let n = g.S.players.len();
+        let kinds = ["baumeister", "haendler", "ritter"];
+        let mut steps = 0usize;
+        let mut stuck = 0;
+        let max_steps = init.get("max").and_then(|v| v.as_u64()).map(|x| x as usize).unwrap_or(6000);
+        while g.S.phase != "ended" && g.S.turn_no < 1200 && steps < max_steps {
+            let mut acted = false;
+            for pid in 0..n {
+                if g.S.phase == "ended" {
+                    break;
+                }
+                match bot_play(&mut g, pid, Some(kinds[pid % 3]), &bot_rnd, now) {
+                    Ok(true) => {
+                        steps += 1;
+                        acted = true;
+                        out.push(hash_views(&mut g));
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        out.push(format!("ERR bot: {}", e.0));
+                        acted = true;
+                    }
+                }
+            }
+            if !acted {
+                stuck += 1;
+                if stuck > 3 {
+                    break;
+                }
+            } else {
+                stuck = 0;
+            }
+        }
+        println!("{}", out.join("\n"));
+        return;
+    }
     for line in lines {
         let line = match line {
             Ok(l) => l,
