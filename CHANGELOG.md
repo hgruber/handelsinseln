@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.7.2] - 2026-11-25
+
 ### Geändert
 - **Stadt-Steinchen:** Neu gemalt (Flux, `public/img/stein-stadt.webp`) — breiter und flacher statt hoher Kirchturm in der Mitte: Der Turm steht jetzt am linken Rand, die obere Mitte und rechts bleiben frei. So verdeckt die Stadt auf Touchscreens keine Straßenkanten mehr, die man zum Bauen antippen muss. Das Steinchen ist etwas größer als die Siedlung.
 
