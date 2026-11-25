@@ -1,7 +1,14 @@
 # Die Handelsinseln – Brettspiel im Browser
 
-Mehrspieler-Browserspiel (2–6 Spieler, standardmäßig 14 Siegpunkte). Die gesamte Spiellogik läuft im Server (Podman-Container);
-die Mitspieler öffnen nur die Webseite, geben Namen + Farbe an und spielen.
+Mehrspieler-Brettspiel im Browser für 2–6 Spieler (standardmäßig 14 Siegpunkte): Siedlungen, Städte und Straßen bauen, mit Schiffen
+unbekannte Inseln im Nebel entdecken, Gold schürfen, handeln. Die gesamte Spiellogik läuft im Server (Node, keine Laufzeit-Abhängigkeiten,
+als Podman-Container); die Mitspieler öffnen nur die Webseite, geben Namen, Farbe und Avatar an und spielen – am PC, am Tablet, am Handy
+oder gemeinsam an einem **digitalen Spieltisch**.
+
+- Vier Spielfeld-Varianten, zufällige und unbegrenzt entdeckbare Karte, Piraten, Goldfelder, Häfen.
+- Bots mit Persönlichkeit, Auto-Modus für Abwesende, Übernahme verlassener Spieler.
+- Sprachchat (WebRTC), Chat, Zuschauer, Statistik nach Spielende.
+- Installierbar als App (PWA) auf Android und iPhone.
 
 ## Screenshots
 
@@ -15,21 +22,38 @@ Echte Partien (Sicht von Anna, dazu die drei Bots), je Variante ein eigenes Spie
 
 ![Statistik nach Spielende](docs/screenshots/statistik.webp)
 
-Anmeldung mit Avatar-Auswahl und Lobby mit Bots:
+### iPhone
 
-| Anmeldung | Lobby mit Bots |
+Dieselbe Partie auf einem iPhone (hochkant): kompakte Spielerleiste mit Avataren, Kartenleiste mit allen fünf Rohstoffen, Bauknöpfe
+darunter; Handelsfenster und Spielmenü (u. a. „Karte links/rechts drehen“, „Brett zentrieren“) legen sich über die Karte. Quer gehalten
+liegen Rohstoffe, Bauknöpfe, Würfel und „Zug beenden“ in einer Zeile.
+
+| Spiel | Handeln | Spielmenü |
+|---|---|---|
+| ![iPhone: Spiel](docs/screenshots/iphone_spiel.webp) | ![iPhone: Handeln](docs/screenshots/iphone_handel.webp) | ![iPhone: Spielmenü](docs/screenshots/iphone_menue.webp) |
+
+![iPhone quer](docs/screenshots/iphone_quer.webp)
+
+### Anmeldung und Lobby
+
+| Anmeldung mit Avatar-Auswahl | Lobby mit Bots |
 |---|---|
 | ![Anmeldung](docs/screenshots/anmeldung.webp) | ![Lobby mit Bots](docs/screenshots/lobby_bots.webp) |
 
 ![Avatare](docs/screenshots/avatare.png)
 
-Digitaler Spieltisch (Browser des Spielleiters als Tischplatte, gedrehte Spielerleisten an allen Rändern), Platzwahl beim Start und ein Handelsangebot am Tisch:
+### Digitaler Spieltisch
+
+Der Browser des Spielleiters wird zur Tischplatte, die Spielerleisten sitzen gedreht an allen Rändern; beim Start wählt jeder Tischspieler
+seinen Platz, Handelsangebote erscheinen an der Leiste jedes Spielers:
 
 ![Spieltisch](docs/screenshots/tisch.webp)
 
 | Platzwahl beim Spielstart | Handelsangebot am Tisch |
 |---|---|
 | ![Platzwahl](docs/screenshots/platzwahl.webp) | ![Handel am Tisch](docs/screenshots/tisch_handel.webp) |
+
+### Karten
 
 Die Karten sind mit Flux/Forge gemalt: Rohstoffe, Ereigniskarten (Entwicklungskarten) und die Kartenleiste im Spiel.
 
@@ -41,8 +65,9 @@ Kartenanimation (eine Karte fliegt vom Feld in die eigene Hand):
 
 ![Kartenanimation](docs/screenshots/kartenanimation.webp)
 
-Neu erzeugen: Spielansichten, Statistik und Kartenleiste mit `node tests/mock/readme.js && node tests/mock/serve.js &` und dann `python3 tests/mock/readme_shots.py`
-(Anmeldung: `?mock=anmeldung`); Lobby mit Bots und Spieltisch fotografieren `tests/browser_bots.py` und `tests/browser_table.py` mit gesetztem `SHOTS=<Verzeichnis>`.
+**Neu erzeugen:** Spielansichten, Statistik, Kartenleiste und iPhone-Ansichten mit `node tests/mock/readme.js && node tests/mock/serve.js &` und dann
+`python3 tests/mock/readme_shots.py` (iPhone 15 emuliert: Touch, iOS-Kennung; Anmeldung: `?mock=anmeldung`); Lobby mit Bots und Spieltisch fotografieren
+`tests/browser_bots.py` und `tests/browser_table.py` mit gesetztem `SHOTS=<Verzeichnis>`. Die PNGs werden mit `cwebp -q 82` nach WebP umgewandelt.
 
 ## Starten
 
@@ -55,9 +80,6 @@ podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 -v handelsinseln-da
 Dauerbetrieb mit systemd-Quadlet: Vorlage `deploy/handelsinseln.container` (Image `localhost/handelsinseln`, Volume `handelsinseln`, TLS übernimmt ein
 Reverse-Proxy, daher `HTTPS_PORT=0`).
 Neue Version auf einen anderen Rechner ausrollen: `podman build -t localhost/handelsinseln:latest . && podman save localhost/handelsinseln:latest | ssh <host> podman load && ssh <host> systemctl restart handelsinseln.service`.
-
-**Handy und App:** Die Oberfläche ist für Handys ausgelegt (kompakte Ansicht, wischbare Kartenleisten, Protokoll als Schublade). Bei Bedienung per Finger fragt das Spiel bei jeder Aktion auf der Karte (Bauen, Räuber/Pirat setzen, Schiff versetzen, Übernahme) mit „… bauen / Abbrechen“ nach; die Karte zentriert sich am Handy nicht von selbst, sondern per Doppeltipp oder „Brett zentrieren“ im Menü. Über „Zum Startbildschirm hinzufügen“
-bzw. „App installieren“ des Browsers (Manifest + Icons in `public/`, braucht https) läuft das Spiel als eigenständige App. Töne lassen sich im Spielmenü abschalten.
 
 **Release:** Die Version steht in `package.json`. Neue Funktionen kommen in `CHANGELOG.md` unter „Unveröffentlicht“. Zum Veröffentlichen auf `master`:
 `./scripts/release.sh 1.0.0 --build` (oder `npm run release -- 1.0.0`) – prüft Branch und sauberen Arbeitsbaum, führt `tests/run_all.sh` aus, setzt Version und CHANGELOG-Abschnitt,
@@ -74,6 +96,22 @@ erzeugt dafür selbst ein Zertifikat (gespeichert in `DATA_DIR/tls`). Beim erste
 Weitere Namen/IPs für das Zertifikat: `TLS_HOSTS=handelsinseln.lan,192.168.0.20`; eigenes Zertifikat: `TLS_CERT`/`TLS_KEY`; https abschalten: `HTTPS_PORT=0`.
 Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-talk mit Leertaste); bei Echo Kopfhörer nutzen.
 
+## Handy und iPhone
+
+- **Kompakte Ansicht:** Auf Handys (hochkant und quer) zeigt die Spielerleiste nur die Avatare, das Protokoll liegt als Schublade am rechten Rand
+  (‹), die Kartenleiste unten zeigt immer alle fünf Rohstoffe vollständig; nur die Entwicklungskarten daneben lassen sich wischen. Die
+  Handlimit-Warnung erscheint als kleines Etikett über den Rohstoffen.
+- **Bestätigung auf der Karte:** Bei Bedienung per Finger führt ein Tipp auf ein Ziel (Bauen, Aufbau, Räuber/Pirat, Schiff versetzen, Übernahme)
+  nicht sofort aus; das Ziel wird markiert und erst „Siedlung bauen“, „Räuber hierher“ usw. bestätigt. Mit der Maus und am Spieltisch genügt ein Klick.
+- **Karte bewegen:** Verschieben mit einem Finger, Zoomen mit zwei Fingern. Die Karte zentriert sich nicht von selbst, sondern per Doppeltipp oder
+  „Brett zentrieren“ im Menü. Drehen in 60°-Schritten über „Karte links/rechts drehen“ im Hamburger-Menü (frei mit zwei Fingern nur am Spieltisch).
+- **iPhone (Safari):** Die Leisten berücksichtigen Notch und Home-Balken (Safe Area); das Handelsfenster endet über der unteren Leiste und scrollt;
+  die Würfel zeigen nach dem Wurf eine flache Seite (Safari stellt die 3D-Würfel in der Leiste nicht zuverlässig dar). Vibration, wenn man in der
+  Controller-Ansicht am Zug ist, gibt es nur dort, wo der Browser sie erlaubt (Android, nicht iOS).
+- **Als App:** Über „Zum Home-Bildschirm“ (iPhone, Teilen-Menü in Safari) bzw. „App installieren“ (Android/Chrome) läuft das Spiel als
+  eigenständige App ohne Adressleiste (Manifest, Icons inkl. Apple-Touch-Icon und Service Worker in `public/`; braucht https).
+- Töne lassen sich im Spielmenü abschalten.
+
 ## Spiele, Lobby, Einstellungen
 
 - Wer den Server betritt, sieht alle beitretbaren Spiele; gibt es keins, eröffnet er ein neues und wird Spielleiter. Beliebig viele Spiele laufen parallel.
@@ -83,7 +121,7 @@ Stummschalten ist immer möglich (Knopf im Spiel und im Menü, optional Push-to-
   *Vier Heimatinseln* (jeder startet auf einer eigenen Insel), *Archipel* (viele kleine Inseln, viel Gold, viele Häfen). Alle in der Lobby sehen die Auswahl live und können per Chat oder Sprache mitreden.
 - **Digitaler Spieltisch:** Der Browser des Spielleiters (z. B. ein in den Tisch eingelassener Bildschirm) wird zur Tischplatte, sobald er in der Lobby einen **Tischspieler** anlegt („Tischspieler anlegen …“: Name, Farbe, Avatar). Alle Spieler sitzen dann am Tisch – Bots und Online-Spieler (am eigenen Gerät) lassen sich dazu mischen: Sie sitzen am Tisch nur mit öffentlicher Leiste (ohne geheimen Bereich) und handeln selbst bzw. automatisch; ihre Aktionen am Spielfeld gibt der Online-Spieler am Handy frei (Controller-Ansicht), der Spieltisch zeigt die Ziele. Das Spielfeld füllt den Bildschirm (alle Nicht-Nebel-Felder gerade noch sichtbar), jede Spielerleiste sitzt dauerhaft am Rand zur Sitzposition gedreht (auch mit geheimen Karten – die Spieler decken sie ab), Menüs und Handelsangebote erscheinen an der jeweiligen Leiste. Beim Start wird jeder Tischspieler der Reihe nach (Spielleiter zuerst) gefragt, wo er sitzt (Online-Spieler und Bots bekommen einen freien Platz), und wählt einen der acht Plätze (an den langen Seiten je drei, an den kurzen einer). Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn, gewürfelt wird nur, wer beginnt. Die Karte wird passend zum Seitenverhältnis des Bildschirms erzeugt.
 - **Zuschauen:** Auf der Startseite ist ein laufendes Spiel farblich abgesetzt; wählt man es, heißt der Knopf „Spiel ansehen“. Der Browser zeigt dann die öffentliche Tisch-Anzeige (alle Spielerleisten oben links ohne Randabstand, die Würfel neben dem Spieler am Zug, Meldungen in der Spielfeldmitte) – ohne Handkarten, Entwicklungskarten, Chat und Sprachchat und ohne jede Aktion. Bis zu 8 Zuschauer je Spiel; das Menü bietet „Zuschauen beenden“.
-- **Karte drehen:** ↺/↻ neben dem Menü drehen die Karte in 60°-Schritten; auf dem Handy stehen sie als „Karte links/rechts drehen“ im Hamburger-Menü. Mit zwei Fingern dreht sich die Karte nur am Spieltisch. Die Zahlenchips bleiben aufrecht; am Spieltisch folgen sie der Sicht des Tischspielers am Zug (bei Bot oder Online-Spieler: des folgenden Tischspielers).
+- **Karte drehen:** ↺/↻ neben dem Menü drehen die Karte in 60°-Schritten; auf dem Handy stehen sie als „Karte links/rechts drehen“ im Hamburger-Menü. Mit zwei Fingern dreht sich die Karte nur am Spieltisch. Die Zahlenchips und Hafenschilder bleiben aufrecht; am Spieltisch folgen sie der Sicht des Tischspielers am Zug (bei Bot oder Online-Spieler: des folgenden Tischspielers).
 - **Goldfluss:** In den Spieleinstellungen: Goldfluss auf der Startinsel erlaubt (nur beim Erzeugen der Karte), Erstsiedlung am Goldfluss erlaubt, maximale Ertragsrate (1–5: welche Zahlen ein Goldfeld tragen darf).
 - **Version:** Liegen seit dem letzten Tag Commits vor, zeigt die Version einen Zusatz (z. B. `1.5.12+5.e51231f`; aus `git describe` oder der Umgebungsvariable `APP_VERSION`, z. B. per `--build-arg`).
 - **Controller-Ansicht:** Sobald eine Tisch-Anzeige (Zuschauer) verbunden ist, schaltet das Handy von selbst in die Controller-Ansicht: Es zeigt nur noch Karten und Aktionen (Würfeln, Hand, Bauen, Handeln, Punkte) im Vollbild, das Spielfeld zeigt die Tisch-Anzeige. Das Hamburger-Menü wechselt zur „Karte“ (und zurück zu „Nur Karten & Aktionen“) und bietet bei übernommenen Plätzen „Kontrolle an den Spieltisch“. Eine Aktion am Spielfeld (Siedlung, Stadt, Straße, Schiff, Schiff versetzen, Übernahme, Räuber/Pirat, im Aufbau Siedlung und Straße/Schiff) wird erst am Handy freigegeben („Am Spieltisch wählen“); die Tisch-Anzeige zeigt dann die möglichen Ziele, jemand tippt dort eines an, und erst die Bestätigung am Handy führt die Aktion aus – so kann kein anderer für den Spieler am Zug handeln. Rückfragen (Abwerfen, Gold, Opfer wählen, Handel) bleiben am Handy. Verschwindet die Tisch-Anzeige, schaltet das Handy zurück auf die normale Ansicht.
