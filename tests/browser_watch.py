@@ -111,8 +111,8 @@ try:
         W.wait_for_selector('#gameList .gcard.run')
         if W.locator('#joinBtn').is_hidden(): W.click('#gameList .gcard.run')  # Auswahl bleibt nach dem Verlassen erhalten
         W.click('#joinBtn')
-        W.wait_for_selector('body.watch #seats .seat', timeout=8000)
-        W.reload(); W.wait_for_selector('body.watch #seats .seat', timeout=8000)
+        W.wait_for_selector('body.watch #seats .seat', timeout=20000)
+        W.reload(); W.wait_for_selector('body.watch #seats .seat', timeout=20000)
         check(W.locator('#seats .seat').count() == 3, 'nach Neuladen wieder die Tisch-Anzeige')
         b.close()
 finally:

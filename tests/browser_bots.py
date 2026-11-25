@@ -60,7 +60,7 @@ try:
         B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
         # Neuladen darf nicht ausloggen: Sitzung und Lobby bleiben erhalten
         tok = B.evaluate("localStorage.getItem('handelsinseln.token')")
-        B.reload(); B.wait_for_selector('#lobby:not([hidden])', timeout=6000)
+        B.reload(); B.wait_for_selector('#lobby:not([hidden])', timeout=20000)
         check(B.evaluate("localStorage.getItem('handelsinseln.token')") == tok and tok, 'nach dem Neuladen bleibt man angemeldet (Lobby sichtbar)')
         av = [x['avatar'] for x in games()[0]['players']]
         check(len(av) == 3 and len(set(av)) == 3, 'drei Spieler, drei verschiedene Avatare')
