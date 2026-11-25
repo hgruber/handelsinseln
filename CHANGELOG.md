@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Stadt-Steinchen:** Neu gemalt (Flux, `public/img/stein-stadt.webp`) — breiter und flacher statt hoher Kirchturm in der Mitte: Der Turm steht jetzt am linken Rand, die obere Mitte und rechts bleiben frei. So verdeckt die Stadt auf Touchscreens keine Straßenkanten mehr, die man zum Bauen antippen muss. Das Steinchen ist etwas größer als die Siedlung.
+
 ### Behoben
 - **Statistik, Siegpunkt-Verlauf:** Der Graph endete mit dem Stand zu Beginn der letzten Runde; der letzte Zug (z. B. der Siegzug) fehlte. Jetzt gibt es einen abschließenden Messpunkt „Spielende“ mit dem Endstand samt aufgedeckter Siegpunktkarten, passend zur Endwertung. Wird das Spiel fortgesetzt, entfällt er wieder.
 - **Hafenschilder:** Sie drehten sich beim Drehen der Karte mit und folgten am Spieltisch nicht der Blickrichtung des Tischspielers am Zug. Jetzt sind sie immer gleich ausgerichtet wie die Zahlenchips.

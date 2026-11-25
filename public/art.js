@@ -269,7 +269,7 @@
   // Siedlung/Stadt sind neutral hell gemalt und werden per Filter pt-<farbe> in der Spielerfarbe eingefaerbt.
   const stone = (name, x, y, w, h, c, cls) => `<image${cls ? ` class="${cls}"` : ''} href="${IMG_DIR}stein-${name}.webp" x="${x}" y="${y}" width="${w}" height="${h}"${c ? ` filter="url(#pt-${c})"` : ''}/>`;
   const settlement = (c) => sh(24, 6.5, 1) + stone('siedlung', -23, -44, 46, 44.5, c);
-  const city = (c) => sh(33, 8, 0) + stone('stadt', -28.5, -93, 57, 93, c);
+  const city = (c) => sh(40, 9, 0) + stone('stadt', -42, -67, 84, 67, c);
   const road = (c) => `<ellipse cy="6" rx="44" ry="5" fill="#000" opacity=".3"/>` + stone('strasse', -42, -11, 84, 16.2, c);
   function ship(c) {
     return `<ellipse cy="11" rx="38" ry="6.5" fill="#000" opacity=".3"/><g class="bob">` +
@@ -287,7 +287,7 @@
   // Figur in kleinem Symbol (Bau-Buttons)
   function pieceIcon(kind, c, size = 36) {
     const body = { road: road(c), ship: ship(c), settlement: settlement(c), city: city(c) }[kind] || '';
-    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-42 -62 84 80' : kind === 'city' ? '-32 -96 64 102' : '-27 -46 54 52';
+    const vb = kind === 'road' ? '-46 -16 92 32' : kind === 'ship' ? '-42 -62 84 80' : kind === 'city' ? '-46 -70 92 76' : '-27 -46 54 52';
     return `<svg class="pi" viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
   }
 
