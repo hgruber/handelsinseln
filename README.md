@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/klassisch.webp" alt="Die Handelsinseln – Partie zu viert mit geöffnetem Handelsfenster" width="100%">
+  <img src="docs/screenshots/klassisch.webp" alt="Die Handelsinseln – Partie zu viert auf einer klassischen Karte" width="100%">
 </p>
 
 <h1 align="center">Die Handelsinseln</h1>
@@ -9,7 +9,9 @@ Ein Mehrspieler-Brettspiel im Browser für 2–6 Spieler – ohne Konto, ohne In
 am PC, am Tablet, am Handy oder gemeinsam an einem digitalen Spieltisch.</p>
 
 <p align="center">
-  <em>4 Kartenwelten · Bots mit Persönlichkeit · Sprachchat · Zuschauer · PWA</em>
+  <em>4 Kartenwelten · Bots mit Persönlichkeit · Sprachchat · Zuschauer · PWA</em><br>
+  <strong>Der ganze Server: ein einziges Binary unter 5 MB.</strong> Kein Node, kein Python, keine Datenbank – statisch gelinkter
+  Rust-Server im Container ohne Shell. Auf einem Raspberry Pi genauso zu Hause wie auf dem Heimserver.
 </p>
 
 ---
@@ -40,9 +42,15 @@ Siegpunktzahl erreicht (standardmäßig 14), gewinnt.
 
 Jede Variante hat eigene Startbedingungen – die Lobby zeigt sie live, alle Mitspieler sehen die Auswahl.
 
+<p align="center">
+  <img src="docs/screenshots/detail-tiles.webp" alt="Nahaufnahme der gemalten Felder mit Werte-Chips, Siedlungen, Straßen und Schiffen" width="700">
+</p>
+
+Aus der Nähe: gemalte Landschaften, Werte-Chips, Siedlungen, Straßen und Schiffe – jedes Feld ein kleines Bild.
+
 ## Ein Blick hinein
 
-**Lobby:** Name, Farbe und Avatar wählen (16 Porträts, nie doppelt), Bots dazuholen, Variante und Regeln einstellen – dann
+**Lobby:** Name, Farbe und Avatar wählen (28 Porträts, nie doppelt), Bots dazuholen, Variante und Regeln einstellen – dann
 „Spiel starten“. Der Hintergrund lässt sich pro Gerät wählen: Meer, Seekarte, Nebelmeer, Holz oder Pergament.
 
 ![Lobby mit drei Bots](docs/screenshots/lobby.webp)
@@ -52,15 +60,15 @@ die Leisten sitzen gedreht am Rand, Handelsangebote erscheinen beim jeweiligen S
 
 ![Digitaler Spieltisch](docs/screenshots/tisch.webp)
 
-| Platzwahl beim Start | Handelsangebot am Tisch |
+| Platzwahl beim Start | Partie im Spiel |
 |---|---|
-| ![Platzwahl](docs/screenshots/platzwahl.webp) | ![Handel am Tisch](docs/screenshots/tisch_handel.webp) |
+| ![Platzwahl](docs/screenshots/platzwahl.webp) | ![Partie im Spiel](docs/screenshots/partie.webp) |
 
 **Auf dem Handy:** kompakte Leiste, alle fünf Rohstoffe, Bestätigung per Fingertipp – hochkant und quer.
 
-| Spiel | Handeln | Spielmenü |
-|---|---|---|
-| ![iPhone: Spiel](docs/screenshots/iphone_spiel.webp) | ![iPhone: Handeln](docs/screenshots/iphone_handel.webp) | ![iPhone: Spielmenü](docs/screenshots/iphone_menue.webp) |
+| Spiel | Spielmenü |
+|---|---|
+| ![iPhone: Spiel](docs/screenshots/iphone_spiel.webp) | ![iPhone: Spielmenü](docs/screenshots/iphone_menue.webp) |
 
 ![iPhone quer](docs/screenshots/iphone_quer.webp)
 
@@ -77,7 +85,8 @@ Fingertipp markiert und erst mit dem Bestätigungsknopf ausgeführt. Über „Zu
 
 Die Bilder stammen aus echten Partien gegen den Rust-Server. Die Browser-Tests legen ihre Aufnahmen unter `$SHOTS` ab
 (z. B. `SHOTS=/tmp/shots python3 tests/browser_play.py 4 40`, `tests/browser_table.py`, `tests/browser_mobile.py`);
-mit `cwebp -q 82 bild.png -o docs/screenshots/name.webp` werden daraus die WebP-Dateien.
+die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/browser_welten.py`. Mit
+`cwebp -q 82 bild.png -o docs/screenshots/name.webp` werden daraus die WebP-Dateien.
 
 </details>
 
@@ -154,7 +163,7 @@ podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 \
 Das Paket ist standardmäßig privat: entweder in den GitHub-Paketeinstellungen öffentlich machen oder auf dem Server
 `podman login ghcr.io` mit einem PAT (`read:packages`) ausführen.
 
-Der Server ist ein statisch gelinktes Rust-Binary im `scratch`-Container: rund **4,8 MB**, keine Shell, keine Laufzeit-Abhängigkeiten.
+Der Server ist ein statisch gelinktes Rust-Binary im `scratch`-Container: rund **4,9 MB**, keine Shell, keine Laufzeit-Abhängigkeiten.
 TLS ist eingebaut: Ohne weitere Angabe lauscht er zusätzlich auf 8443 mit einem selbstsignierten Zertifikat. Namen und IP-Adressen für
 das Zertifikat kommen aus `TLS_HOSTS` (z. B. `-e TLS_HOSTS=handelsinseln.lan,<LAN-Adresse>`). Hinter einem Reverse-Proxy
 `-e HTTPS_PORT=0` setzen und nur 8080 veröffentlichen.
@@ -229,13 +238,13 @@ Bank, aufdeckbare Felder, Wertechips), Entwicklungskarten je Art sowie die Hausr
 | `SSE_PING_MS` | `20000` | Lebenszeichen im Ereignisstrom |
 | `LOG_LEVEL` | `info` | `error`/`warn`/`info`/`debug`/`silent` |
 | `LOG_TIMESTAMP` | `1` | `0`/`off` schaltet den Zeitstempel im Server-Log ab |
-| `APP_VERSION` | – | Versionszusatz im Client (Build-Arg) |
+| `APP_VERSION` | – | Versionszusatz im Client (`git describe`-Format, z. B. `v1.0.0-5-g11661da`; Build-Arg des Containers) |
 
 </details>
 
 ## Technik
 
-- **Server:** Rust, ein statisch gelinktes Binary, `scratch`-Container, rund 4,8 MB. Kein Node, kein Python, keine Datenbank zur Laufzeit.
+- **Server:** Rust, ein statisch gelinktes Binary, `scratch`-Container, rund 4,9 MB. Kein Node, kein Python, keine Datenbank zur Laufzeit.
 - **Client:** Vanilla JavaScript ohne Build-Schritt und ohne Framework; SVG-Brett mit Diff-Rendering, Service Worker/PWA.
 - **Protokoll:** HTTP/1.1, Server-Sent Events für den Spielzustand, JSON-Aktionen über `POST /api/act`. Der Zustand ist serde-JSON und
   damit speicherbar; die Spiellogik liegt vollständig im Server, der Client rendert nur die Sicht.

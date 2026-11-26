@@ -350,6 +350,7 @@ async function testPerson() {
     assert.equal(r.partien.length, 2, 'laufende und beendete Partie');
     const alt = r.partien.find((p) => p.game === 'alt');
     assert(alt && alt.running === false && alt.vp === 9, 'beendete Partie aus dem Archiv');
+    assert(alt.players.length === 2 && alt.players.find((q) => q.you).name === 'Anna', 'Endstand mit allen Plätzen');
 
     assert.equal((await T.post('/api/person', { personId: 'b'.repeat(64) })).partien.length, 0, 'fremde ID sieht nichts');
 

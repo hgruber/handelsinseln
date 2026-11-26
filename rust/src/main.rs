@@ -19,21 +19,49 @@ fn find_root() -> PathBuf {
     std::env::current_dir().unwrap_or(start)
 }
 
+/// Baut aus einer `git describe`-Angabe (`v1.0.0-5-g11661da[-dirty]`) den Versionszusatz:
+/// `1.0.0+5.11661da`, bei uncommitteten Änderungen `1.0.0+5.11661da (geändert)`.
+/// Liefert None, wenn die Angabe kein describe-Format hat.
+fn describe_version(base: Option<&str>, d: &str) -> Option<String> {
+    let (d, dirty) = match d.strip_suffix("-dirty") {
+        Some(rest) => (rest, true),
+        None => (d, false),
+    };
+    let mut parts = d.rsplitn(3, '-');
+    let hash = parts.next()?.strip_prefix('g')?;
+    let n: u32 = parts.next()?.parse().ok()?;
+    let tag = parts.next()?.trim_start_matches('v');
+    if hash.is_empty() || !hash.chars().all(|c| c.is_ascii_hexdigit()) || tag.is_empty() {
+        return None;
+    }
+    let mut s = if n > 0 || dirty { tag.to_string() } else { base.unwrap_or(tag).to_string() };
+    if n > 0 {
+        s.push_str(&format!("+{}.{}", n, hash));
+    }
+    if dirty {
+        s.push_str(" (geändert)");
+    }
+    Some(s)
+}
+
+/// Version: package.json; liegen seit dem letzten Tag Commits vor, kommt ein Zusatz
+/// „+Anzahl.Hash“ dazu (aus der Build-Zeit, `git describe` in build.rs, oder aus `APP_VERSION`).
 fn read_version(root: &Path) -> String {
+    let base = std::fs::read_to_string(root.join("package.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| v.get("version").and_then(|x| x.as_str()).map(String::from));
     if let Ok(v) = std::env::var("APP_VERSION") {
         if !v.is_empty() {
+            return describe_version(base.as_deref(), &v).unwrap_or(v);
+        }
+    }
+    if let Some(d) = option_env!("GIT_DESCRIBE") {
+        if let Some(v) = describe_version(base.as_deref(), d) {
             return v;
         }
     }
-    let pkg = root.join("package.json");
-    if let Ok(s) = std::fs::read_to_string(pkg) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-            if let Some(ver) = v.get("version").and_then(|x| x.as_str()) {
-                return ver.to_string();
-            }
-        }
-    }
-    "unbekannt".to_string()
+    base.unwrap_or_else(|| "unbekannt".to_string())
 }
 
 fn env_num<T: std::str::FromStr>(name: &str, def: T) -> T {

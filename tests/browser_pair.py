@@ -2,14 +2,16 @@
 """Gerätekopplung und Spielerpass im echten Browser:
 Host zeigt in der Lobby einen QR-Code und einen Kurzcode, ein zweites Gerät (frischer Browser-Kontext)
 koppelt sich per Code und landet in derselben Lobby; danach legt der Host einen Spielerpass an,
-und ein dritter Browser findet die Partie allein mit den vier Wörtern wieder.
+und ein dritter Browser findet die Partie allein mit den vier Wörtern wieder – laufend wie beendet,
+letztere mit Rückblick auf Endstand, Punkteverlauf und Regeln.
 Aufruf: python3 tests/browser_pair.py"""
-import time
+import hashlib, hmac, json, os, tempfile, time
 from playwright.sync_api import sync_playwright
-from lib import check, finish, problems, shots, start_server, wait_until
+from lib import check, finish, get_json, problems, shots, start_server, wait_until
 
 SHOTS = shots('pair')
-server, BASE = start_server(GRACE_MS=1500, TICK_MS=300)
+DATA = tempfile.mkdtemp(prefix='handelsinseln-pair-')
+server, BASE = start_server(GRACE_MS=1500, TICK_MS=300, DATA_DIR=DATA)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -65,6 +67,23 @@ try:
         check(stored == passw, 'Pass auf dem Gerät gespeichert')
         time.sleep(0.8)  # Verknüpfung mit der Partie ist unterwegs
 
+        # --- Eine beendete Partie im Archiv, gefunden über dieselbe Personen-ID
+        sid = get_json(BASE, '/api/config')['serverId']
+        pid = hmac.new(passw.encode(), sid.encode(), hashlib.sha256).hexdigest()
+        ended = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        rec = {
+            'room': 'archiv-1', 'version': '1.0.0', 'startedAt': ended, 'endedAt': ended,
+            'minutes': 42, 'rounds': 6, 'result': 'sieg', 'reason': None, 'winner': 'Hanna',
+            'settings': {'variant': 'klassisch', 'winPoints': 12},
+            'history': [[0, 0], [3, 2], [7, 4], [12, 8]],
+            'players': [
+                {'name': 'Hanna', 'color': 'rot', 'kind': 'mensch', 'vp': 12, 'personId': pid},
+                {'name': 'Bert', 'color': 'blau', 'kind': 'mensch', 'vp': 8},
+            ],
+        }
+        with open(os.path.join(DATA, 'partien.jsonl'), 'a', encoding='utf-8') as f:
+            f.write(json.dumps(rec) + '\n')
+
         # --- Drittes Gerät findet die Partie nur mit dem Pass
         C = newpage('Neu')
         C.click('#myGamesBtn')
@@ -73,8 +92,21 @@ try:
         C.fill('.passin', passw)
         C.click('.passbox [data-p=ok]')
         C.wait_for_selector('.prow', timeout=8000)
-        check(C.locator('.prow').count() == 1 and C.locator('.plist').inner_text().count('Hanna') >= 1, 'Partie unter „Meine Partien“ gefunden')
+        check(C.locator('.prow').count() == 2 and C.locator('.plist').inner_text().count('Hanna') >= 1, 'laufende und beendete Partie unter „Meine Partien“')
+        check(C.locator('.prow.end').count() == 1, 'beendete Partie ist anklickbar')
         C.screenshot(path=f'{SHOTS}/03-meine-partien.png')
+
+        # --- Rückblick: Endstand, Punkteverlauf, Regeln
+        C.locator('.prow.end').click()
+        C.wait_for_selector('.passbox.wide', timeout=4000)
+        check(C.locator('.passbox.wide .rank li').count() == 2, 'Endstand mit beiden Plätzen')
+        check('(du)' in C.locator('.passbox.wide .rank').inner_text(), 'eigener Platz markiert')
+        check(C.locator('.passbox.wide svg.chart').count() == 1, 'Punkteverlauf gezeichnet')
+        check('Siegpunkte zum Sieg' in C.locator('.passbox.wide .pregeln').inner_text(), 'abweichende Regel der Partie angezeigt')
+        C.screenshot(path=f'{SHOTS}/04-partie-rueckblick.png')
+        C.click('.passbox.wide [data-p=back]')
+        C.wait_for_selector('.plist', timeout=4000)
+        check(C.locator('.prow').count() == 2, 'zurück zur Partienliste')
         C.click('.prow [data-i="0"]')
         C.wait_for_selector('#lobby:not([hidden])', timeout=6000)
         check(C.locator('#lobbyList').inner_text().count('Hanna') == 1, 'Partie mit dem Pass fortgesetzt')

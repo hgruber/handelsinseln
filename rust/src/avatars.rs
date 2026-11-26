@@ -1,6 +1,8 @@
 // Avatare und Bot-Spieler – Werte wie shared/avatars.js.
-pub const HUMAN_IDS: [&str; 16] = [
+pub const HUMAN_IDS: [&str; 28] = [
     "kapitaen", "piratin", "matrose", "forscherin", "haendler", "navigatorin", "fischer", "junge",
+    "schiffsarzt", "zimmermann", "kartograf", "poet", "oma", "maedchen", "ingenieurin", "bademeister",
+    "funkerin", "wahrsagerin", "steward", "matrosin",
     "fuchs", "eule", "otter", "pinguin", "krake", "robbe", "moewe", "krabbe",
 ];
 

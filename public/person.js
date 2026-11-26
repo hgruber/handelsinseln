@@ -158,7 +158,7 @@
     const r = await C.post('/api/person', { personId: id });
     if (r.error) { C.toast(r.error, 'err'); return; }
     const rows = (r.partien || []).map((p, i) => {
-      const others = (p.players || []).map((q) => q.name).join(', ');
+      const others = (p.players || []).filter((q) => !q.you).map((q) => q.name).join(', ');
       const sub = (t) => (t ? '<span class="psub">' + C.esc(t) + '</span>' : '');
       if (p.running) {
         // Dieselbe Sitzung (gleicher Token) braucht keinen Fortsetzen-Knopf.
@@ -168,7 +168,7 @@
           (hier ? '' : '<button type="button" class="btn gold" data-i="' + i + '">Fortsetzen</button>') + '</div>';
       }
       const dt = p.endedAt ? new Date(p.endedAt).toLocaleDateString('de-DE') : '';
-      return '<div class="prow"><div><b>' + C.esc(p.name) + '</b>' + sub(
+      return '<div class="prow end" data-i="' + i + '" title="Endstand, Punkteverlauf und Regeln ansehen"><div><b>' + C.esc(p.name) + '</b>' + sub(
         (dt ? 'Beendet am ' + dt : 'Beendet') + (others ? ' · ' + others : '') +
         (p.winner ? ' · Sieger: ' + p.winner : '') + (p.vp != null ? ' · ' + p.vp + ' Punkte' : '')
       ) + '</div></div>';
@@ -184,7 +184,8 @@
       if (c) { if (c.dataset.p === 'pass') dialog(); else close(); return; }
       const x = e.target.closest('[data-i]'); if (!x) return;
       const p = r.partien[Number(x.dataset.i)];
-      if (!p || !p.running) return;
+      if (!p) return;
+      if (!p.running) { detail(p); return; }
       if (p.paused) {
         // Pausierte Partie: der Pass holt den Platz samt neuem Sitzungstoken zurück.
         const res = await C.post('/api/person/resume', { personId: await personId(getPass()), game: p.game });
@@ -193,6 +194,62 @@
         return;
       }
       if (p.token) { close(); C.joined({ token: p.token, game: p.game }); }
+    });
+  }
+
+  // Punkteverlauf der Partie als kleine Linien (history: je Eintrag die Punkte pro Platz).
+  function curve(p) {
+    const hist = (p.history || []).filter((h) => Array.isArray(h) || (h && Array.isArray(h.vp)));
+    const P = p.players || [];
+    if (hist.length < 2 || !P.length) return '';
+    const COL = (root.Art && root.Art.COLORS) || {};
+    const vpOf = (h, i) => (Array.isArray(h) ? h[i] : (h.vp || [])[i]) || 0;
+    const W = 380, H = 170, ml = 26, mr = 96, mt = 12, mb = 24, pw = W - ml - mr, ph = H - mt - mb;
+    const maxV = Math.max(1, (p.settings && p.settings.winPoints) || 0, ...hist.map((h) => Math.max(0, ...P.map((_, i) => vpOf(h, i)))));
+    const step = maxV <= 10 ? 2 : maxV <= 20 ? 4 : 5, top = Math.ceil(maxV / step) * step;
+    const x = (k) => ml + k / (hist.length - 1) * pw, y = (v) => mt + ph - v / top * ph;
+    let g = '';
+    for (let t = 0; t <= top; t += step) g += `<line class="grid" x1="${ml}" x2="${ml + pw}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/><text class="ax" x="${ml - 6}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end">${t}</text>`;
+    const xs = Math.max(1, Math.ceil(hist.length / 6));
+    for (let k = 0; k < hist.length; k += xs) g += `<text class="ax" x="${x(k).toFixed(1)}" y="${mt + ph + 16}" text-anchor="middle">${k + 1}</text>`;
+    g += `<text class="ax" x="${ml + pw / 2}" y="${H - 4}" text-anchor="middle">Runde</text>`;
+    let lines = '';
+    const labels = P.map((q, i) => {
+      const col = COL[q.color] || '#ccc';
+      const pts = hist.map((h, k) => `${x(k).toFixed(1)},${y(vpOf(h, i)).toFixed(1)}`);
+      lines += `<g style="--c:${col}"><polyline class="vl" points="${pts.join(' ')}"/></g>`;
+      const vp = vpOf(hist[hist.length - 1], i);
+      return { y: y(vp), name: q.name, vp, col };
+    }).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 13) labels[i].y = labels[i - 1].y + 13;
+    const lab = labels.map((l) => `<text class="dl" x="${ml + pw + 9}" y="${(l.y + 4).toFixed(1)}" style="fill:${l.col}"><tspan>${C.esc(l.name.length > 9 ? l.name.slice(0, 8) + '…' : l.name)}</tspan> <tspan class="dv">${l.vp}</tspan></text>`).join('');
+    return '<h4>Punkteverlauf</h4><svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Siegpunkte pro Runde"><line class="axis" x1="' + ml + '" x2="' + (ml + pw) + '" y1="' + (mt + ph) + '" y2="' + (mt + ph) + '"/>' + g + lines + lab + '</svg>';
+  }
+
+  // Rückblick auf eine beendete Partie: Endstand, Punkteverlauf und die Regeln dieser Partie.
+  function detail(p) {
+    const P = (p.players || []).slice().sort((a, b) => (b.vp || 0) - (a.vp || 0));
+    const COL = (root.Art && root.Art.COLORS) || {};
+    const aborted = p.result !== 'sieg';
+    const dt = p.endedAt ? new Date(p.endedAt).toLocaleDateString('de-DE') : '';
+    const meta = [aborted ? 'Ohne Sieger' : 'Sieger: ' + (p.winner || '–'),
+      p.minutes != null ? p.minutes + ' Min.' : '', p.rounds != null ? p.rounds + ' Runden' : ''].filter(Boolean).join(' · ');
+    const rank = P.length ? '<ol class="rank">' + P.map((q, i) =>
+      '<li class="' + (!aborted && q.name === p.winner ? 'first' : '') + '" style="--pc:' + (COL[q.color] || '#888') + '">' +
+      '<span class="pos">' + (i + 1) + '.</span><span class="nm">' + C.esc(q.name) + (q.you ? ' <small>(du)</small>' : '') + '</span><b>' + (q.vp || 0) + ' ★</b></li>'
+    ).join('') + '</ol>' : '';
+    const regeln = root.Lobby && root.Lobby.deviationsHTML && p.settings
+      ? '<div class="pregeln"><h4>Regeln dieser Partie</h4>' + root.Lobby.deviationsHTML(p.settings) + '</div>' : '';
+    const b = open(
+      '<div class="pq">Partie' + (dt ? ' vom ' + dt : '') + '</div>' +
+      '<p class="pnote">' + C.esc(meta) + '</p>' + rank + curve(p) + regeln +
+      '<div class="pact"><button type="button" class="btn ghostb" data-p="back">Zurück zu meinen Partien</button>' +
+      '<button type="button" class="btn" data-p="close">Schließen</button></div>',
+      'wide'
+    );
+    b.addEventListener('click', (e) => {
+      const x = e.target.closest('[data-p]'); if (!x) return;
+      if (x.dataset.p === 'back') list(); else close();
     });
   }
 

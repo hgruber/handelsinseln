@@ -752,11 +752,15 @@ fn archiv_partien(data_dir: &Path, id: &str) -> Vec<Value> {
             }
             out.push(json!({
                 "game": v.get("room"), "name": p.get("name"), "vp": p.get("vp"),
-                "endedAt": v.get("endedAt"), "result": v.get("result"),
-                "winner": v.get("winner"), "rounds": v.get("rounds"), "minutes": v.get("minutes"),
+                "startedAt": v.get("startedAt"), "endedAt": v.get("endedAt"), "result": v.get("result"),
+                "reason": v.get("reason"), "winner": v.get("winner"), "rounds": v.get("rounds"),
+                "minutes": v.get("minutes"), "settings": v.get("settings"), "history": v.get("history"),
                 "running": false,
-                // Mitspieler ohne die eigene Zeile – der eigene Name steht schon als Titel.
-                "players": ps.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, q)| json!({"name": q.get("name"), "vp": q.get("vp")})).collect::<Vec<_>>(),
+                // Alle Plätze für den Endstand; `you` markiert den eigenen.
+                "players": ps.iter().enumerate().map(|(j, q)| json!({
+                    "name": q.get("name"), "color": q.get("color"), "kind": q.get("kind"),
+                    "vp": q.get("vp"), "you": j == i,
+                })).collect::<Vec<_>>(),
             }));
         }
     }

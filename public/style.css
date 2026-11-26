@@ -593,4 +593,10 @@ body.ctl #score { position: static !important; }
 .prow { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
 .prow b { display: block; }
 .prow .psub { display: block; font-size: 12.5px; color: var(--muted); }
+.prow.end { cursor: pointer; } .prow.end:hover { background: rgba(255, 255, 255, .1); }
+.passbox.wide { max-width: min(94vw, 560px); }
+.passbox .pregeln { display: grid; gap: 6px; max-height: 30vh; overflow: auto; }
+.passbox h4 { margin: 0; font: 700 12px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.passbox .rank { margin: 0; }
+.passbox .rank li { padding: 4px 10px; } .passbox .rank .nm { font-size: 15px; } .passbox .rank b { font-size: 16px; }
 .lb-links { display: flex; gap: 6px; align-items: center; margin: -4px 0 6px; font-size: 13px; }

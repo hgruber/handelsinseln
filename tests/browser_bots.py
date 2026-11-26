@@ -5,7 +5,7 @@ Bots hinzufügen (feste Avatare, jede Sorte nur einmal), Spiel starten und prüf
 Aufruf: python3 tests/browser_bots.py"""
 import json, time, urllib.request
 from playwright.sync_api import sync_playwright
-from lib import check, finish, problems, shots, start_server
+from lib import check, finish, problems, shots, start_server, wait_until
 
 SHOTS = shots('bots')
 BOT_AV = {'biber', 'papagei', 'ente'}
@@ -29,10 +29,10 @@ try:
 
         # --- Anmeldung: Avatar-Auswahl
         A.wait_for_selector('#avatars .avsel'); A.click('#avatars .avsel')
-        check(A.locator('#avatars .avo').count() == 16, 'Anmeldung zeigt 16 wählbare Avatare')
+        check(A.locator('#avatars .avo').count() == 28, 'Anmeldung zeigt 28 wählbare Avatare')
         A.wait_for_selector('#avatars .avo')
         check(A.locator('#avatars .avo.on').count() == 1, 'ein Avatar ist zufällig vorgewählt')
-        imgs_ok = A.eval_on_selector_all('#avatars img', 'els => els.every(i => i.complete && i.naturalWidth > 0)')
+        imgs_ok = wait_until(lambda: A.eval_on_selector_all('#avatars img', 'els => els.every(i => i.complete && i.naturalWidth > 0)'), timeout=5)
         check(imgs_ok, 'alle Avatar-Bilder laden')
         ids = A.eval_on_selector_all('#avatars .avo', 'els => els.map(e => e.dataset.a)')
         check(not (set(ids) & BOT_AV), 'Bot-Avatare sind nicht wählbar')
