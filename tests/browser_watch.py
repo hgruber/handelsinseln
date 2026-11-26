@@ -64,8 +64,11 @@ try:
         W.screenshot(path=f'{SHOTS}/watch-table.png')
         print('Ansicht ohne Tischspieler: Leisten oben links am Rand, Meldungen in der Mitte')
         lefts = lambda: W.eval_on_selector_all('#seats .seat .badge.top', 'els => els.map(e => Math.round(e.getBoundingClientRect().left))')
-        bb = W.locator('#seats .seat .badge.top').first.bounding_box()
-        check(bb['x'] <= 1 and bb['y'] <= 1, f'erste Spielerleiste liegt ohne Abstand in der Ecke ({bb["x"]:.0f},{bb["y"]:.0f})')
+        # Die Leisten werden beim Aufbau eingeblendet – auf langsamen Rechnern erst nach dem festen Warten oben.
+        pos = lambda: W.eval_on_selector('#seats .seat .badge.top', 'e => { const b = e.getBoundingClientRect(); return [b.left, b.top]; }')
+        wait_until(lambda: pos()[0] <= 1 and pos()[1] <= 1, timeout=5)
+        x, y = pos()
+        check(x <= 1 and y <= 1, f'erste Spielerleiste liegt ohne Abstand in der Ecke ({x:.0f},{y:.0f})')
         xs = lefts()
         check(len(set(xs)) == 1, f'alle Leisten untereinander am linken Rand: {xs}')
         print('Karte drehen: Chips bleiben aufrecht')
