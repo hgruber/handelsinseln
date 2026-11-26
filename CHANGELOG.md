@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.1.0] - 2026-11-26
+
 ### Hinzugefügt
 - **Gerätekopplung ohne Passwort:** Ein Gerät zeigt in der Lobby oder am Spieltisch einen QR-Code (`POST /api/pair`); ein zweites Gerät scannt ihn (`#k=…`) und bekommt die Sitzung für denselben Platz. Eingelöst wird ein einmaliges Nonce mit kurzer Gültigkeit (`PAIR_MS`, Standard 60 s), nie der Token im QR-Code; ein geheimes `secret` schützt die Statusabfrage (`/api/pair/check`). Das gilt in beide Richtungen (PC → Handy und Handy → PC). Der QR-Encoder ist klein und ohne Fremdcode in `public/qr.js` (Byte-Modus, Fehlerkorrektur M, Versionen 1–6) und wurde gegen `zxing` geprüft.
 - **Spielerpass:** Vier Wörter aus einer 256er-Liste (32 Bit, `shared/woerter.js`) finden die eigenen Partien auf einem anderen Gerät oder nach dem Löschen der Browserdaten wieder. `/api/person` und `/api/person/resume` sind auf 300 Anfragen pro Minute begrenzt, damit die Personen-ID nicht als Orakel für den Pass dient. Der Pass bleibt auf dem Gerät; an den Server geht nur `HMAC-SHA256(pass, serverId)` als Personen-ID. `POST /api/person/link` verknüpft eine laufende Partie, `POST /api/person` liefert laufende (mit Token) und beendete Partien; der Abschlussbericht speichert die Personen-ID, aber nur wenn der Spieler den Pass verknüpft hat. Die `serverId` dieser Installation steht in `DATA_DIR/server.json` und in `/api/config`.
