@@ -26,7 +26,9 @@ pub struct Room {
     pub last_phase: Option<String>,
     pub removed_why: Option<String>,
     pub arm: Option<crate::arm::ArmState>,
-    pub handovers: IndexMap<usize, crate::handover::Request>,
+    pub pairs: IndexMap<String, crate::pair::Pairing>,
+    /// Seit wann die Partie pausiert ist (ms); nur wenn alle menschlichen Plätze einen Spielerpass haben.
+    pub paused_at: Option<i64>,
 }
 
 pub struct Hub {
@@ -39,6 +41,8 @@ pub struct Hub {
     pub max_games: usize,
     pub max_watchers: usize,
     pub watch_grace_ms: i64,
+    /// Wie lange eine pausierte Partie liegen bleibt (Standard: 7 Tage).
+    pub pause_ms: i64,
 }
 
 pub struct JoinReq {
@@ -85,6 +89,7 @@ impl Hub {
             max_games: env_usize("MAX_GAMES", 3),
             max_watchers: 8,
             watch_grace_ms: 60_000,
+            pause_ms: env_i64("PAUSE_MS", 7 * 24 * 60 * 60 * 1000),
         }
     }
 
@@ -109,7 +114,8 @@ impl Hub {
                 last_phase: None,
                 removed_why: None,
                 arm: None,
-                handovers: IndexMap::new(),
+                pairs: IndexMap::new(),
+                paused_at: None,
             },
         );
         id
@@ -119,13 +125,20 @@ impl Hub {
         self.rooms.shift_remove(id)
     }
 
-    pub fn find_by_token(&self, token: &str) -> Option<(String, usize, bool)> {
+    pub fn find_by_token(&self, token: &str) -> Option<(String, usize)> {
         for room in self.rooms.values() {
             if let Some(p) = room.game.S.players.iter().find(|x| x.token.as_deref() == Some(token)) {
-                return Some((room.id.clone(), p.id, false));
+                return Some((room.id.clone(), p.id));
             }
-            if let Some(p) = room.game.S.players.iter().find(|x| x.phone.as_deref() == Some(token)) {
-                return Some((room.id.clone(), p.id, true));
+        }
+        None
+    }
+
+    /// Raum, in dem ein Kopplungsangebot (Nonce) hängt.
+    pub fn find_pair(&self, nonce: &str) -> Option<String> {
+        for room in self.rooms.values() {
+            if room.pairs.contains_key(nonce) {
+                return Some(room.id.clone());
             }
         }
         None
@@ -176,20 +189,17 @@ impl Hub {
     }
 
     pub fn list(&self) -> Vec<Value> {
-        self.rooms.values().map(|r| self.summary(r)).collect()
+        self.rooms
+            .values()
+            .filter(|r| r.paused_at.is_none())
+            .map(|r| self.summary(r))
+            .collect()
     }
 
     pub fn join(&mut self, b: JoinReq) -> Result<JoinOut, HubError> {
         if let Some(tok) = &b.token {
-            if let Some((room_id, pid, _)) = self.find_by_token(tok) {
-                // Node gibt hier den Token des Spielers zurück (nicht den des Handys).
-                let real = self
-                    .rooms
-                    .get(&room_id)
-                    .and_then(|r| r.game.S.players.get(pid))
-                    .and_then(|p| p.token.clone())
-                    .unwrap_or_else(|| tok.clone());
-                return Ok(JoinOut { token: real, pid, game: room_id, again: true });
+            if let Some((room_id, pid)) = self.find_by_token(tok) {
+                return Ok(JoinOut { token: tok.clone(), pid, game: room_id, again: true });
             }
         }
         let mut room_id = match &b.game {
@@ -206,7 +216,7 @@ impl Hub {
                     .values()
                     .filter(|r| {
                         let S = &r.game.S;
-                        S.phase == "lobby" && !S.closed && S.players.len() < 6
+                        r.paused_at.is_none() && S.phase == "lobby" && !S.closed && S.players.len() < 6
                     })
                     .map(|r| self.summary(r))
                     .collect();
@@ -288,6 +298,7 @@ impl Hub {
             }
             room.game.set_connected(pid, true);
             room.empty_since = None;
+            room.paused_at = None; // jemand ist zurück: weiter geht es
         }
     }
 
@@ -329,6 +340,14 @@ impl Hub {
         }
         let mut remove = Vec::new();
         for room in self.rooms.values_mut() {
+            // Pausierte Partien ruhen; nur nach Ablauf der Frist wird aufgeräumt.
+            if let Some(since) = room.paused_at {
+                if t - since >= self.pause_ms {
+                    room.removed_why = Some("Pause abgelaufen".into());
+                    remove.push(room.id.clone());
+                }
+                continue;
+            }
             let phase = room.game.S.phase.clone();
             if phase == "lobby" {
                 let players = room.game.S.players.clone();
@@ -377,7 +396,13 @@ impl Hub {
                 .count();
             let humans = room.game.humans().len();
             if humans == 0 {
-                remove.push(room.id.clone());
+                // Mit Spielerpass für alle Menschen bleibt die Partie als Pause stehen.
+                if darf_pausieren(room) {
+                    room.paused_at = Some(t);
+                    room.empty_since = None;
+                } else {
+                    remove.push(room.id.clone());
+                }
                 continue;
             }
             if connected_humans > 0 {
@@ -388,7 +413,12 @@ impl Hub {
                 }
                 let grace = room.grace_ms.unwrap_or(self.grace_ms);
                 if t - room.empty_since.unwrap_or(t) >= grace {
-                    remove.push(room.id.clone());
+                    if darf_pausieren(room) {
+                        room.paused_at = Some(t);
+                        room.empty_since = None;
+                    } else {
+                        remove.push(room.id.clone());
+                    }
                 }
             }
         }
@@ -404,6 +434,7 @@ impl Hub {
                     "id": r.id,
                     "meta": {"id": r.game.meta_id, "name": r.game.meta_name},
                     "S": &r.game.S,
+                    "pausedAt": r.paused_at,
                 })
             })
             .collect();
@@ -429,6 +460,7 @@ impl Hub {
                 Err(_) => continue,
             };
             let id = r.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let paused_at = r.get("pausedAt").and_then(|v| v.as_i64());
             let meta = r.get("meta").cloned().unwrap_or(Value::Null);
             let mid = meta.get("id").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
             let mname = meta.get("name").and_then(|v| v.as_str()).unwrap_or("Spiel").to_string();
@@ -458,11 +490,19 @@ impl Hub {
                     last_phase: None,
                     removed_why: None,
                     arm: None,
-                    handovers: IndexMap::new(),
+                    pairs: IndexMap::new(),
+                    paused_at,
                 },
             );
         }
     }
+}
+
+/// Eine laufende Partie darf pausieren, wenn alle menschlichen Plätze einen Spielerpass haben –
+/// nur dann kann jeder später zurückkehren. Bots und Tischspieler zählen nicht.
+pub fn darf_pausieren(room: &Room) -> bool {
+    let ph = room.game.S.phase.as_str();
+    (ph == "setup" || ph == "main") && room.game.all_humans_have_pass()
 }
 
 fn env_i64(name: &str, def: i64) -> i64 {

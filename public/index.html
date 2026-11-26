@@ -40,6 +40,9 @@
       <button class="btn gold big" id="joinBtn" type="submit">Beitreten</button>
       <button class="btn big ghostb" id="createBtn" type="button">Neues Spiel eröffnen</button>
     </div>
+    <div class="pairjoin">
+      <button type="button" class="linkish" id="myGamesBtn">Spielerpass</button>
+    </div>
     <p id="loginInfo" class="hint"></p>
     <p id="ver" class="ver"></p>
   </form>
@@ -53,7 +56,7 @@
     </section>
     <section class="lb-side glass">
       <div class="lb-grab" id="lbGrab" role="separator" aria-orientation="horizontal" aria-label="Lobby nach unten oder oben ziehen" title="Ziehen: mehr Platz für das Spielfeld"></div>
-      <header class="lb-head"><div><div class="lb-title"><h1>Lobby</h1><span id="lbRegen"></span></div><p id="lbGame" class="sub"></p></div><button class="lb-x" id="leaveBtn" type="button" title="Lobby verlassen" aria-label="Lobby verlassen">✕</button></header>
+      <header class="lb-head"><div><div class="lb-title"><h1>Lobby</h1><span id="lbRegen"></span></div><p id="lbGame" class="sub"></p></div><div class="lb-actions"><button class="lb-x" id="lbMenuBtn" type="button" title="Menü" aria-label="Menü" aria-haspopup="menu" aria-expanded="false">☰</button><button class="lb-x" id="leaveBtn" type="button" title="Lobby verlassen" aria-label="Lobby verlassen">✕</button></div></header>
       <div class="lb-scroll">
         <h3 class="lb-h">Spieler <small id="lbCount"></small><span id="lbTbl" class="lb-tbl"></span></h3>
         <ul id="lobbyList" class="lobby-list"></ul>
@@ -126,12 +129,16 @@
 <script src="/shared/geom.js"></script>
 <script src="/shared/rules.js"></script>
 <script src="/shared/avatars.js"></script>
+<script src="/shared/woerter.js"></script>
 <script src="/art.js"></script>
 <script src="/regeln.js"></script>
 <script src="/trade.js"></script>
 <script src="/voice.js"></script>
 <script src="/fx.js"></script>
 <script src="/table.js"></script>
+<script src="/qr.js"></script>
+<script src="/pair.js"></script>
+<script src="/person.js"></script>
 <script src="/sound.js"></script>
 <script src="/background.js"></script>
 <script src="/lobby.js"></script>

@@ -64,12 +64,18 @@ GitHub-Release). Pusht nie. Deploy der eigenen Installation ist betreiberspezifi
   selbstsigniertes Zertifikat (oder `TLS_CERT`/`TLS_KEY`) in `DATA_DIR/tls`.
 - `rust/src/bot.rs` (Autopilot für Abwesende) und `botplay.rs` (Baumeister/Händler/Ritter) – nutzen nur öffentliche
   Informationen und führen je Aufruf höchstens **eine** Aktion aus.
-- `rust/src/arm.rs` und `handover.rs` – Controller-Ansicht („arm/pick“) und Kontrollübergabe an ein Handy. Ihr Zustand liegt
-  am **Raum** (`room.arm`, `room.handovers`), nicht in `S`, und wird nicht gespeichert.
+- `rust/src/arm.rs` – Controller-Ansicht („arm/pick”); ihr Zustand liegt am **Raum** (`room.arm`), nicht in `S`, und wird
+  nicht gespeichert.
+- `rust/src/pair.rs` – Gerätekopplung per Nonce (QR-Code); Angebote liegen an `room.pairs`, nicht in `S`, und werden
+  nicht gespeichert. Der Spielerpass hinterlässt nur eine servergebundene Personen-ID am Platz (`player.personId`) und im
+  Abschlussbericht; der Pass selbst bleibt im Browser. Eine laufende Partie pausiert beim Verlassen, wenn alle
+  menschlichen Plätze einen Pass haben (`hub::darf_pausieren`, `PAUSE_MS`, Standard 7 Tage); sonst wird sie abgeräumt.
+  `POST /api/person/resume` holt den Platz samt neuem Token zurück. Konzept: `IDENTITAET.md`.
 
 Client (`public/`, klassische Skripte ohne Module, über `window` verbunden): `app.js` ist der Kern (Zustand, SSE, SVG-Brett
 mit Diff-Rendering, HUD); `lobby.js`, `table.js` (Digitaler Spieltisch/Zuschauer-Anzeige, SSE-Event `table`), `trade.js`,
-`menu.js`, `voice.js` (WebRTC), `fx.js`, `art.js`, `background.js`, `sw.js` (Service Worker/PWA). Die Modi Spieler /
+`menu.js`, `voice.js` (WebRTC), `fx.js`, `art.js`, `background.js`, `sw.js` (Service Worker/PWA), `pair.js`
+(Gerätekopplung), `person.js` (Spielerpass), `qr.js` (eigener QR-Encoder). Die Modi Spieler /
 Tischspieler / Zuschauer / Controller-Ansicht teilen sich dieselbe View.
 
 **Doppelte Konstanten:** `shared/rules.js` (Browser: `window.Rules`) und `rust/src/rules.rs` müssen dieselben Werte haben;

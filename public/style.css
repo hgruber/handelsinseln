@@ -566,7 +566,31 @@ body.ctl #score { position: static !important; }
 #armPanel .aact .btn.big { min-width: 200px; }
 
 /* Zuschauer-Handy: angefragte Kontrolle (Nummer, die der Spieltisch bestätigt) */
-.codebox { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 60; display: grid; gap: 8px; justify-items: center; text-align: center; padding: 22px 26px; border-radius: 22px; max-width: min(92vw, 420px); border: 2px solid var(--gold); }
-.codebox .cq { font: 700 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold2); }
-.codebox .cn { font: 700 64px/1 var(--serif); letter-spacing: .16em; color: #fff2c0; }
-.codebox .ct { font-size: 15px; } .codebox .cs { color: var(--muted); font-size: 13px; }
+
+/* Kopplung: Einstieg auf der Anmeldung und QR-Fenster */
+.linkish { background: none; border: 0; color: var(--muted); font: inherit; text-decoration: underline; cursor: pointer; padding: 2px 4px; }
+.linkish:hover, .linkish:focus-visible { color: var(--gold2); }
+.pairjoin { display: grid; gap: 8px; justify-items: center; margin-top: 4px; }
+.pairback { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(4, 10, 22, .62); }
+.pairbox { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 20px; border-radius: 22px; border: 2px solid var(--gold); max-width: min(94vw, 380px); }
+.pairbox .pairq svg { display: block; width: min(62vw, 220px); height: auto; border-radius: 10px; }
+.pairbox .pnote { margin: 0; font-size: 13.5px; color: var(--muted); }
+.pairbox .ptime { margin: 0; font-size: 13px; color: var(--muted); }
+.pairbox .pact { margin-top: 2px; }
+
+/* Spielerpass: Verwaltung und Partienliste */
+.psep { color: var(--muted); }
+.passback { position: fixed; inset: 0; z-index: 72; display: grid; place-items: center; padding: 16px; background: rgba(4, 10, 22, .62); }
+.passbox { display: grid; gap: 12px; padding: 22px; border-radius: 22px; border: 2px solid var(--gold); max-width: min(94vw, 460px); width: 100%; }
+.passbox .pq { font: 700 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold2); }
+.passwords { font: 700 20px/1.6 var(--serif); letter-spacing: .04em; color: #fff2c0; background: rgba(0, 0, 0, .25); border-radius: 12px; padding: 12px 14px; text-align: center; word-spacing: .3em; }
+.passwords.big { font-size: 26px; line-height: 1.7; }
+.passin { width: 100%; box-sizing: border-box; font: 600 18px var(--sans); letter-spacing: .06em; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(0, 0, 0, .25); color: inherit; }
+.passbox .pnote { margin: 0; font-size: 13.5px; color: var(--muted); }
+.pact { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.pact.column { flex-direction: column; }
+.plist { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+.prow { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
+.prow b { display: block; }
+.prow .psub { display: block; font-size: 12.5px; color: var(--muted); }
+.lb-links { display: flex; gap: 6px; align-items: center; margin: -4px 0 6px; font-size: 13px; }

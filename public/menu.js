@@ -88,7 +88,7 @@
     closeMenu();
     const v = C.view(); if (!v) return;
     const host = v.host === v.you || !!(C.tableOn && C.tableOn()), running = v.phase === 'main' || v.phase === 'setup';
-    const V = root.Voice, joined = V.isJoined(), handed = !!(v.players[v.you] && v.players[v.you].handover); // Platz, den dieses Gerät vom Spieltisch übernommen hat
+    const V = root.Voice, joined = V.isJoined();
     const item = (id, ic, label, cls) => `<button type="button" role="menuitem" class="mi ${cls || ''}" data-mi="${id}"><span class="mic">${ic}</span>${label}</button>`;
     const I = {
       info: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,11 V17 M12,7.5 V8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
@@ -98,6 +98,7 @@
       mic: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5,11 a6.5,6.5 0 0 0 13,0 M12,17.5 V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       exit: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M10,4 H5 V20 H10 M14,8 L19,12 L14,16 M19,12 H9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       flow: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M7,5 L19,12 L7,19z" fill="currentColor"/></svg>',
+      key: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="8" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,12 H21 M17,12 V16 M20,12 V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       gear: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       ctl: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="7" y="2.5" width="10" height="19" rx="2.4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.5,18.5 H13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       bg: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12,3 a9,9 0 1 0 0,18 a2,2 0 0 0 1.5,-3.3 a2,2 0 0 1 1.5,-3.3 h2 A4,4 0 0 0 21,10 A9,9 0 0 0 12,3Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><circle cx="7.5" cy="10" r="1.4" fill="currentColor"/><circle cx="10" cy="6.6" r="1.4" fill="currentColor"/><circle cx="14.5" cy="6.4" r="1.4" fill="currentColor"/><circle cx="17" cy="9.6" r="1.4" fill="currentColor"/></svg>',
@@ -110,15 +111,15 @@
     pop = document.createElement('div'); pop.className = 'menu-pop glass'; pop.setAttribute('role', 'menu');
     if (v.watch) { // Zuschauer: kein Sprachchat, kein Chat, keine Spielleiter-Funktionen
       pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') + item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') + item('fit', I.fit, 'Brett zentrieren') + item('bg', I.bg, 'Hintergrund …') + rot + item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' + item('leave', I.exit, 'Zuschauen beenden', 'danger');
-    } else pop.innerHTML = (handed ? item('leave', I.exit, 'Kontrolle an den Spieltisch', 'danger') + '<hr>' : '') + item('settings', I.info, 'Einstellungen ansehen') +
+    } else pop.innerHTML = item('settings', I.info, 'Einstellungen ansehen') +
       item('voice', I.mic, joined ? 'Sprachchat verlassen' : 'Sprachchat beitreten') +
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
       (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') + item('bg', I.bg, 'Hintergrund …') + (C.ctl() ? '' : rot) +
       (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karte anzeigen' : 'Nur Karten &amp; Aktionen') : '') +
-      item('help', I.help, 'Hilfe &amp; Spielregeln') + '<hr>' +
-      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + (handed ? '' : item('leave', I.exit, 'Spiel verlassen', 'danger'));
+      item('help', I.help, 'Hilfe &amp; Spielregeln') + item('pass', I.key, root.Person.getPass() ? 'Meine Partien' : 'Spielerpass') + '<hr>' +
+      (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     // Spieltisch: das Menü öffnet im Platz des Spielleiters und ist damit wie dieser in seine Blickrichtung gedreht (klappt zur Tischmitte auf)
     const seat = C.tableOn && C.tableOn() && $('camBtns').closest('.seathb');
     if (seat) { pop.classList.add('in-seat'); seat.appendChild(pop); $('btnMenu').setAttribute('aria-expanded', 'true'); const f0 = pop.querySelector('button'); if (f0) f0.focus(); return; }
@@ -138,6 +139,7 @@
     else if (id === 'mute') root.Voice.toggleMute();
     else if (id === 'voicepanel') showVoice();
     else if (id === 'help') C.help();
+    else if (id === 'pass') root.Person.list();
     else if (id === 'sound') root.Sound.toggle();
     else if (id === 'fit') C.fit();
     else if (id === 'bg') { if (root.Bg) root.Bg.choose(); }
@@ -149,8 +151,10 @@
   }
   async function leaveGame() {
     const v = C.view(); const lobby = v && v.phase === 'lobby';
-    if (v && (v.watch || (v.players[v.you] && v.players[v.you].handover))) { C.leave(); return; } // Zuschauer bzw. übernommener Platz: nichts zu bestätigen (Kontrolle geht zurück an den Spieltisch)
-    const txt = lobby ? 'Du verlässt die Lobby.' : v && v.phase === 'ended' ? 'Du verlässt das Spiel.' : 'Ein Auto-Spieler übernimmt für dich. Du kannst nicht zurückkehren.';
+    if (v && v.watch) { C.leave(); return; } // Zuschauer: nichts zu bestätigen
+    const txt = lobby ? 'Du verlässt die Lobby.'
+      : v && v.phase === 'ended' ? 'Du verlässt das Spiel.'
+      : 'Haben alle menschlichen Mitspieler einen Spielerpass, wird die Partie pausiert und lässt sich unter „Meine Partien“ fortsetzen. Sonst wird sie abgeräumt. Einen Pass kann jeder im Menü anlegen.';
     if (await confirm('Spiel verlassen?', txt, 'Verlassen', true)) C.leave();
   }
   function init(ctx) {

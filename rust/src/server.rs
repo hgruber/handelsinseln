@@ -13,10 +13,10 @@ use serde_json::{json, Value};
 
 use crate::arm;
 use crate::game::{now_ms, truthy, GameError};
-use crate::handover;
 use crate::http::{self, Request};
 use crate::hub::{Hub, HubError, JoinReq, Room};
 use crate::log;
+use crate::pair;
 use crate::rng::Rng;
 
 static STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -48,12 +48,16 @@ pub struct Inner {
     pub clients: Clients,
     pub next_client_id: u64,
     pub rate: HashMap<String, (u32, i64)>,
+    pub pair_tries: (u32, i64),
+    /// Ratenschutz für /api/person und /api/person/resume (Pass ist ein Orakel).
+    pub person_tries: (u32, i64),
     pub dirty_since: Option<i64>,
     pub version: String,
     pub data_dir: PathBuf,
     pub no_save: bool,
     pub stun: Option<String>,
     pub https_port: Option<u16>,
+    pub server_id: String,
 }
 
 #[derive(Clone)]
@@ -61,11 +65,6 @@ pub struct App {
     pub inner: Arc<Mutex<Inner>>,
     pub root: Arc<PathBuf>,
 }
-
-const HOST_ACTS: [&str; 10] = [
-    "set_settings", "end_game", "resume_game", "new_game", "regen_board", "close_seats",
-    "add_bot", "add_table_player", "kick", "start",
-];
 
 fn sse(event: &str, data: &Value) -> Vec<u8> {
     format!(
@@ -87,9 +86,6 @@ fn send_token(clients: &Clients, token: &str, bytes: &[u8]) {
 impl Inner {
     fn send_token(&self, token: &str, bytes: &[u8]) {
         send_token(&self.clients, token, bytes);
-    }
-    fn notify(&self, token: &str, event: &str, data: &Value) {
-        self.send_token(token, &sse(event, data));
     }
     fn drop_clients(&mut self, token: &str, event: Option<&str>) {
         if let Some(list) = self.clients.remove(token) {
@@ -173,22 +169,16 @@ impl Inner {
                 ],
             );
         }
-        let players: Vec<(usize, Option<String>, Option<String>)> = room
-            .game
-            .S
-            .players
-            .iter()
-            .map(|p| (p.id, p.token.clone(), p.phone.clone()))
-            .collect();
-        for (pid, tok, phone) in players.iter() {
-            for t in [tok.clone(), phone.clone()].into_iter().flatten() {
-                let has = clients.get(&t).map(|l| !l.is_empty()).unwrap_or(false);
+        let players: Vec<(usize, Option<String>)> =
+            room.game.S.players.iter().map(|p| (p.id, p.token.clone())).collect();
+        for (pid, tok) in players.iter() {
+            if let Some(t) = tok {
+                let has = clients.get(t).map(|l| !l.is_empty()).unwrap_or(false);
                 if !has {
                     continue;
                 }
-                let via_phone = phone.as_deref() == Some(t.as_str());
-                let v = pview(room, clients, *pid, via_phone);
-                send_token(clients, &t, &sse("state", &v));
+                let v = pview(room, clients, *pid);
+                send_token(clients, t, &sse("state", &v));
             }
         }
         // Digitaler Spieltisch: die Tisch-Verbindung des Spielleiters bekommt zusätzlich die Sicht aller Spieler
@@ -213,13 +203,13 @@ impl Inner {
                         .into_iter()
                         .map(|pid| {
                             if room.game.is_table_player(pid) {
-                                pview(room, clients, pid, false)
+                                pview(room, clients, pid)
                             } else {
                                 pub_view.clone()
                             }
                         })
                         .collect();
-                    let data = json!({"views": views, "requests": handover::pending(room)});
+                    let data = json!({"views": views});
                     let bytes = sse("table", &data);
                     for c in tabs {
                         let _ = c.tx.send(bytes.clone());
@@ -278,16 +268,13 @@ fn table_stream(room: &Room, clients: &Clients) -> bool {
     clients.get(&tok).map(|l| l.iter().any(|c| c.table_mode)).unwrap_or(false)
 }
 
-fn pview(room: &mut Room, clients: &Clients, pid: usize, via_phone: bool) -> Value {
+fn pview(room: &mut Room, clients: &Clients, pid: usize) -> Value {
     let mut v = room.game.view(Some(pid));
     let disp = displays(room, clients) > 0;
     let av = arm::view_for(room, Some(pid));
     if let Some(o) = v.as_object_mut() {
         o.insert("display".into(), json!(disp));
         o.insert("arm".into(), av);
-        if via_phone {
-            o.insert("host".into(), json!(-1));
-        }
     }
     v
 }
@@ -339,6 +326,7 @@ fn report(room: &Room, reason: Option<&str>, version: &str, data_dir: &Path, no_
                 "name": p.name, "color": p.color, "kind": kind_of(p),
                 "vp": g.vp(p.id) + g.hidden_vp(p.id) as i64,
                 "left": p.left, "vanished": p.vanished,
+                "personId": p.person_id,
                 "stats": st.players.get(p.id),
             })
         })
@@ -441,6 +429,7 @@ fn handle<W: Write>(app: &App, stream: &mut W, req: &Request) -> io::Result<()> 
                 "stun": inner.stun,
                 "httpsPort": inner.https_port,
                 "version": inner.version,
+                "serverId": inner.server_id,
             }),
         );
     }
@@ -449,10 +438,15 @@ fn handle<W: Write>(app: &App, stream: &mut W, req: &Request) -> io::Result<()> 
             "/api/join",
             "/api/watch",
             "/api/pick",
-            "/api/handover",
             "/api/act",
             "/api/leave",
             "/api/signal",
+            "/api/pair",
+            "/api/pair/claim",
+            "/api/pair/check",
+            "/api/person",
+            "/api/person/link",
+            "/api/person/resume",
         ]
         .contains(&path)
     {
@@ -470,6 +464,19 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
     let token = b.get("token").and_then(|v| v.as_str()).map(|s| s.to_string());
     let mut inner = app.inner.lock().unwrap();
 
+    // Der Pass ist über die Personen-ID ein Orakel: Anfragen mengenbegrenzen (global, 300/min).
+    if path == "/api/person" || path == "/api/person/resume" {
+        let now = now_ms();
+        let e = &mut inner.person_tries;
+        if now - e.1 > 60_000 {
+            *e = (0, now);
+        }
+        e.0 += 1;
+        if e.0 > 300 {
+            return json_error(stream, 429, "Zu viele Pass-Anfragen – bitte kurz warten.", None);
+        }
+    }
+
     if path == "/api/watch" {
         let game = b.get("game").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let out = match inner.hub.watch(&game) {
@@ -484,6 +491,287 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         return http::send_json(stream, 200, &json!({"token": out.token, "game": out.game, "watch": true}));
     }
 
+    // ---------- Gerätekopplung (Nonce) ----------
+    if path == "/api/pair" {
+        let pid_b = b.get("pid").and_then(|v| v.as_u64()).map(|x| x as usize);
+        let owner = token.as_deref().and_then(|t| inner.hub.find_by_token(t));
+        let (rid, pid) = match owner {
+            Some((rid, pid)) => {
+                let host_table = inner
+                    .hub
+                    .rooms
+                    .get(&rid)
+                    .map(|r| pid == r.game.S.host && r.game.S.settings.table)
+                    .unwrap_or(false);
+                let allowed_other = pid_b
+                    .and_then(|x| inner.hub.rooms.get(&rid).and_then(|r| r.game.S.players.get(x)).map(|_| x));
+                let bind = match pid_b {
+                    Some(x) if x == pid => Some(x),
+                    Some(_) if host_table => allowed_other.or(Some(pid)),
+                    _ => Some(pid),
+                };
+                (rid, bind)
+            }
+            None => {
+                let g = match b.get("game").and_then(|v| v.as_str()) {
+                    Some(g) if !g.is_empty() => g.to_string(),
+                    _ => return json_error(stream, 400, "Bitte ein Spiel angeben.", None),
+                };
+                if !inner.hub.rooms.contains_key(&g) {
+                    return json_error(stream, 400, "Dieses Spiel gibt es nicht mehr.", None);
+                }
+                (g, pid_b)
+            }
+        };
+        let p = pair::offer(inner.hub.rooms.get_mut(&rid).unwrap(), pid);
+        log::info(
+            "kopplung_angebot",
+            &[
+                ("raum", rid.clone()),
+                ("platz", pid.map(|x| x.to_string()).unwrap_or_else(|| "-".into())),
+            ],
+        );
+        return http::send_json(
+            stream,
+            200,
+            &json!({
+                "nonce": p.nonce, "secret": p.secret, "game": rid, "pid": p.pid,
+                "ms": (p.until - now_ms()).max(0),
+            }),
+        );
+    }
+
+    if path == "/api/pair/claim" {
+        let key = b.get("nonce").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if key.is_empty() {
+            return json_error(stream, 400, "Kein Kopplungscode angegeben.", None);
+        }
+        let now = now_ms();
+        let e = &mut inner.pair_tries;
+        if now - e.1 > 60_000 {
+            *e = (0, now);
+        }
+        e.0 += 1;
+        if e.0 > 60 {
+            return json_error(stream, 429, "Zu viele Versuche – bitte kurz warten.", None);
+        }
+        let rid = match inner.hub.find_pair(&key) {
+            Some(r) => r,
+            None => return json_error(stream, 400, "Dieser Kopplungscode gilt nicht mehr.", None),
+        };
+        let claimant = b
+            .get("token")
+            .and_then(|v| v.as_str())
+            .and_then(|t| inner.hub.find_by_token(t))
+            .filter(|(r, _)| r == &rid)
+            .map(|(_, pid)| pid);
+        let room = inner.hub.rooms.get_mut(&rid).unwrap();
+        match pair::claim(room, &key, claimant) {
+            Ok(pair::Claim::Receiver { token, pid }) => {
+                log::info(
+                    "kopplung_uebernommen",
+                    &[("raum", rid.clone()), ("platz", pid.to_string())],
+                );
+                http::send_json(
+                    stream,
+                    200,
+                    &json!({"role": "receiver", "token": token, "game": rid, "pid": pid}),
+                )
+            }
+            Ok(pair::Claim::Giver { pid }) => {
+                log::info(
+                    "kopplung_verbunden",
+                    &[("raum", rid.clone()), ("platz", pid.to_string())],
+                );
+                http::send_json(
+                    stream,
+                    200,
+                    &json!({"role": "giver", "game": rid, "pid": pid}),
+                )
+            }
+            Err(e) => json_error(stream, 400, &e.0, None),
+        }
+    } else if path == "/api/pair/check" {
+        let key = b.get("nonce").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let secret = b.get("secret").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let rid = match inner.hub.find_pair(&key) {
+            Some(r) => r,
+            None => return json_error(stream, 400, "Dieser Kopplungscode gilt nicht mehr.", None),
+        };
+        let mut out = {
+            let room = inner.hub.rooms.get(&rid).unwrap();
+            match pair::check(room, &key, &secret) {
+                Some(v) => v,
+                None => return json_error(stream, 403, "Ungültiges Angebot.", None),
+            }
+        };
+        if let Some(o) = out.as_object_mut() {
+            o.insert("game".into(), json!(rid));
+        }
+        http::send_json(stream, 200, &out)
+    } else if path == "/api/person" {
+        let id = match b.get("personId").and_then(|v| v.as_str()).and_then(norm_person) {
+            Some(x) => x,
+            None => return json_error(stream, 400, "Ungültige Personen-ID.", None),
+        };
+        let mut partien: Vec<Value> = Vec::new();
+        for room in inner.hub.rooms.values() {
+            if room.game.S.phase == "ended" {
+                continue;
+            }
+            let paused_room = room.paused_at.is_some();
+            for p in &room.game.S.players {
+                if p.person_id.as_deref() != Some(id.as_str()) {
+                    continue;
+                }
+                // Laufend und erreichbar – oder der Platz wartet (verlassen bzw. Partie pausiert)
+                // und lässt sich über den Pass fortsetzen, auch wenn die Partie schon weiterläuft.
+                let laufend = !paused_room && !p.left && p.token.is_some();
+                if !laufend && !(paused_room || p.left) {
+                    continue;
+                }
+                partien.push(json!({
+                    "game": room.id, "name": p.name, "pid": p.id,
+                    "phase": room.game.S.phase, "running": true, "paused": !laufend,
+                    "token": if laufend { json!(p.token) } else { Value::Null },
+                    "winner": room.game.S.winner,
+                    // Mitspieler ohne die eigene Zeile – der eigene Name steht schon als Titel.
+                    "players": room.game.S.players.iter().filter(|q| !q.left && q.id != p.id).map(|q| json!({"name": q.name})).collect::<Vec<_>>(),
+                }));
+            }
+        }
+        let laufend = partien.len();
+        partien.extend(archiv_partien(&inner.data_dir, &id));
+        log::info("person_partien", &[("laufend", laufend.to_string()), ("gesamt", partien.len().to_string())]);
+        http::send_json(stream, 200, &json!({"partien": partien}))
+    } else if path == "/api/person/link" {
+        let id = match b.get("personId").and_then(|v| v.as_str()).and_then(norm_person) {
+            Some(x) => x,
+            None => return json_error(stream, 400, "Ungültige Personen-ID.", None),
+        };
+        let (rid, pid) = match token.as_deref().and_then(|t| inner.hub.find_by_token(t)) {
+            Some(f) => f,
+            None => return json_error(stream, 401, "Unbekannte Sitzung – bitte neu anmelden.", None),
+        };
+        if let Some(room) = inner.hub.rooms.get_mut(&rid) {
+            if let Some(p) = room.game.S.players.get_mut(pid) {
+                p.person_id = Some(id);
+            }
+        }
+        inner.mark_dirty();
+        http::send_json(stream, 200, &json!({"ok": true}))
+    } else if path == "/api/person/resume" {
+        let id = match b.get("personId").and_then(|v| v.as_str()).and_then(norm_person) {
+            Some(x) => x,
+            None => return json_error(stream, 400, "Ungültige Personen-ID.", None),
+        };
+        let rid = match b.get("game").and_then(|v| v.as_str()) {
+            Some(g) => g.to_string(),
+            None => return json_error(stream, 400, "Keine Partie angegeben.", None),
+        };
+        let mut out: Option<(String, usize)> = None;
+        let mut err: Option<String> = None;
+        match inner.hub.rooms.get_mut(&rid) {
+            None => err = Some("Diese Partie gibt es nicht mehr.".into()),
+            Some(room) => {
+                if room.game.S.phase == "ended" {
+                    err = Some("Diese Partie ist beendet.".into());
+                } else {
+                    let pid = room.game.S.players.iter().position(|p| {
+                        p.person_id.as_deref() == Some(id.as_str()) && p.bot.is_none() && !p.is_table_guest()
+                    });
+                    match pid {
+                        None => err = Some("Zu dieser Partie gehört kein Platz mit deinem Spielerpass.".into()),
+                        Some(pid) => {
+                            {
+                                let p = room.game.pl_mut(pid);
+                                p.left = false;
+                                p.auto = false;
+                                p.connected = false;
+                            }
+                            match crate::pair::take_token(room, pid) {
+                                Ok(tok) => {
+                                    room.paused_at = None;
+                                    room.empty_since = Some(crate::game::now_ms());
+                                    out = Some((tok, pid));
+                                }
+                                Err(e) => err = Some(e.0),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(e) = err {
+            return json_error(stream, 400, &e, None);
+        }
+        match out {
+            Some((tok, pid)) => {
+                inner.broadcast(&rid);
+                inner.mark_dirty();
+                log::info("pause_fortgesetzt", &[("raum", rid.clone()), ("platz", pid.to_string())]);
+                http::send_json(stream, 200, &json!({"ok": true, "token": tok, "game": rid, "pid": pid}))
+            }
+            None => json_error(stream, 400, "Diese Partie lässt sich nicht fortsetzen.", None),
+        }
+    } else {
+        drop(inner);
+        handle_post_game(app, stream, token, b, path)
+    }
+}
+
+/// Personen-ID: 64 Hex-Zeichen (HMAC-SHA256), Kleinbuchstaben.
+fn norm_person(s: &str) -> Option<String> {
+    let s = s.trim().to_ascii_lowercase();
+    if s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Some(s)
+    } else {
+        None
+    }
+}
+
+/// Abgeschlossene Partien der Person aus partien.jsonl.
+fn archiv_partien(data_dir: &Path, id: &str) -> Vec<Value> {
+    let mut out = Vec::new();
+    let s = match std::fs::read_to_string(data_dir.join("partien.jsonl")) {
+        Ok(s) => s,
+        Err(_) => return out,
+    };
+    for line in s.lines() {
+        let v: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let ps = match v.get("players").and_then(|p| p.as_array()) {
+            Some(p) => p,
+            None => continue,
+        };
+        for (i, p) in ps.iter().enumerate() {
+            if p.get("personId").and_then(|x| x.as_str()) != Some(id) {
+                continue;
+            }
+            out.push(json!({
+                "game": v.get("room"), "name": p.get("name"), "vp": p.get("vp"),
+                "endedAt": v.get("endedAt"), "result": v.get("result"),
+                "winner": v.get("winner"), "rounds": v.get("rounds"), "minutes": v.get("minutes"),
+                "running": false,
+                // Mitspieler ohne die eigene Zeile – der eigene Name steht schon als Titel.
+                "players": ps.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, q)| json!({"name": q.get("name"), "vp": q.get("vp")})).collect::<Vec<_>>(),
+            }));
+        }
+    }
+    out
+}
+
+/// Beitritt, Aktionen und Kontrollübergabe (nach den Kopplungs-Endpunkten).
+fn handle_post_game<W: Write>(
+    app: &App,
+    stream: &mut W,
+    token: Option<String>,
+    b: Value,
+    path: &str,
+) -> io::Result<()> {
+    let mut inner = app.inner.lock().unwrap();
     let watcher = token.as_deref().and_then(|t| inner.hub.find_watcher(t));
 
     if path == "/api/pick" {
@@ -493,7 +781,7 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         let found = token.as_deref().and_then(|tok| inner.hub.find_by_token(tok));
         let room_id = match (&watcher, &found) {
             (Some(w), _) => Some(w.clone()),
-            (None, Some((rid, pid, false))) => {
+            (None, Some((rid, pid))) => {
                 let is_host_table = inner
                     .hub
                     .rooms
@@ -525,32 +813,6 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         }
         inner.broadcast(&rid);
         return http::send_json(stream, 200, &json!({"ok": true}));
-    }
-
-    if path == "/api/handover" {
-        let rid = match &watcher {
-            Some(w) => w.clone(),
-            None => {
-                return json_error(stream, 403, "Nur ein zusehendes Gerät kann Kontrolle anfragen.", None)
-            }
-        };
-        let pid = b.get("pid").and_then(|v| v.as_u64()).unwrap_or(u64::MAX) as usize;
-        let tok = token.clone().unwrap_or_default();
-        let room = inner.hub.rooms.get_mut(&rid).unwrap();
-        let (req_, replaced, ttl) = match handover::request(room, &tok, pid) {
-            Ok(x) => x,
-            Err(e) => return json_error(stream, 400, &e.0, None),
-        };
-        if let Some(old) = replaced {
-            inner.notify(&old.token, "handover", &json!({"state": "replaced", "pid": old.pid}));
-        }
-        schedule_expire(app.inner.clone(), rid.clone(), ttl);
-        inner.broadcast(&rid);
-        return http::send_json(
-            stream,
-            200,
-            &json!({"code": req_.code, "ttl": ttl, "pid": req_.pid}),
-        );
     }
 
     if watcher.is_some() {
@@ -606,36 +868,13 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         );
     }
 
-    let (rid, pid, phone) = match token.as_deref().and_then(|t| inner.hub.find_by_token(t)) {
+    let (rid, pid) = match token.as_deref().and_then(|t| inner.hub.find_by_token(t)) {
         Some(f) => f,
         None => return json_error(stream, 401, "Unbekannte Sitzung – bitte neu anmelden.", None),
     };
     let tok = token.clone().unwrap_or_default();
 
     if path == "/api/leave" {
-        let host_pid = inner.hub.rooms.get(&rid).map(|r| r.game.S.host).unwrap_or(0);
-        let is_handover = inner
-            .hub
-            .rooms
-            .get(&rid)
-            .and_then(|r| r.game.S.players.get(pid))
-            .map(|p| p.handover == Some(true) && (phone || pid != host_pid))
-            .unwrap_or(false);
-        if is_handover {
-            let room = inner.hub.rooms.get_mut(&rid).unwrap();
-            let ctl = match handover::hand_back(room, pid) {
-                Ok(t) => t,
-                Err(e) => return json_error(stream, 400, &e.0, None),
-            };
-            log::info(
-                "kontrolle_tisch",
-                &[("raum", rid.clone()), ("spieler", inner.name_of(&rid, pid)), ("pid", pid.to_string())],
-            );
-            inner.notify(&ctl, "control_end", &json!({}));
-            inner.drop_clients(&ctl, None);
-            inner.broadcast(&rid);
-            return http::send_json(stream, 200, &json!({"ok": true}));
-        }
         let (name, phase) = inner
             .hub
             .rooms
@@ -656,10 +895,21 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
             .get(&rid)
             .map(|r| r.game.humans().len())
             .unwrap_or(0);
+        let pause_ok = inner.hub.rooms.get(&rid).map(crate::hub::darf_pausieren).unwrap_or(false);
         if humans == 0 {
-            room_gone(&mut inner, &rid, "alle Menschen haben verlassen");
-            drop_room(&mut inner, &rid);
-            inner.save();
+            // Mit Spielerpass für alle Menschen bleibt die Partie als Pause stehen.
+            if pause_ok {
+                if let Some(room) = inner.hub.rooms.get_mut(&rid) {
+                    room.paused_at = Some(crate::game::now_ms());
+                    room.empty_since = None;
+                }
+                log::info("pausiert", &[("raum", rid.clone())]);
+                inner.save();
+            } else {
+                room_gone(&mut inner, &rid, "alle Menschen haben verlassen");
+                drop_room(&mut inner, &rid);
+                inner.save();
+            }
         } else {
             inner.broadcast(&rid);
         }
@@ -725,107 +975,6 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         inner.broadcast(&rid);
         return http::send_json(stream, 200, &json!({"ok": true}));
     }
-    if ty == "handover_answer" {
-        let tpid = b.get("pid").and_then(|v| v.as_u64()).unwrap_or(u64::MAX) as usize;
-        let code = b.get("code").map(|v| match v {
-            Value::String(s) => s.clone(),
-            other => other.to_string(),
-        }).unwrap_or_default();
-        let accept = b.get("accept").map(truthy).unwrap_or(false);
-        let (r, accepted, host_pid, pname) = {
-            let room = inner.hub.rooms.get_mut(&rid).unwrap();
-            let is_host = !phone && pid == room.game.S.host && room.game.S.settings.table;
-            if !is_host {
-                return json_error(stream, 400, "Nur der Spieltisch kann Kontrollanfragen beantworten.", None);
-            }
-            let host_pid = room.game.S.host;
-            let pname = room.game.S.players.get(tpid).map(|p| p.name.clone()).unwrap_or_default();
-            match handover::answer(room, tpid, &code, accept) {
-                Ok((r, acc)) => (r, acc, host_pid, pname),
-                Err(e) => return json_error(stream, 400, &e.0, None),
-            }
-        };
-        if accepted {
-            inner.notify(
-                &r.token,
-                "control",
-                &json!({"pid": r.pid, "host": r.pid == host_pid}),
-            );
-            log::info(
-                "kontrolle_handy",
-                &[
-                    ("raum", rid.clone()),
-                    ("spieler", pname),
-                    ("pid", r.pid.to_string()),
-                ],
-            );
-        } else {
-            inner.notify(&r.token, "handover", &json!({"state": "declined", "pid": r.pid}));
-        }
-        inner.broadcast(&rid);
-        return http::send_json(stream, 200, &json!({"ok": true}));
-    }
-    if ty == "handback" {
-        let table = !phone
-            && inner
-                .hub
-                .rooms
-                .get(&rid)
-                .map(|r| pid == r.game.S.host)
-                .unwrap_or(false);
-        let table = table
-            && inner
-                .hub
-                .rooms
-                .get(&rid)
-                .map(|r| r.game.S.settings.table)
-                .unwrap_or(false);
-        let target = if table {
-            b.get("pid").and_then(|v| v.as_u64()).map(|x| x as usize).unwrap_or(pid)
-        } else {
-            pid
-        };
-        let room = inner.hub.rooms.get_mut(&rid).unwrap();
-        let has = room
-            .game
-            .S
-            .players
-            .get(target)
-            .map(|o| o.handover == Some(true))
-            .unwrap_or(false);
-        if !has {
-            return json_error(stream, 400, "Dieser Platz wird nicht von einem Handy gesteuert.", None);
-        }
-        let ctl = if target == room.game.S.host {
-            room.game.S.players[target].phone.clone()
-        } else {
-            room.game.S.players[target].token.clone()
-        }
-        .unwrap_or_default();
-        let given = b.get("token").map(|v| match v {
-            Value::String(s) => s.clone(),
-            other => other.to_string(),
-        }).unwrap_or_default();
-        if given != ctl && !table {
-            return json_error(stream, 400, "Das darfst du nicht.", None);
-        }
-        let t = match handover::hand_back(room, target) {
-            Ok(t) => t,
-            Err(e) => return json_error(stream, 400, &e.0, None),
-        };
-        log::info(
-            "kontrolle_tisch",
-            &[("raum", rid.clone()), ("durch", inner.name_of(&rid, pid))],
-        );
-        inner.notify(&t, "control_end", &json!({}));
-        inner.drop_clients(&t, None);
-        inner.broadcast(&rid);
-        return http::send_json(stream, 200, &json!({"ok": true}));
-    }
-
-    if phone && HOST_ACTS.contains(&ty.as_str()) {
-        return json_error(stream, 403, "Das Handy hat keine Spielleiter-Rechte.", None);
-    }
     let mut actor = pid;
     if let Some(as_pid) = b.get("as").and_then(|v| v.as_u64()) {
         let as_pid = as_pid as usize;
@@ -845,18 +994,6 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
                 );
             }
             actor = as_pid;
-        }
-    }
-    if actor == pid && !phone {
-        let controlled = inner
-            .hub
-            .rooms
-            .get(&rid)
-            .and_then(|r| r.game.S.players.get(actor))
-            .and_then(|p| p.phone.clone())
-            .is_some();
-        if controlled && !HOST_ACTS.contains(&ty.as_str()) && ty != "chat" {
-            return json_error(stream, 400, "Dieser Platz wird gerade von einem Handy gesteuert.", None);
         }
     }
     let kicked = if ty == "kick" {
@@ -939,29 +1076,12 @@ fn drop_room(inner: &mut Inner, rid: &str) {
     inner.mark_dirty();
 }
 
-fn schedule_expire(app: Arc<Mutex<Inner>>, rid: String, ttl: i64) {
-    thread::spawn(move || {
-        thread::sleep(Duration::from_millis((ttl + 60) as u64));
-        let mut inner = app.lock().unwrap();
-        let gone = match inner.hub.rooms.get_mut(&rid) {
-            Some(room) => handover::expire(room),
-            None => return,
-        };
-        for r in &gone {
-            inner.notify(&r.token, "handover", &json!({"state": "expired", "pid": r.pid}));
-        }
-        if !gone.is_empty() {
-            inner.broadcast(&rid);
-        }
-    });
-}
-
 // ---------- Ereignisstrom ----------
 
 fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
     let token = req.q("token").unwrap_or("").to_string();
     let want_table = req.q("table") == Some("1");
-    let (rx, client_id, room_id, is_watcher, pid, phone, initial) = {
+    let (rx, client_id, room_id, is_watcher, pid, initial) = {
         let mut inner = app.inner.lock().unwrap();
         let found = inner.hub.find_by_token(&token);
         let watcher = if found.is_none() {
@@ -982,7 +1102,7 @@ fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
         let (tx, rx) = mpsc::channel::<Vec<u8>>();
         inner.next_client_id += 1;
         let cid = inner.next_client_id;
-        let (rid, p_id, ph, isw) = if let Some(w) = watcher {
+        let (rid, p_id, isw) = if let Some(w) = watcher {
             let table_mode = false;
             inner.clients.entry(token.clone()).or_default().push(Client {
                 id: cid,
@@ -995,11 +1115,10 @@ fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
                 }
                 room.game.settle();
             }
-            (w, 0usize, false, true)
+            (w, 0usize, true)
         } else {
-            let (rid, pidv, phonev) = found.unwrap();
-            let table_mode = !phonev
-                && want_table
+            let (rid, pidv) = found.unwrap();
+            let table_mode = want_table
                 && inner
                     .hub
                     .rooms
@@ -1015,7 +1134,7 @@ fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
             if let Some(room) = inner.hub.rooms.get_mut(&rid) {
                 room.game.settle();
             }
-            (rid, pidv, phonev, false)
+            (rid, pidv, false)
         };
         let v = {
             let iref: &mut Inner = &mut inner;
@@ -1024,14 +1143,14 @@ fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
             if isw {
                 wview(room, clients)
             } else {
-                pview(room, clients, p_id, ph)
+                pview(room, clients, p_id)
             }
         };
         let mut bytes = b"retry: 2000\n\n".to_vec();
         bytes.extend_from_slice(&sse("state", &v));
         inner.broadcast(&rid);
         drop(inner);
-        (rx, cid, rid, isw, p_id, ph, bytes)
+        (rx, cid, rid, isw, p_id, bytes)
     };
     let _ = http::write_head(
         stream,
@@ -1078,7 +1197,7 @@ fn events<W: Write>(app: &App, stream: &mut W, req: &Request) {
                 }
             }
             inner.broadcast(&room_id);
-        } else if !phone {
+        } else {
             inner.hub.disconnect_player(&room_id, pid);
             inner.broadcast(&room_id);
         }
@@ -1149,12 +1268,15 @@ pub fn run(opts: Options) -> io::Result<()> {
         clients: HashMap::new(),
         next_client_id: 0,
         rate: HashMap::new(),
+        pair_tries: (0, 0),
+        person_tries: (0, 0),
         dirty_since: None,
         version: opts.version.clone(),
         data_dir: opts.data_dir.clone(),
         no_save: opts.no_save,
         stun: opts.stun.clone(),
         https_port,
+        server_id: ensure_server_id(&opts.data_dir),
     }));
     let app = App { inner: inner.clone(), root: Arc::new(opts.root.clone()) };
     let addr = match &opts.listen {
@@ -1183,6 +1305,9 @@ pub fn run(opts: Options) -> io::Result<()> {
                 std::process::exit(0);
             }
             let (changed, remove) = inner.hub.tick();
+            if !changed.is_empty() || !remove.is_empty() {
+                inner.mark_dirty();
+            }
             for rid in remove {
                 room_gone(&mut inner, &rid, "niemand mehr verbunden");
                 drop_room(&mut inner, &rid);
@@ -1218,8 +1343,8 @@ pub fn run(opts: Options) -> io::Result<()> {
                 let changed = {
                     let rnd = inner.hub.rnd.clone();
                     match inner.hub.rooms.get_mut(&rid) {
-                        Some(room) => crate::bots::bot_tick(room, &rnd),
-                        None => false,
+                        Some(room) if room.paused_at.is_none() => crate::bots::bot_tick(room, &rnd),
+                        _ => false,
                     }
                 };
                 if changed {
@@ -1266,4 +1391,22 @@ fn random_rng() -> Rng {
         .map(|_| u32::from_le_bytes(b))
         .unwrap_or_else(|_| now_ms() as u32);
     Rng::seeded(seed)
+}
+
+/// Stabile Kennung dieser Installation (für die servergebundene Personen-ID).
+fn ensure_server_id(data_dir: &Path) -> String {
+    let file = data_dir.join("server.json");
+    if let Ok(s) = std::fs::read_to_string(&file) {
+        if let Ok(v) = serde_json::from_str::<Value>(&s) {
+            if let Some(id) = v.get("serverId").and_then(|x| x.as_str()) {
+                if !id.is_empty() {
+                    return id.to_string();
+                }
+            }
+        }
+    }
+    let id = crate::game_lobby::random_hex(16);
+    let _ = std::fs::create_dir_all(data_dir);
+    let _ = std::fs::write(&file, serde_json::to_string(&json!({"serverId": id})).unwrap_or_default());
+    id
 }

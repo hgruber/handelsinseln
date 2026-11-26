@@ -318,7 +318,6 @@ impl Game {
                 o.insert("connected".into(), json!(p.connected));
                 o.insert("auto".into(), json!(p.auto));
                 o.insert("gone".into(), json!(p.left));
-                o.insert("handover".into(), json!(p.handover == Some(true)));
                 o.insert(
                     "vp".into(),
                     json!(if S.phase == "lobby" {
@@ -491,7 +490,6 @@ impl Game {
         let obj = v.as_object_mut().unwrap();
         obj.insert("watch".into(), json!(true));
         obj.insert("host".into(), json!(-1));
-        obj.insert("takeable".into(), json!(self.takeable()));
         obj.insert("chat".into(), json!([]));
         // Plätze am Tisch: ohne feste Sitzordnung reihum im Uhrzeigersinn verteilen
         let ws: std::collections::HashMap<usize, Vec<&str>> = [

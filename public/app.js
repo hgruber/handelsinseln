@@ -77,7 +77,7 @@
     } catch (e) { return { error: 'Keine Verbindung zum Server.' }; }
   }
   // Aktionen des Spielleiters selbst (nie im Namen eines Mitspielers)
-  const OWN_ACTS = new Set(['set_settings', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start', 'handover_answer', 'handback']);
+  const OWN_ACTS = new Set(['set_settings', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start']);
   async function act(type, params, asPid) {
     if (st.mock) { toast(`Mock-Modus: „${type}“ ${JSON.stringify(params || {})} nicht gesendet`, 'info'); console.log('act', type, params); return { ok: true }; }
     const body = Object.assign({ token: st.token, type }, params || {});
@@ -96,10 +96,7 @@
     const es = new EventSource('/api/events?token=' + encodeURIComponent(st.token) + (st.tableStream ? '&table=1' : ''));
     st.es = es;
     es.addEventListener('state', (e) => { setOnline(true); try { const v = JSON.parse(e.data); if (v.watch) watchState(v); else if (!tableState(v)) applyView(v); } catch (err) { console.error(err); } });
-    es.addEventListener('table', (e) => { setOnline(true); try { const d = JSON.parse(e.data); tableViews(d.views, d.requests || []); } catch (err) { console.error(err); } });
-    es.addEventListener('control', () => becomePlayer());
-    es.addEventListener('control_end', () => logout('Die Kontrolle ist wieder am Spieltisch.'));
-    es.addEventListener('handover', (e) => { try { onHandover(JSON.parse(e.data)); } catch (err) { console.error(err); } });
+    es.addEventListener('table', (e) => { setOnline(true); try { const d = JSON.parse(e.data); tableViews(d.views); } catch (err) { console.error(err); } });
     es.addEventListener('closed', () => logout('Das Spiel ist nicht mehr verfügbar.'));
     es.addEventListener('signal', (e) => { try { Voice.onSignal(JSON.parse(e.data)); } catch (err) { console.error(err); } });
     es.addEventListener('kicked', () => { Lobby.setNotice('Du wurdest vom Spielleiter entfernt.'); logout('Du wurdest vom Spielleiter entfernt.'); });
@@ -124,14 +121,14 @@
     if (!want && st.tableStream) { st.tableStream = false; st.tableOn = false; Table.deactivate(); st.tv = null; connect(); return true; }
     return want;
   }
-  function tableViews(views, requests) {
+  function tableViews(views) {
     if (!st.tableStream || !views || !views.length) return;
     const first = !st.tableOn;
     st.tableOn = true; st.tv = views;
     Table.activate(views);
     const focus = Table.focusOf(views);
     applyView(views[focus]);
-    Table.render(views, focus, false, requests);
+    Table.render(views, focus, false);
     chipSeat(document.body.dataset.cseat);
     if (first) { fit(true); setTimeout(() => fit(false), 120); }
   }
@@ -148,46 +145,10 @@
     Table.render(views, Table.focusOf(views), true);
     if (first) { fit(true); setTimeout(() => fit(false), 120); }
   }
-  // ---- Kontrollübergabe (Handy) ---------------------------------------------------------------------------
-  // Langes Drücken auf die Leiste eines Tischspielers/Bots (nur als Zuschauer): „Kontrolle übernehmen?“ → vierstellige Nummer, die der Tisch bestätigt.
-  async function requestControl(pid) {
-    const v = V(); if (!v || !v.watch || !(v.takeable || []).includes(pid)) return;
-    const p = v.players[pid];
-    if (!(await Menu.confirm('Kontrolle übernehmen?', `Du steuerst danach „${p.name}“ von diesem Gerät aus. Am Spieltisch erscheint eine Nummer, die dort bestätigt werden muss.`, 'Anfragen'))) return;
-    const j = await post('/api/handover', { token: st.token, pid });
-    if (j.error) { toast(j.error, 'err'); return; }
-    showCode(j.code, p.name, j.ttl);
-  }
-  function showCode(code, name, ttl) {
-    closeCode();
-    const d = document.createElement('div'); d.id = 'codeBox'; d.className = 'codebox glass';
-    d.innerHTML = `<div class="cq">Deine Nummer</div><div class="cn">${esc(code)}</div><div class="ct">Tippe am Spieltisch bei <b>${esc(name)}</b> auf das ☰ und bestätige diese Nummer.</div><div class="cs">Noch <b id="codeLeft">${Math.round(ttl / 1000)}</b> s</div><button type="button" class="btn ghostb small" id="codeX">Schließen</button>`;
-    document.body.appendChild(d);
-    const end = Date.now() + ttl;
-    d._t = setInterval(() => { const s = Math.max(0, Math.ceil((end - Date.now()) / 1000)); const el = $('codeLeft'); if (el) el.textContent = s; if (!s) closeCode(); }, 500);
-    $('codeX').addEventListener('click', closeCode);
-  }
-  function closeCode() { const d = $('codeBox'); if (d) { clearInterval(d._t); d.remove(); } }
-  function onHandover(e) {
-    closeCode();
-    if (e.state === 'declined') toast('Der Spieltisch hat die Kontrollübergabe abgelehnt.', 'warn');
-    else if (e.state === 'expired') toast('Die Anfrage ist abgelaufen – nicht bestätigt.', 'warn');
-    else if (e.state === 'replaced') toast('Ein anderes Gerät hat denselben Platz angefragt.', 'warn');
-  }
-  // Der Tisch hat die Kontrolle abgegeben: aus dem Zuschauer wird der Spieler (gleiches Token, neu verbinden)
-  function becomePlayer() {
-    closeCode();
-    if (st.es) st.es.close(); st.es = null;
-    st.watch = false; st.tableOn = false; st.tableStream = false; st.tv = null; Table.deactivate();
-    document.body.classList.remove('watch');
-    st.view = null; st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; boardClear();
-    toast('Du steuerst jetzt den Platz von diesem Gerät aus.', 'ok');
-    showScreens(); connect();
-  }
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
-    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; closeCode(); document.body.classList.remove('watch', 'ctl'); Table.deactivate();
+    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate();
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
@@ -207,6 +168,7 @@
   function joined(j) {
     st.token = j.token; localStorage.setItem('handelsinseln.token', j.token);
     showScreens(); connect();
+    Person.link();
   }
 
   // ======================================================================================
@@ -1186,11 +1148,13 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { vpTip, vpIcons, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
+    const ctx = { vpTip, vpIcons, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, showLogin: () => showScreens(), help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });
-    Table.init({ act, Art, avatar, esc, vpIcons, hold: requestControl });
+    Table.init({ act, Art, avatar, esc, vpIcons });
+    Pair.init(ctx);
+    Person.init(ctx);
     Fx.init({ Art, table: () => !!st.tableOn, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
     Trade.init({ root: $('tradeDock'), table: () => !!st.tableOn, view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
@@ -1215,6 +1179,8 @@
       return;
     }
     fetch('/api/config').then((r) => r.json()).then((c) => { if (c.version) $('ver').textContent = 'Version ' + c.version; }).catch(() => {});
+    const km = /^#k=([0-9a-f]+)$/.exec(location.hash);
+    if (km) { history.replaceState(null, '', location.pathname + location.search); Pair.fromHash(km[1]); return; }
     if (st.token) connect(); else showScreens();
   }
   boot();

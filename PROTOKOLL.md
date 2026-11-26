@@ -108,13 +108,7 @@ Der Server verwaltet beliebig viele Spiele („Räume“). Ein Spieler ist genau
   ihrer Sicht `arm:{pid,mode,moveFrom,step,targets:[{t:'v|e|h|sf',k,kinds:[…]}],pick}` und wählt mit `POST /api/pick {token,t,k,kind}` ein Ziel (Spieler-Token → 403, ohne
   Freigabe → 400). Der Freigeber sieht `arm.pick` samt `label`/`where` zur Rückfrage; erst `confirm_pick` führt die passende Aktion aus (Fehler wie bei jeder Aktion). Die Freigabe
   verfällt, sobald sich Phase, Schritt, Spieler am Zug oder Zugnummer ändern; sie liegt im Raum (`room.arm`), nicht im Spielstand.
-- **Kontrollübergabe (Tisch-Partien im Spiel):** Watch-Sicht enthält `takeable` (übernehmbare Plätze: Tischspieler und Bots). `POST /api/handover {token (Zuschauer), pid}` →
-  `{code:'1234', ttl, pid}`; die Anfrage gilt `HANDOVER_MS` (Standard 15 s), ein Handy hat höchstens eine, ein Platz höchstens eine. Das Ereignis `table` des Spieltischs enthält
-  `requests:[{pid, code, ms}]`. Der Tisch (Token des Spielleiters, nicht das Handy) antwortet mit `act {type:'handover_answer', pid, code, accept}`; falsche Nummer/abgelaufen → Fehler.
-  Bei `accept` bekommt das Handy das Ereignis `control {pid, host}` und verbindet mit demselben Token neu als Spieler: Bei Tischspielern/Bots wird der Platz zum Online-Spieler
-  (`tableGuest:false`, `bot:null`, `token` = Handy-Token); beim Spielleiter-Platz bleibt `token` beim Tisch, das Handy steuert über `phone` (Sicht mit `host:-1`, Spielleiter-Aktionen → 403,
-  der Tisch kann den Platz nicht bedienen). `players[].handover` kennzeichnet übergebene Plätze. `act {type:'handback'}` (Handy: eigener Platz; Tisch: `pid`) bzw. `POST /api/leave` des Handys
-  gibt zurück: Platz wird Tischspieler (`tableGuest:true`, nie wieder Bot), das Handy bekommt `control_end`. Weitere Handy-Ereignisse: `handover {state:'declined|expired|replaced'}`.
+- **Gerätekopplung (Tisch-Partien im Spiel):** `POST /api/pair {token (Spielleiter am Tisch), pid}` erzeugt ein Angebot für einen Platz (`{nonce, secret, ttl}`); `POST /api/pair/claim {nonce, token?}` gibt dem einlösenden Gerät den Raum-Token des Platzes. Ein Platz ohne Sitzung (Bot) bekommt beim Koppeln einen Token und wird zum menschlichen Spieler (`bot:null`). Details am Ende: „Gerätekopplung und Spielerpass“.
 - `GET /api/config` → `{stun: null|'stun:…', httpsPort: null|Zahl, version}` (`stun` für WebRTC, meist null → nur lokale Kandidaten; `httpsPort` für den
   Hinweis auf https beim Mikrofon; `version` wie im Menü angezeigt).
 - `POST /api/leave {token}` = Menüpunkt „Spiel verlassen“: In der Lobby wird der Spieler entfernt; im laufenden Spiel übernimmt für ihn
@@ -184,3 +178,13 @@ wird alle Infrastruktur und Hand eines Verlassenen nach `vanishRounds` seiner Z�
   jeder Empfänger mit aktiver Sprache antwortet mit `{t:'hello'}` an den Absender; der mit der kleineren pid sendet das Offer.
 - `getUserMedia` funktioniert nur in sicherem Kontext (https oder localhost). Der Server kann selbst https sprechen (`HTTPS_PORT`, Standard 8443;
   `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`; Zertifikat in `DATA_DIR/tls`).
+
+## Gerätekopplung und Spielerpass
+- `POST /api/pair {token?, game?, pid?}` → `{nonce, secret, game, pid, ms}`. Mit `token` hängt das Angebot am eigenen Platz (der Spielleiter am Tisch darf `pid` für einen anderen Platz angeben); ohne Sitzung ist `game` Pflicht und `pid` offen. `secret` bleibt beim anzeigenden Gerät, `nonce` steht im QR (`#k=<nonce>`).
+- `POST /api/pair/claim {nonce, token?}` → `{role:'receiver', token, game, pid}` (das anzeigende Gerät hatte die Sitzung; das einlösende Gerät bekommt den Token) oder `{role:'giver', game, pid}` (das einlösende Gerät hatte die Sitzung; das Angebot ist jetzt an seinen Platz gebunden, der Anzeigende holt den Token über `check`). Ein Angebot gilt `PAIR_MS` (Standard 60000) und nur einmal; `/api/pair/claim` ist mengenbegrenzt.
+- `POST /api/pair/check {nonce, secret}` → `{claimed, game, pid?, token?, expired?}`; nur mit dem passenden `secret`.
+- `POST /api/person/link {token, personId}` verknüpft den Platz mit der Personen-ID (64 Hex-Zeichen = HMAC-SHA256 aus Spielerpass und `serverId`).
+- `POST /api/person {personId}` → `{partien:[…]}`: laufende Partien (mit `token`, wenn der Platz noch spielbar ist; pausierte mit `paused: true` und ohne `token`) aus den Räumen und beendete aus `partien.jsonl` (Feld `personId` je Spieler). `GET /api/config` liefert `serverId`; die Datei `DATA_DIR/server.json` hält sie stabil.
+- `POST /api/person/resume {personId, game}` → `{ok, token, game, pid}`: setzt eine pausierte Partie fort, wenn ein menschlicher Platz mit dieser Personen-ID existiert, und gibt einen neuen Sitzungstoken aus.
+- `/api/person` und `/api/person/resume` sind zusammen auf 300 Anfragen pro Minute begrenzt (global, 429); sonst wäre die Personen-ID ein Orakel für den Pass aus vier Wörtern.
+- Eine laufende Partie pausiert, wenn kein Mensch mehr verbunden ist und **alle** menschlichen Plätze einen Spielerpass haben; sonst wird sie abgeräumt. Pausierte Partien ruhen (`PAUSE_MS`, Standard 7 Tage), stehen nicht in `/api/lobby`, behalten ihre Plätze und werden nach der Frist als abgebrochen berichtet.

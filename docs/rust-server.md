@@ -30,7 +30,7 @@ HTTP 200 (für Container-Healthchecks; es wird kein zusätzliches Werkzeug gebra
 | `board.rs` | Kartengenerierung inkl. Nebel-Nachwuchs |
 | `game*.rs`, `view.rs` | Spiellogik, Sichten, Handel, Auto-Modus, Auszeichnungen |
 | `bot.rs`, `botplay.rs`, `bots.rs` | Autopilot und die drei Bot-Persönlichkeiten |
-| `hub.rs`, `arm.rs`, `handover.rs` | Räume, Controller-Ansicht, Kontrollübergabe |
+| `hub.rs`, `arm.rs`, `pair.rs` | Räume, Controller-Ansicht, Gerätekopplung |
 | `http.rs`, `server.rs`, `log.rs` | HTTP/SSE, statische Dateien, API, Persistenz, Betriebslog |
 
 Der Zustand wird wie bisher als JSON in `DATA_DIR/state.json` gespeichert (entprellt, atomar über

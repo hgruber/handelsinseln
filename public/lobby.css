@@ -357,3 +357,4 @@ body[data-screen="ended"]:has(#stats.peek) #board { pointer-events: auto; filter
 .ctl.num.mini[data-type="num"] input { width: 100%; }
 .ctl.num.mini[data-type="num"] .tg[data-tg="inf"] { grid-column: 4; }
 .ctl.ro .stp, .ctl.ro .tg:not([aria-pressed="true"]) { display: inline-block; visibility: hidden; }
+.lb-actions { display: flex; gap: 6px; flex: none; }

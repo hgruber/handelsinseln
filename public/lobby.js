@@ -146,6 +146,7 @@
     $('gameList').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (!b) return; L.sel = L.sel === b.dataset.g ? null : b.dataset.g; renderGames(); });
     $('loginForm').addEventListener('submit', (e) => { e.preventDefault(); if ($('joinBtn').getAttribute('aria-disabled') === 'true') { C.toast($('joinBtn').title, 'warn'); return; } doJoin(false); });
     $('createBtn').addEventListener('click', () => doJoin(true));
+    $('myGamesBtn').addEventListener('click', () => root.Person.list());
     L.color = localStorage.getItem('handelsinseln.color') || null;
     L.avatar = localStorage.getItem('handelsinseln.avatar') || null;
   }
@@ -497,11 +498,51 @@
       : `<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter…</p>`);
   }
 
+  // Lobby-Menü: Kopplung, Spielerpass und die Anzeige-Einstellungen, die auch im Spiel im Menü stehen
+  let lbPop = null;
+  function closeLobbyMenu() {
+    if (lbPop) { lbPop.remove(); lbPop = null; }
+    const b = $('lbMenuBtn'); if (b) b.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', outsideLobbyMenu);
+  }
+  function outsideLobbyMenu(e) {
+    if (!e.target.closest('.lb-pop') && !e.target.closest('#lbMenuBtn')) closeLobbyMenu();
+  }
+  function openLobbyMenu() {
+    if (lbPop) { closeLobbyMenu(); return; }
+    const item = (id, label) => `<button type="button" role="menuitem" class="mi" data-mi="${id}"><span class="mic"></span>${label}</button>`;
+    lbPop = document.createElement('div');
+    lbPop.className = 'menu-pop glass lb-pop';
+    lbPop.setAttribute('role', 'menu');
+    lbPop.innerHTML = item('pair', 'Handy koppeln') + item('pass', root.Person.getPass() ? 'Meine Partien' : 'Spielerpass') + '<hr>' +
+      item('bg', 'Hintergrund …') + item('fit', 'Brett zentrieren') + item('rotL', 'Karte links drehen') + item('rotR', 'Karte rechts drehen') +
+      item('sound', 'Töne ' + (root.Sound.enabled() ? 'ausschalten' : 'einschalten')) + item('help', 'Hilfe &amp; Spielregeln');
+    document.body.appendChild(lbPop);
+    const r = $('lbMenuBtn').getBoundingClientRect();
+    lbPop.style.top = (r.bottom + 6) + 'px';
+    lbPop.style.left = Math.max(8, Math.min(innerWidth - lbPop.offsetWidth - 8, r.right - lbPop.offsetWidth)) + 'px';
+    $('lbMenuBtn').setAttribute('aria-expanded', 'true');
+    lbPop.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-mi]'); if (!b) return;
+      const id = b.dataset.mi;
+      if (id === 'rotL' || id === 'rotR') { C.rotate(id === 'rotL' ? -60 : 60); return; }
+      closeLobbyMenu();
+      if (id === 'pair') root.Pair.open({});
+      else if (id === 'pass') root.Person.list();
+      else if (id === 'bg') { if (root.Bg) root.Bg.choose(); }
+      else if (id === 'fit') C.fit();
+      else if (id === 'sound') root.Sound.toggle();
+      else if (id === 'help') C.help();
+    });
+    setTimeout(() => document.addEventListener('click', outsideLobbyMenu), 0);
+  }
+
   function initLobby() {
     onSettingsEvents($('lobbySettings'));
     if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.documentElement.classList.add('ios'); // iOS: Scroll-Container braucht pointer-events:auto (siehe lobby.css)
     $('lobby').addEventListener('click', async (e) => {
       const v = C.view(); if (!v) return;
+      if (e.target.closest('#lbMenuBtn')) { openLobbyMenu(); return; }
       const start = e.target.closest('#startBtn');
       if (start) { if (start.getAttribute('aria-disabled') === 'true') { C.toast(start.title || 'Zu wenige Spieler.', 'warn'); return; } await C.act('start'); return; }
       const vc = e.target.closest('[data-var]'); if (vc && !vc.disabled && isHost()) { ovr.set('variant', { val: vc.dataset.var, until: Infinity }); queue('variant', vc.dataset.var); renderLobby(v); return; }

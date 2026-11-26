@@ -26,7 +26,7 @@ module.exports = [
     files: ['public/**/*.js'],
     languageOptions: {
       ecmaVersion: 2023, sourceType: 'script',
-      globals: { ...globals.browser, Geom: 'readonly', Art: 'readonly', Avatars: 'readonly', Voice: 'readonly', Sound: 'readonly', Fx: 'readonly', Lobby: 'readonly', Menu: 'readonly', Trade: 'readonly', Table: 'readonly', Regeln: 'readonly' },
+      globals: { ...globals.browser, Geom: 'readonly', Art: 'readonly', Avatars: 'readonly', Voice: 'readonly', Sound: 'readonly', Fx: 'readonly', Lobby: 'readonly', Menu: 'readonly', Trade: 'readonly', Table: 'readonly', Regeln: 'readonly', QR: 'readonly', Pair: 'readonly', Person: 'readonly' },
     },
     rules,
   },

@@ -60,9 +60,8 @@ impl Game {
             vanished: false,
             seat: None,
             table_guest: None,
-            phone: None,
-            handover: None,
             bm: None,
+            person_id: None,
         }
     }
 
@@ -238,61 +237,7 @@ impl Game {
             Some(p) => p,
             None => return false,
         };
-        self.S.settings.table
-            && p.phone.is_none()
-            && (pid == self.S.host || p.is_table_guest())
-    }
-
-    pub fn takeable(&self) -> Vec<usize> {
-        if !self.S.settings.table || (self.S.phase != "setup" && self.S.phase != "main") {
-            return Vec::new();
-        }
-        self.S
-            .players
-            .iter()
-            .filter(|p| {
-                !p.left
-                    && p.phone.is_none()
-                    && p.handover != Some(true)
-                    && (self.is_table_player(p.id) || p.bot.is_some())
-            })
-            .map(|p| p.id)
-            .collect()
-    }
-
-    pub fn hand_to(&mut self, pid: usize, token: &str) {
-        let is_host = pid == self.S.host;
-        let p = self.pl_mut(pid);
-        if is_host {
-            p.phone = Some(token.to_string());
-        } else {
-            p.token = Some(token.to_string());
-            p.bot = None;
-            p.table_guest = None;
-            p.auto = false;
-            p.connected = false;
-        }
-        p.handover = Some(true);
-        let name = self.name(pid);
-        self.log(format!("{} wird jetzt von einem Handy gesteuert.", name), "sys", Some(pid));
-        self.S.v += 1;
-    }
-
-    pub fn hand_back(&mut self, pid: usize) {
-        let is_host = pid == self.S.host;
-        let p = self.pl_mut(pid);
-        if is_host {
-            p.phone = None;
-        } else {
-            p.token = None;
-            p.table_guest = Some(true);
-            p.connected = true;
-            p.auto = false;
-        }
-        p.handover = Some(false);
-        let name = self.name(pid);
-        self.log(format!("{} wird wieder am Spieltisch gesteuert.", name), "sys", Some(pid));
-        self.S.v += 1;
+        self.S.settings.table && (pid == self.S.host || p.is_table_guest())
     }
 
     pub fn sync_table(&mut self) {
@@ -372,6 +317,22 @@ impl Game {
             .filter(|p| !p.left && p.bot.is_none() && !p.is_table_guest())
             .map(|p| p.id)
             .collect()
+    }
+
+    /// Alle menschlichen Plätze haben einen Spielerpass (Bots und Tischspieler zählen nicht) –
+    /// nur dann lässt sich die Partie pausieren und von jedem Menschen wieder aufnehmen.
+    pub fn all_humans_have_pass(&self) -> bool {
+        let mut n = 0;
+        for p in &self.S.players {
+            if p.bot.is_some() || p.is_table_guest() {
+                continue;
+            }
+            n += 1;
+            if p.person_id.is_none() {
+                return false;
+            }
+        }
+        n > 0
     }
 
     pub fn set_connected(&mut self, pid: usize, c: bool) {

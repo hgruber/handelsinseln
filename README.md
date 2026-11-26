@@ -29,7 +29,7 @@ Siegpunktzahl erreicht (standardmäßig 14), gewinnt.
 - **Handel mit Charakter:** Bankkurse, 3:1- und 2:1-Häfen, Angebote an alle, Gegenangebote und Bestätigung – alles in der Oberfläche.
 - **Bots, Auto-Modus, Übernahme:** Bruno Biber, Polly Profit und Sir Quakalot spielen mit eigenen Strategien. Wer kurz weg ist,
   wird automatisch vertreten; wer das Spiel verlässt, dessen Infrastruktur kann übernommen werden oder verschwindet.
-- **Mehr als ein Spielbrett:** digitaler Spieltisch, Zuschaueransicht, Kontrollübergabe an ein Handy, Sprachchat, Statistik nach
+- **Mehr als ein Spielbrett:** digitaler Spieltisch, Zuschaueransicht, Gerätekopplung an ein Handy, Sprachchat, Statistik nach
   Spielende und eine installierbare App (PWA) für Android und iPhone.
 
 ## Vier Welten, ein Ziel
@@ -82,7 +82,7 @@ mit `cwebp -q 82 bild.png -o docs/screenshots/name.webp` werden daraus die WebP-
 </details>
 
 <details>
-<summary><strong>Spieltisch, Controller, Übergabe und Zuschauer – so bedient man sie</strong></summary>
+<summary><strong>Spieltisch, Controller, Kopplung und Zuschauer – so bedient man sie</strong></summary>
 
 - **Tischspieler anlegen:** In der Lobby „Tischspieler anlegen …“ wählen (Name, Farbe, Avatar). Der Browser des Spielleiters wird
   zur Tischplatte; beim Start wählt jeder Tischspieler der Reihe nach einen von acht Plätzen. Die Leisten sitzen gedreht am Rand,
@@ -92,9 +92,9 @@ mit `cwebp -q 82 bild.png -o docs/screenshots/name.webp` werden daraus die WebP-
 - **Controller-Ansicht:** Sieht ein Handy dem Tisch zu, schaltet es von selbst auf Karten und Aktionen um. Eine Aktion am Spielfeld
   wird erst am Handy freigegeben; der Tisch zeigt die möglichen Ziele, die Bestätigung erfolgt am Handy. So kann niemand für den
   Spieler am Zug handeln. Rückfragen (Abwerfen, Gold, Opfer, Handel) bleiben am Handy.
-- **Kontrolle übergeben:** Am Handy lange auf die Leiste eines Tischspielers oder Bots drücken und „Kontrolle übernehmen?“ bestätigen;
-  es zeigt eine vierstellige Nummer. Am Tisch erscheint in der Leiste ein ☰, darüber wird dieselbe Nummer bestätigt. „Kontrolle an den
-  Spieltisch“ gibt den Platz zurück; der Spielleiter-Platz lässt sich ebenfalls übergeben, die Spielleiter-Rechte bleiben am Tisch.
+- **Platz auf ein Handy koppeln:** Am Tisch auf das ▦ in der Leiste eines Platzes tippen; der Spieltisch zeigt einen QR-Code, das
+  Handy scannt ihn. Danach spielt das Handy an diesem Platz; ein Bot wird dabei zum menschlichen Spieler. Die Kopplung ersetzt die
+  frühere Kontrollübergabe.
 - **Auto-Modus:** Wer länger als eine Minute weg ist, wird automatisch vertreten: Erträge laufen weiter, 1:1-Angebote werden
   angenommen, gewürfelt und entschieden wird zufällig. Wer zurückkommt, spielt wieder selbst. Verlassene Infrastruktur kann ein
   angrenzender Mitspieler übernehmen oder – je nach Einstellung – nach einigen Runden verschwinden.
@@ -117,6 +117,20 @@ mit `cwebp -q 82 bild.png -o docs/screenshots/name.webp` werden daraus die WebP-
 5. **Besonderheiten:** Schiffe dürfen nur an Küsten und verbinden sich mit Straßen nur über eigene Siedlungen; pro Zug darf ein
    offenes Schiff versetzt werden. Die Straßenbau-Karte erlaubt Straßen und Schiffe. Ab fünf Spielern gibt es nach jedem Zug eine
    Sonderbauphase.
+
+## Geräte und Wiederfinden
+
+- **Auf dem Handy weiterspielen:** In der Lobby „Handy koppeln“ wählen, am Spieltisch das ▦ in der Leiste eines Platzes. Das
+  andere Gerät scannt den QR-Code mit der Kamera. Der Code gilt 60 Sekunden und nur einmal; der Sitzungsschlüssel selbst steht
+  nie im QR-Code.
+- **Partien wiederfinden:** „Mein Spielerpass“ legt vier Wörter an (oder nimmt vorhandene an). Mit ihnen erscheinen unter
+  „Meine Partien“ alle laufenden und beendeten Partien – auch auf einem neuen Gerät oder nach dem Löschen der Browserdaten.
+  Der Pass bleibt auf dem Gerät; an den Server geht nur eine daraus abgeleitete, servergebundene Kennung. Behandle die Wörter
+  wie ein Passwort. Ohne Pass spielst du wie bisher und bleibst anonym.
+- **Pausieren:** Verlässt der letzte Mensch eine laufende Partie und haben alle menschlichen Mitspieler einen Spielerpass,
+  wird sie pausiert (7 Tage) statt abgeräumt und lässt sich unter „Meine Partien“ fortsetzen. Fehlt einem Mitspieler der
+  Pass, wird die Partie wie bisher abgeräumt – deshalb lohnt es sich, den Pass vor dem Verlassen anzulegen (Lobby- und
+  Spiel-Menü).
 
 ## Spielen
 
@@ -211,7 +225,7 @@ Bank, aufdeckbare Felder, Wertechips), Entwicklungskarten je Art sowie die Hausr
 | `BOT_MS` | `800` | Takt der Bots |
 | `TICK_MS` | `2000` | Takt der Zeitprüfung |
 | `GRACE_MS` | `20000` | Kulanz, bis ein Spiel ohne verbundenen Menschen endet |
-| `HANDOVER_MS` | `15000` | Gültigkeit einer Kontrollübergabe |
+| `PAIR_MS` | `60000` | Gültigkeit eines Kopplungscodes |
 | `SSE_PING_MS` | `20000` | Lebenszeichen im Ereignisstrom |
 | `LOG_LEVEL` | `info` | `error`/`warn`/`info`/`debug`/`silent` |
 | `LOG_TIMESTAMP` | `1` | `0`/`off` schaltet den Zeitstempel im Server-Log ab |

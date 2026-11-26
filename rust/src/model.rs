@@ -93,11 +93,10 @@ pub struct Player {
     #[serde(rename = "tableGuest", skip_serializing_if = "Option::is_none", default)]
     pub table_guest: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub phone: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub handover: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub bm: Option<BotMemory>,
+    /// Pseudonym der Person (HMAC aus dem Spielerpass und der serverId), nur wenn der Spieler ihn verknüpft hat.
+    #[serde(rename = "personId", skip_serializing_if = "Option::is_none", default)]
+    pub person_id: Option<String>,
 }
 
 impl Player {

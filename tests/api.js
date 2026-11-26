@@ -48,6 +48,7 @@ async function boot(extra = {}) {
   return {
     base,
     proc,
+    dataDir: data,
     close: () => { try { proc.kill('SIGKILL'); } catch (e) {} fs.rmSync(data, { recursive: true, force: true }); },
     post: async (p, body) => {
       const r = await fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -245,6 +246,189 @@ async function testAutoModus() {
   console.log('  ✓ Abwesenheit → Auto-Modus, Rückkehr, Spielende ohne Menschen');
 }
 
+async function testKopplung() {
+  const T = await boot();
+  try {
+    const j1 = await T.post('/api/join', { name: 'Anna', color: COL[0], create: true });
+    assert(j1.token, JSON.stringify(j1));
+    const j2 = await T.post('/api/join', { name: 'Bert', color: COL[1], game: j1.game });
+    assert(j2.token, JSON.stringify(j2));
+
+    // PC → Handy: das anzeigende Gerät hat die Sitzung, das Handy löst ohne Sitzung ein.
+    const p1 = await T.post('/api/pair', { token: j1.token });
+    assert(p1.nonce && p1.secret && !p1.code, JSON.stringify(p1));
+    assert.equal(p1.game, j1.game);
+    assert.equal(p1.pid, j1.pid);
+
+    let r = await T.post('/api/pair/check', { nonce: p1.nonce, secret: 'falsch' });
+    assert.equal(r.status, 403, 'check ohne secret abgelehnt');
+    r = await T.post('/api/pair/check', { nonce: p1.nonce, secret: p1.secret });
+    assert.equal(r.claimed, false, 'noch nicht eingelöst');
+
+    r = await T.post('/api/pair/claim', { nonce: p1.nonce });
+    assert.equal(r.role, 'receiver', JSON.stringify(r));
+    assert.equal(r.token, j1.token, 'Handy bekommt den Raum-Token');
+    assert.equal(r.pid, j1.pid);
+
+    r = await T.post('/api/pair/claim', { nonce: p1.nonce });
+    assert.equal(r.status, 400, 'Angebot nur einmal einlösbar');
+    r = await T.post('/api/pair/claim', { nonce: '0'.repeat(32) });
+    assert.equal(r.status, 400, 'unbekannter Nonce abgelehnt');
+
+    r = await T.post('/api/pair/check', { nonce: p1.nonce, secret: p1.secret });
+    assert.equal(r.claimed, true);
+    assert.equal(r.token, j1.token);
+
+    // Der übertragene Token funktioniert als Sitzung.
+    const c = T.connect(r.token);
+    await waitUntil(() => c.view && c.view.players.length === 2, 3000, 'Sicht mit übertragenem Token');
+    c.ctrl.abort();
+
+    // Handy → PC: der PC zeigt ohne Sitzung, das Handy löst mit Sitzung ein.
+    const p2 = await T.post('/api/pair', { game: j1.game });
+    assert.equal(p2.pid, null, 'offenes Angebot');
+    r = await T.post('/api/pair/claim', { nonce: p2.nonce, token: j2.token });
+    assert.equal(r.role, 'giver', JSON.stringify(r));
+    assert.equal(r.pid, j2.pid);
+    r = await T.post('/api/pair/check', { nonce: p2.nonce, secret: p2.secret });
+    assert.equal(r.claimed, true);
+    assert.equal(r.pid, j2.pid);
+    assert.equal(r.token, j2.token, 'PC bekommt den Token des Handys');
+
+    // Ein Gerät ohne Sitzung kann ein offenes Angebot nicht einlösen.
+    const p3 = await T.post('/api/pair', { game: j1.game });
+    r = await T.post('/api/pair/claim', { nonce: p3.nonce });
+    assert.equal(r.status, 400, 'offenes Angebot braucht ein Gerät mit Sitzung');
+
+    // Bot über die Kopplung übernehmen: er hat keinen Token und bekommt beim Koppeln einen.
+    assert.equal((await T.post('/api/act', { token: j1.token, type: 'add_table_player', name: 'Tisch', color: COL[2] })).ok, true);
+    assert.equal((await T.post('/api/act', { token: j1.token, type: 'add_bot', kind: 'baumeister' })).ok, true);
+    const g = (await T.get('/api/lobby')).games.find((x) => x.id === j1.game);
+    const botIdx = (g.players || []).findIndex((p) => p.bot);
+    assert(botIdx >= 0, 'Bot im Spiel');
+    const p4 = await T.post('/api/pair', { token: j1.token, pid: botIdx });
+    assert.equal(p4.pid, botIdx, 'Angebot für den Bot-Platz');
+    r = await T.post('/api/pair/claim', { nonce: p4.nonce });
+    assert.equal(r.role, 'receiver');
+    assert(r.token, 'Bot-Platz bekommt beim Koppeln einen Token');
+    const cb = T.connect(r.token);
+    await waitUntil(() => cb.view && cb.view.players[botIdx] && cb.view.players[botIdx].bot == null, 3000, 'gekoppelter Bot-Platz');
+    cb.ctrl.abort();
+
+    console.log('  ✓ Gerätekopplung (PC → Handy, Handy → PC und Bot-Übernahme)');
+  } finally { T.close(); }
+}
+
+async function testPerson() {
+  const T = await boot();
+  try {
+    const id = 'a'.repeat(64);
+    const cfg = await T.get('/api/config');
+    assert(cfg.serverId && cfg.serverId.length > 0, 'serverId vorhanden');
+
+    const j1 = await T.post('/api/join', { name: 'Anna', color: COL[0], create: true });
+    const j2 = await T.post('/api/join', { name: 'Bert', color: COL[1], game: j1.game });
+    assert(j1.token && j2.token, 'zwei Spieler');
+
+    assert.equal((await T.post('/api/person/link', { personId: id })).status, 401, 'ohne Sitzung kein Verknüpfen');
+    assert.equal((await T.post('/api/person/link', { token: 'falsch', personId: id })).status, 401, 'falscher Token');
+    assert.equal((await T.post('/api/person/link', { token: j1.token, personId: 'zz' })).status, 400, 'ungültige ID');
+    assert.equal((await T.post('/api/person/link', { token: j1.token, personId: id })).ok, true);
+
+    let r = await T.post('/api/person', { personId: id });
+    assert.equal(r.status, 200);
+    assert.equal(r.partien.length, 1, 'genau die eigene Partie');
+    assert.equal(r.partien[0].game, j1.game);
+    assert.equal(r.partien[0].running, true);
+    assert.equal(r.partien[0].token, j1.token, 'laufende Partie liefert den Token');
+
+    fs.appendFileSync(path.join(T.dataDir, 'partien.jsonl'), JSON.stringify({
+      room: 'alt', players: [{ name: 'Anna', vp: 9, personId: id }, { name: 'Bert', vp: 4 }],
+      result: 'sieg', winner: 'Anna', rounds: 10, minutes: 30, endedAt: '2026-01-01T00:00:00Z',
+    }) + '\n');
+    r = await T.post('/api/person', { personId: id });
+    assert.equal(r.partien.length, 2, 'laufende und beendete Partie');
+    const alt = r.partien.find((p) => p.game === 'alt');
+    assert(alt && alt.running === false && alt.vp === 9, 'beendete Partie aus dem Archiv');
+
+    assert.equal((await T.post('/api/person', { personId: 'b'.repeat(64) })).partien.length, 0, 'fremde ID sieht nichts');
+
+    console.log('  ✓ Spielerpass: Verknüpfen, laufende und beendete Partien');
+  } finally { T.close(); }
+}
+
+async function testPause() {
+  const T = await boot();
+  try {
+    const id = 'c'.repeat(64);
+    // Solo gegen einen Bot, mit Spielerpass: Verlassen pausiert.
+    const j = await T.post('/api/join', { name: 'Cora', color: COL[0], create: true });
+    assert.equal((await T.post('/api/act', { token: j.token, type: 'add_bot', kind: 'baumeister' })).ok, true);
+    assert.equal((await T.post('/api/act', { token: j.token, type: 'start' })).ok, true);
+    assert.equal((await T.post('/api/person/link', { token: j.token, personId: id })).ok, true);
+    assert.equal((await T.post('/api/leave', { token: j.token })).ok, true);
+
+    let r = await T.post('/api/person', { personId: id });
+    assert.equal(r.partien.length, 1, 'pausierte Partie sichtbar');
+    assert.equal(r.partien[0].paused, true, 'Partie ist pausiert');
+    assert.equal(r.partien[0].token, null, 'pausierte Partie liefert keinen Token');
+    const games = (await T.get('/api/lobby')).games.map((x) => x.id);
+    assert(!games.includes(j.game), 'pausierte Partie steht nicht in der Spieleliste');
+
+    assert.equal((await T.post('/api/person/resume', { personId: 'd'.repeat(64), game: j.game })).status, 400, 'fremder Pass setzt nicht fort');
+    r = await T.post('/api/person/resume', { personId: id, game: j.game });
+    assert(r.token, 'Fortsetzen liefert einen Token');
+    assert.equal(r.game, j.game);
+    const c = T.connect(r.token);
+    await waitUntil(() => c.view && (c.view.phase === 'setup' || c.view.phase === 'main'), 4000, 'pausierte Partie läuft nach dem Fortsetzen');
+    c.ctrl.abort();
+    r = await T.post('/api/person', { personId: id });
+    assert.equal(r.partien[0].paused, false, 'Partie läuft wieder');
+
+    // Ohne Spielerpass wird wie bisher abgeräumt.
+    const k = await T.post('/api/join', { name: 'Dora', color: COL[2], create: true });
+    await T.post('/api/act', { token: k.token, type: 'add_bot', kind: 'baumeister' });
+    await T.post('/api/act', { token: k.token, type: 'start' });
+    await T.post('/api/leave', { token: k.token });
+    const ids = (await T.get('/api/lobby')).games.map((x) => x.id);
+    assert(!ids.includes(k.game), 'ohne Pass wird die Partie abgeräumt');
+
+    // Gemischte Runde: ein Pass reicht nicht – ohne Pass für alle wird abgeräumt.
+    const m = await T.post('/api/join', { name: 'Emil', color: COL[0], create: true });
+    const n = await T.post('/api/join', { name: 'Frida', color: COL[1], game: m.game });
+    await T.post('/api/person/link', { token: m.token, personId: 'e'.repeat(64) });
+    await T.post('/api/act', { token: m.token, type: 'start' });
+    await T.post('/api/leave', { token: m.token });
+    await T.post('/api/leave', { token: n.token });
+    const ids2 = (await T.get('/api/lobby')).games.map((x) => x.id);
+    assert(!ids2.includes(m.game), 'gemischt ohne Pass: abgeräumt');
+
+    // Beide mit Pass: A setzt fort, B kommt danach ebenfalls zurück.
+    const z = await T.post('/api/join', { name: 'Gustav', color: COL[0], create: true });
+    const y = await T.post('/api/join', { name: 'Hanna', color: COL[1], game: z.game });
+    await T.post('/api/person/link', { token: z.token, personId: 'f'.repeat(64) });
+    await T.post('/api/person/link', { token: y.token, personId: '0'.repeat(64) });
+    await T.post('/api/act', { token: z.token, type: 'start' });
+    await T.post('/api/leave', { token: z.token });
+    await T.post('/api/leave', { token: y.token });
+    let rz = await T.post('/api/person', { personId: 'f'.repeat(64) });
+    assert.equal(rz.partien[0].paused, true, 'beide Pass-Inhaber: Partie pausiert');
+    rz = await T.post('/api/person/resume', { personId: 'f'.repeat(64), game: z.game });
+    assert(rz.token, 'erster Spieler setzt fort');
+    let ry = await T.post('/api/person', { personId: '0'.repeat(64) });
+    assert.equal(ry.partien.length, 1, 'zweiter Spieler sieht die Partie weiterhin');
+    assert.equal(ry.partien[0].paused, true, 'sein Platz wartet auf Rückkehr');
+    ry = await T.post('/api/person/resume', { personId: '0'.repeat(64), game: z.game });
+    assert(ry.token, 'zweiter Spieler kommt ebenfalls zurück');
+
+    // Ratenschutz: nach 300 Pass-Anfragen im Fenster kommt 429.
+    for (let i = 0; i < 300; i++) await T.post('/api/person', { personId: 'zz' });
+    assert.equal((await T.post('/api/person', { personId: 'zz' })).status, 429, 'Pass-Anfragen sind mengenbegrenzt');
+
+    console.log('  ✓ Pause: Verlassen mit Pass, Fortsetzen, Abräumen ohne Pass');
+  } finally { T.close(); }
+}
+
 async function testGanzePartie(n, winPoints) {
   const T = await boot();
   try {
@@ -289,6 +473,9 @@ async function testGanzePartie(n, winPoints) {
     await testStatic();
     await testLobbyAndRechte();
     await testAutoModus();
+    await testKopplung();
+    await testPerson();
+    await testPause();
     await testGanzePartie(2, 6);
     await testGanzePartie(3, 8);
     console.log('API-Tests bestanden');

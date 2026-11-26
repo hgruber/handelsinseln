@@ -10,8 +10,6 @@
   const EDGE = { b: 'b', bl: 'b', br: 'b', t: 't', tl: 't', tr: 't', l: 'l', r: 'r' };
   const $ = (id) => document.getElementById(id);
   let C = null, on = false, seatsEl = null, msgEl = null, key = '', seenLog = null;
-  const askOpen = new Set(), backOpen = new Set(); // Plätze mit offener Rückfrage zur Kontrollübergabe bzw. -rückgabe
-  let reqs = []; // offene Kontrollanfragen (Nummer, Restzeit)
   const seats = new Map(); // pid -> {el, menu, ctl, badgeTop, badgeSide, secret, hb, slot}
   const counter = new Map(); // pid -> {cg:{}, cw:{}} offenes Gegenangebot (Ich gebe / Ich bekomme)
   let last = null; // zuletzt gezeichnete {views, focus}
@@ -33,14 +31,8 @@
     const hud = $('hud'); hud.appendChild(seatsEl); hud.appendChild(msgEl);
     seatsEl.addEventListener('click', (e) => {
       // Kontrollübergabe: Hamburger in der Leiste → Rückfrage mit der Nummer → bestätigen oder ablehnen
-      const hr = e.target.closest('[data-hreq]');
-      if (hr) { const pid = Number(hr.dataset.hreq); askOpen.has(pid) ? askOpen.delete(pid) : askOpen.add(pid); if (last) render(last.views, last.focus, false, reqs); return; }
-      const hq = e.target.closest('[data-hq]');
-      if (hq) { const pid = Number(hq.dataset.pid); askOpen.delete(pid); C.act('handover_answer', { pid, code: hq.dataset.code, accept: hq.dataset.hq === 'yes' }); if (last) render(last.views, last.focus, false, reqs); return; }
-      const hb = e.target.closest('[data-hback]');
-      if (hb) { const pid = Number(hb.dataset.hback); backOpen.has(pid) ? backOpen.delete(pid) : backOpen.add(pid); if (last) render(last.views, last.focus, false, reqs); return; }
-      const hbq = e.target.closest('[data-hbq]');
-      if (hbq) { const pid = Number(hbq.dataset.pid); backOpen.delete(pid); if (hbq.dataset.hbq === 'yes') C.act('handback', { pid }); if (last) render(last.views, last.focus, false, reqs); return; }
+      const pr = e.target.closest('[data-pair]');
+      if (pr) { root.Pair.open({ pid: Number(pr.dataset.pair) }); return; }
       const b = e.target.closest('[data-tr]'); if (!b || b.getAttribute('aria-disabled') === 'true') return;
       const pid = Number(b.dataset.pid), what = b.dataset.tr, c = counter.get(pid);
       if (what === 'accept' || what === 'decline') { counter.delete(pid); C.act('trade_respond', { accept: what === 'accept' }, pid); return; }
@@ -57,18 +49,6 @@
       if (last) render(last.views, last.focus);
     });
     msgEl.addEventListener('click', (e) => { const m = e.target.closest('.tmsg'); if (m) m.remove(); });
-    // Zuschauer-Handy: langes Drücken auf die Leiste eines übernehmbaren Platzes fragt dessen Kontrolle an
-    let hold = null;
-    const stopHold = () => { if (hold) { clearTimeout(hold.t); hold = null; } };
-    seatsEl.addEventListener('pointerdown', (e) => {
-      if (!document.body.classList.contains('watch') || !C.hold) return;
-      const bd = e.target.closest('.badge'), seat = bd && bd.closest('.seat'); if (!seat) return;
-      const pid = Number(seat.dataset.pid), v = last && last.views[0];
-      if (!v || !(v.takeable || []).includes(pid)) return;
-      stopHold(); hold = { x: e.clientX, y: e.clientY, t: setTimeout(() => { hold = null; C.hold(pid); }, 700) };
-    });
-    seatsEl.addEventListener('pointermove', (e) => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 12) stopHold(); });
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach((n) => seatsEl.addEventListener(n, stopHold));
     seatsEl.addEventListener('contextmenu', (e) => { if (document.body.classList.contains('watch') && e.target.closest('.badge')) e.preventDefault(); });
   }
 
@@ -227,23 +207,8 @@
       `<div class="offer-line"><div class="ol">${chips(t.give)}</div><span class="tarrow sm">⇄</span><div class="ol">${chips(t.want)}</div></div><div class="wresp">${res}</div></div>`;
   }
 
-  // Rückfrage am Platz: „Kontrolle an Nummer … abgeben?“ bzw. „Kontrolle wieder am Spieltisch?“
-  function handoverPanel(pid, rq, v) {
-    const col = C.Art.COLORS[v.players[pid].color];
-    if (rq && askOpen.has(pid)) {
-      return `<div class="tpanel glass tmenu hask" style="--pc:${col}"><b>Kontrolle abgeben?</b><div class="hcode">${C.esc(rq.code)}</div><small>Ein Handy fragt mit dieser Nummer an – zeigt es dieselbe Nummer?</small>` +
-        `<div class="tact"><button type="button" class="btn green" data-hq="yes" data-pid="${pid}" data-code="${C.esc(rq.code)}">Ja, abgeben</button><button type="button" class="btn red" data-hq="no" data-pid="${pid}" data-code="${C.esc(rq.code)}">Ablehnen</button></div></div>`;
-    }
-    if (!rq && backOpen.has(pid)) {
-      return `<div class="tpanel glass tmenu hask" style="--pc:${col}"><b>Kontrolle zurück an den Spieltisch?</b><small>Das Handy dieses Spielers wird abgemeldet.</small>` +
-        `<div class="tact"><button type="button" class="btn green" data-hbq="yes" data-pid="${pid}">Ja, zurück</button><button type="button" class="btn ghostb" data-hbq="no" data-pid="${pid}">Nein</button></div></div>`;
-    }
-    return '';
-  }
-
-  function render(views, focus, watch, requests) {
+  function render(views, focus, watch) {
     last = { views, focus };
-    if (requests !== undefined) reqs = requests || [];
     const v = views[focus];
     layout(v);
     if (watch) { const el = $('seatAsk'); if (el) el.remove(); } else seatAsk(v);
@@ -266,14 +231,13 @@
       // Aufbau: der Spieler am Zug sieht in seiner Zeile, was er tun soll (Siedlung bzw. Straße/Schiff setzen)
       html(s.hint, armHint(v, pid) ? C.esc(armHint(v, pid)) : pid === diceSeat && v.phase === 'setup' && (v.step === 'setup_settlement' || v.step === 'setup_road') ? C.esc(v.prompt || '') : '');
       s.el.style.setProperty('--pc', C.Art.COLORS[p.color]);
-      const rq = !watch ? reqs.find((r) => r.pid === pid) : null;
-      if (!rq) askOpen.delete(pid);
-      if (!p.handover) backOpen.delete(pid);
-      const hbtn = rq ? `<button type="button" class="hreq blink" data-hreq="${pid}" title="Ein Handy möchte die Kontrolle übernehmen" aria-label="Kontrollanfrage">☰</button>` : !watch && p.handover ? `<button type="button" class="hreq" data-hback="${pid}" title="Dieser Platz wird von einem Handy gesteuert" aria-label="Kontrolle an den Spieltisch">☰</button>` : '';
-      const bh = badgeHTML(v, p, pid, hbtn);
+      // Diesen Platz auf ein Handy koppeln (nur der Spielleiter am Tisch, nicht den eigenen Platz)
+      const pbtn = !watch && (!pub || p.bot) && pid !== v.host && pid !== v.you && v.phase !== 'ended'
+        ? `<button type="button" class="pbtn" data-pair="${pid}" title="Diesen Platz auf ein Handy koppeln" aria-label="Diesen Platz auf ein Handy koppeln">▦</button>` : '';
+      const bh = badgeHTML(v, p, pid, pbtn);
       html(s.badgeTop, bh); html(s.badgeAbove, bh);
       if (!pub) html(s.secret, secretHTML(v, pv, pid, active));
-      const menuH = handoverPanel(pid, rq, v) + (pub ? (v.trade && v.trade.from === pid ? watchMenuHTML(v, pid) : '') : active ? '' : menuHTML(views, pid, v));
+      const menuH = pub ? (v.trade && v.trade.from === pid ? watchMenuHTML(v, pid) : '') : active ? '' : menuHTML(views, pid, v);
       if (s.menu._h !== menuH && $('tradeDock').parentNode === s.menu) $('side').insertBefore($('tradeDock'), $('side').firstChild); // das Handelsfenster nicht mit dem Menü überschreiben
       html(s.menu, menuH);
       if (!pub && active && $('tradeDock').parentNode !== s.menu) s.menu.appendChild($('tradeDock'));
