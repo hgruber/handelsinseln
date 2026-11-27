@@ -16,6 +16,18 @@ am PC, am Tablet, am Handy oder gemeinsam an einem digitalen Spieltisch.</p>
 
 ---
 
+## Schnellstart
+
+Ein Befehl lädt das Image und startet das Spiel – der komplette Server ist ein statisch gelinktes Rust-Binary unter 5 MB:
+
+```bash
+docker run -d --name handelsinseln -p 8080:8080 ghcr.io/hgruber/handelsinseln:latest
+```
+
+Danach **http://localhost:8080** im Browser öffnen – fertig. Kein Node, kein Python, keine Datenbank.
+
+Für den Sprachchat zusätzlich `-p 8443:8443` veröffentlichen und `https://localhost:8443` öffnen (Zertifikatswarnung einmal bestätigen).
+
 ## Das Spiel
 
 Ihr baut eure erste Siedlung auf einer unbekannten Inselwelt. Sammelt Holz, Lehm, Wolle, Getreide und Erz, baut Straßen, Siedlungen und Städte,
@@ -178,9 +190,6 @@ Fertiges Multi-Arch-Image (amd64/arm64) aus GHCR:
 podman run -d --name handelsinseln -p 8080:8080 -p 8443:8443 \
   -v handelsinseln-data:/data ghcr.io/hgruber/handelsinseln:latest
 ```
-
-Das Paket ist standardmäßig privat: entweder in den GitHub-Paketeinstellungen öffentlich machen oder auf dem Server
-`podman login ghcr.io` mit einem PAT (`read:packages`) ausführen.
 
 Der Server ist ein statisch gelinktes Rust-Binary im `scratch`-Container: rund **4,9 MB**, keine Shell, keine Laufzeit-Abhängigkeiten.
 TLS ist eingebaut: Ohne weitere Angabe lauscht er zusätzlich auf 8443 mit einem selbstsignierten Zertifikat. Namen und IP-Adressen für
