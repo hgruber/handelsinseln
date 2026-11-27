@@ -58,8 +58,9 @@ Namen geben; er erscheint sofort in der Spieleliste auf der Anmeldung.
 
 ![Lobby mit drei Bots](docs/screenshots/lobby.webp)
 
-**Digitaler Spieltisch:** Der Bildschirm des Spielleiters wird zur Tischplatte. Jeder Tischspieler wählt beim Start seinen Platz;
-die Leisten sitzen gedreht am Rand, Handelsangebote erscheinen beim jeweiligen Spieler. Online-Spieler und Bots lassen sich dazumischen.
+**Digitaler Spieltisch:** Der Bildschirm des Spielleiters wird zur Tischplatte – mit vorab angelegten Tischspielern oder über
+„Spieltisch anbieten“ mitten in der Partie. Die Leisten sitzen gedreht am Rand, Handelsangebote erscheinen beim jeweiligen Spieler.
+Online-Spieler und Bots lassen sich dazumischen.
 
 ![Digitaler Spieltisch](docs/screenshots/tisch.webp)
 
@@ -99,6 +100,11 @@ die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/bro
 - **Tischspieler anlegen:** In der Lobby „Tischspieler anlegen …“ wählen (Name, Farbe, Avatar). Der Browser des Spielleiters wird
   zur Tischplatte; beim Start wählt jeder Tischspieler der Reihe nach einen von acht Plätzen. Die Leisten sitzen gedreht am Rand,
   Handelsangebote erscheinen beim jeweiligen Spieler. Online-Spieler und Bots lassen sich dazumischen.
+- **Spieltisch anbieten:** Im Spiel oder in der Lobby bietet der Spielleiter den Tisch über das Menü an – der Eintrag erscheint nur
+  auf Bildschirmen ab FullHD. Jeder Mitspieler entscheidet auf seinem Gerät; wer annimmt, wählt seinen Platz. Danach wird der
+  Bildschirm des Spielleiters zur Tischplatte, die angenommenen Geräte wechseln in die Controller-Ansicht. Ablehnende und Bots
+  spielen normal weiter und sitzen am Tisch nur öffentlich. Passt ein Wunschplatz nicht zur festen Zugreihenfolge, erscheint eine
+  erneute Auswahl mit den möglichen Plätzen.
 - **Zuschauen:** Auf der Startseite ein laufendes Spiel wählen („Spiel ansehen“). Die öffentliche Tischansicht zeigt alle Leisten,
   Würfel und Meldungen – ohne Handkarten, Chat oder Aktionen; bis zu 8 Zuschauer je Spiel.
 - **Controller-Ansicht:** Sieht ein Handy dem Tisch zu, schaltet es von selbst auf Karten und Aktionen um. Eine Aktion am Spielfeld

@@ -30,7 +30,7 @@ HTTP 200 (für Container-Healthchecks; es wird kein zusätzliches Werkzeug gebra
 | `board.rs` | Kartengenerierung inkl. Nebel-Nachwuchs |
 | `game*.rs`, `view.rs` | Spiellogik, Sichten, Handel, Auto-Modus, Auszeichnungen |
 | `bot.rs`, `botplay.rs`, `bots.rs` | Autopilot und die drei Bot-Persönlichkeiten |
-| `hub.rs`, `arm.rs`, `pair.rs` | Räume, Controller-Ansicht, Gerätekopplung |
+| `hub.rs`, `arm.rs`, `pair.rs`, `table_offer.rs` | Räume, Controller-Ansicht, Gerätekopplung, Spieltisch-Angebot |
 | `http.rs`, `server.rs`, `log.rs` | HTTP/SSE, statische Dateien, API, Persistenz, Betriebslog |
 
 Der Zustand wird wie bisher als JSON in `DATA_DIR/state.json` gespeichert (entprellt, atomar über
@@ -41,7 +41,7 @@ speichern den Zustand und beenden den Prozess sofort.
 
 Der Rust-Server wird über die API und im Browser geprüft:
 
-- `cargo test --release --locked --manifest-path rust/Cargo.toml --test rules` – 26 gezielte Regeltests auf
+- `cargo test --release --locked --manifest-path rust/Cargo.toml --test rules` – 31 gezielte Regeltests auf
   handgebauten Brettern (Erträge, Bauen, Handel, Räuber, Karten, Punkte, Lobby, Aufbau, Einstellungen, Varianten,
   JSON-Roundtrip); Laufzeit rund 0,05 s.
 - `node tests/api.js` – HTTP/SSE: statische Dateien/ETag, Spiele, Lobby und Rechte, Signalweg, Kick, Verlassen,

@@ -23,5 +23,6 @@ pub mod pair;
 pub mod rng;
 pub mod rules;
 pub mod settings;
+pub mod table_offer;
 pub mod tls;
 pub mod view;

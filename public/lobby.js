@@ -536,12 +536,17 @@
   const MINI = Object.fromEntries(VARIANTS.map((x) => [x.id, null]));
 
   // Hinweis in der Lobby einer Tisch-Partie: die Plätze werden erst beim Spielstart am Tisch abgefragt
-  function tableHTML() {
-    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>Der Spielleiter und die angelegten Tischspieler sitzen am Tisch; Online-Spieler (am eigenen Gerät) und Bots lassen sich dazu mischen. Beim Start wählt jeder Tischspieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – seinen Platz am Tisch, die übrigen bekommen einen freien Platz. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.</small></div>`;
+  function tableHTML(v) {
+    const angebot = !!(v && v.players && v.players.some((p) => p.amTisch === true));
+    const text = angebot
+      ? 'Der Bildschirm des Spielleiters wird zur Tischplatte. Angenommene Spieler steuern mit ihrem eigenen Gerät (Controller-Ansicht), ablehnende Spieler und Bots bekommen einen freien Platz und werden am Tisch nur öffentlich gezeigt. Die Sitze wurden beim Angebot gewählt; die Reihenfolge ergibt sich im Uhrzeigersinn, gewürfelt wird nur, wer beginnt.'
+      : 'Der Spielleiter und die angelegten Tischspieler sitzen am Tisch; Online-Spieler (am eigenen Gerät) und Bots lassen sich dazu mischen. Beim Start wählt jeder Tischspieler – der Spielleiter zuerst, dann in der Reihenfolge des Anlegens – seinen Platz am Tisch, die übrigen bekommen einen freien Platz. Die Reihenfolge ergibt sich aus den Plätzen im Uhrzeigersinn; gewürfelt wird nur, wer beginnt.';
+    return `<div class="tblnote"><b>Digitaler Spieltisch</b><small>${text}</small></div>`;
   }
 
   function renderLobby(v) {
     const me = v.you, host = v.host === me, s = v.settings || {};
+    const busy = !!v.tableOffer; // Spieltisch-Angebot läuft: Roster nicht ändern
     lastSettings = v.settings || lastSettings;
     // Seitenverhältnis des Spielleiter-Bildschirms: die Karte wird passend zum Format erzeugt (die Karte ändert sich nur bei deutlicher Abweichung)
     if (host) { const asp = Math.max(0.6, Math.min(2.4, Math.round(innerWidth / innerHeight * 20) / 20)); if (Math.abs((eff('aspect') || 0) - asp) > 0.12) queue('aspect', asp); }
@@ -560,7 +565,7 @@
           `${i === v.host ? '<span class="crown" title="Spielleiter">♛ Spielleiter</span>' : ''}${i === me ? '<span class="you">du</span>' : ''}` +
           `${off ? '<span class="away" title="Die Verbindung ist unterbrochen.">getrennt</span>' : ''}${p.auto ? '<span class="away auto" title="Der Auto-Modus spielt für diesen Spieler.">Auto</span>' : ''}` +
           `${p.tableGuest ? '<span class="botTag" title="Sitzt am digitalen Spieltisch">Tisch</span>' : ''}${root.Voice && !p.bot && !p.tableGuest ? root.Voice.badge(i) + (i !== me && root.Voice.inVoice(i) ? root.Voice.rowCtl(i) : '') : ''}` +
-          `<span class="grow"></span>${host && i !== me ? `<button type="button" class="btn small red" data-kick="${i}" title="${C.esc(p.name)} aus der Lobby entfernen">Entfernen</button>` : ''}</li>`;
+          `<span class="grow"></span>${host && i !== me ? `<button type="button" class="btn small red" data-kick="${i}" ${busy ? 'disabled' : ''} title="${busy ? 'Warte auf die Antworten zum Spieltisch' : C.esc(p.name) + ' aus der Lobby entfernen'}">Entfernen</button>` : ''}</li>`;
       }).join('') || '<li class="muted">Noch niemand hier.</li>');
       if (root.Voice) root.Voice.paintSpeaking();
     }
@@ -569,10 +574,10 @@
     const full = v.players.length >= (v.maxPlayers || 6), here = new Set(v.players.map((p) => p.bot).filter(Boolean));
     const avail = Object.entries(AVS.BOTS).filter(([k]) => !here.has(k));
     const tbl = !!s.table;
-    const tblBtn = host ? `<button type="button" class="btn small gold" data-addtable="1" ${full || v.closed ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : 'Einen Spieler am digitalen Spieltisch anlegen'}">Tischspieler anlegen …</button>` : '';
+    const tblBtn = host ? `<button type="button" class="btn small gold" data-addtable="1" ${full || v.closed || busy ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : busy ? 'Warte auf die Antworten zum Spieltisch' : 'Einen Spieler am digitalen Spieltisch anlegen'}">Tischspieler anlegen …</button>` : '';
     C.setHTML($('lbTbl'), tblBtn); // „Tischspieler anlegen“ sitzt rechts neben „Spieler 1/6“
-    C.setHTML($('lobbyBots'), (tbl ? tableHTML() : '') + (host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
-      const dis = full || !!v.closed;
+    C.setHTML($('lobbyBots'), (tbl ? tableHTML(v) : '') + (host && avail.length ? `<details class="botdrop"${L.botsOpen ? ' open' : ''}><summary><span>Bots hinzufügen</span><small>${avail.length} verfügbar</small></summary><div class="botcards">` + avail.map(([k, b]) => {
+      const dis = full || !!v.closed || busy;
       return `<div class="botcard"><img src="img/av/${b.avatar}.webp" alt="" draggable="false"><div class="bi"><b>${C.esc(b.name)}</b> <span class="botTag">${C.esc(b.label)}</span><small>${C.esc(b.desc)}</small></div>` +
         `<button type="button" class="btn small gold" data-addbot="${k}" ${dis ? 'disabled' : ''} title="${full ? 'Das Spiel ist voll' : v.closed ? 'Die Plätze sind als besetzt erklärt' : 'Als Mitspieler hinzufügen'}">Hinzufügen</button></div>`;
     }).join('') + '</div></details>' : ''));
@@ -603,10 +608,11 @@
     if (C.setHTML(chatEl, (v.chat || []).map((c) => `<div class="ce"><b class="pn" style="color:${C.colorOf(c.p)}">${C.esc(v.players[c.p] ? v.players[c.p].name : '?')}</b> ${C.esc(c.text)}</div>`).join('') || '<div class="muted small">Noch keine Nachrichten.</div>') && stick) chatEl.scrollTop = chatEl.scrollHeight;
 
     // Start
-    const can = v.players.length >= (v.minPlayers || 2);
+    const enough = v.players.length >= (v.minPlayers || 2), can = enough && !busy;
+    const why = busy ? 'Das Spieltisch-Angebot läuft noch.' : can ? 'Das Spiel beginnt für alle.' : 'Mindestens ' + (v.minPlayers || 2) + ' Spieler nötig';
     C.setHTML($('lobbyAct'), host
-      ? `<button class="btn gold big${can ? '' : ' dis'}" id="startBtn" ${can ? '' : 'aria-disabled="true"'} title="${can ? 'Das Spiel beginnt für alle.' : 'Mindestens ' + (v.minPlayers || 2) + ' Spieler nötig'}">Spiel starten</button>` +
-        (can ? '' : `<p class="hint">Mindestens ${v.minPlayers || 2} Spieler nötig (${v.players.length}/${v.maxPlayers || 6}).</p>`)
+      ? `<button class="btn gold big${can ? '' : ' dis'}" id="startBtn" ${can ? '' : 'aria-disabled="true"'} title="${why}">Spiel starten</button>` +
+        (enough ? (busy ? `<p class="hint">Das Spieltisch-Angebot läuft noch – bitte warten oder im Menü abbrechen.</p>` : '') : `<p class="hint">Mindestens ${v.minPlayers || 2} Spieler nötig (${v.players.length}/${v.maxPlayers || 6}).</p>`)
       : `<p class="waiting"><span class="spin"></span>Warte auf den Spielleiter…</p>`);
   }
 
@@ -622,11 +628,16 @@
   }
   function openLobbyMenu() {
     if (lbPop) { closeLobbyMenu(); return; }
+    const v = C.view();
+    const offer = v && v.tableOffer;
+    const canOffer = !!(v && root.Menu.kannTischAnbieten(v));
     const item = (id, label) => `<button type="button" role="menuitem" class="mi" data-mi="${id}"><span class="mic"></span>${label}</button>`;
     lbPop = document.createElement('div');
     lbPop.className = 'menu-pop glass lb-pop';
     lbPop.setAttribute('role', 'menu');
-    lbPop.innerHTML = item('pair', 'Handy koppeln') + item('pass', root.Person.label()) + '<hr>' +
+    lbPop.innerHTML = (offer && offer.canCancel ? item('cancelTableOffer', 'Spieltisch-Angebot abbrechen') : canOffer ? item('offerTable', 'Spieltisch anbieten') : '') +
+      ((offer && offer.canCancel) || canOffer ? '<hr>' : '') +
+      item('pair', 'Handy koppeln') + item('pass', root.Person.label()) + '<hr>' +
       item('bg', 'Hintergrund …') + item('fit', 'Brett zentrieren') + item('rotL', 'Karte links drehen') + item('rotR', 'Karte rechts drehen') +
       item('sound', 'Töne ' + (root.Sound.enabled() ? 'ausschalten' : 'einschalten')) + item('help', 'Hilfe &amp; Spielregeln');
     document.body.appendChild(lbPop);
@@ -639,7 +650,9 @@
       const id = b.dataset.mi;
       if (id === 'rotL' || id === 'rotR') { C.rotate(id === 'rotL' ? -60 : 60); return; }
       closeLobbyMenu();
-      if (id === 'pair') root.Pair.open({});
+      if (id === 'offerTable') C.act('offer_table');
+      else if (id === 'cancelTableOffer') C.act('table_offer_cancel', { id: v && v.tableOffer && v.tableOffer.id });
+      else if (id === 'pair') root.Pair.open({});
       else if (id === 'pass') root.Person.list();
       else if (id === 'bg') { if (root.Bg) root.Bg.choose(); }
       else if (id === 'fit') C.fit();
@@ -680,7 +693,7 @@
       const cs = e.target.closest('[data-closeseats]'); if (cs && !cs.disabled) { await C.act('close_seats', { closed: cs.dataset.closeseats === '1' }); return; }
       const rg = e.target.closest('[data-regen]'); if (rg && !rg.disabled) { rg.disabled = true; await C.act('regen_board'); setTimeout(() => { rg.disabled = false; }, 500); return; }
       const k = e.target.closest('[data-kick]');
-      if (k) { const pid = Number(k.dataset.kick), name = v.players[pid] ? v.players[pid].name : ''; if (await Menu.confirm('Spieler entfernen?', `${name} wird aus der Lobby entfernt.`, 'Entfernen', true)) await C.act('kick', { pid }); }
+      if (k && !k.disabled) { const pid = Number(k.dataset.kick), name = v.players[pid] ? v.players[pid].name : ''; if (await Menu.confirm('Spieler entfernen?', `${name} wird aus der Lobby entfernt.`, 'Entfernen', true)) await C.act('kick', { pid }); }
     });
     let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { const v = C.view(); if (v && v.phase === 'lobby' && isHost()) renderLobby(v); }, 900); }); // Fenstergröße geändert → Kartenformat anpassen
     $('lobbyChatForm').addEventListener('submit', async (e) => { e.preventDefault(); const t = $('lobbyChatIn').value.trim(); if (!t) return; $('lobbyChatIn').value = ''; await C.act('chat', { text: t }); });

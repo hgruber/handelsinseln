@@ -27,6 +27,7 @@ pub struct Room {
     pub removed_why: Option<String>,
     pub arm: Option<crate::arm::ArmState>,
     pub pairs: IndexMap<String, crate::pair::Pairing>,
+    pub table_offer: Option<crate::table_offer::TableOffer>,
     /// Seit wann die Partie pausiert ist (ms); nur wenn alle menschlichen Plätze einen Spielerpass haben.
     pub paused_at: Option<i64>,
 }
@@ -115,6 +116,7 @@ impl Hub {
                 removed_why: None,
                 arm: None,
                 pairs: IndexMap::new(),
+                table_offer: None,
                 paused_at: None,
             },
         );
@@ -499,6 +501,7 @@ impl Hub {
                     removed_why: None,
                     arm: None,
                     pairs: IndexMap::new(),
+                    table_offer: None,
                     paused_at,
                 },
             );

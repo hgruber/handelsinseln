@@ -23,6 +23,7 @@ ALLE=(
   "Browser Lobby|python3 tests/browser_lobby.py"
   "Browser Spieltisch|python3 tests/browser_table.py"
   "Browser Tisch-Banktausch|python3 tests/browser_table_bank.py"
+  "Browser Spieltisch-Angebot|python3 tests/browser_table_offer.py"
   "Browser Kopplung+Pass|python3 tests/browser_pair.py"
   "Browser Pause+Pass|python3 tests/browser_pause.py"
   "Browser Fortsetzen|python3 tests/browser_resume_start.py"

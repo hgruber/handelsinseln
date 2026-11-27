@@ -315,6 +315,7 @@ impl Game {
                 o.insert("bot".into(), json!(p.bot));
                 o.insert("seat".into(), json!(p.seat));
                 o.insert("tableGuest".into(), json!(p.is_table_guest()));
+                o.insert("amTisch".into(), json!(p.am_tisch));
                 o.insert("connected".into(), json!(p.connected));
                 o.insert("auto".into(), json!(p.auto));
                 o.insert("gone".into(), json!(p.left));

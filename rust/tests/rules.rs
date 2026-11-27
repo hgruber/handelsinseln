@@ -1,13 +1,16 @@
 // Gezielte Regeltests mit handgebautem Brett – Portierung der früheren Node-Tests.
 // Sie treiben die öffentliche Game-API wie ein Client und prüfen Zustand und Meldungen.
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use handelsinseln::board;
 use handelsinseln::game::{Game, GameError};
+use handelsinseln::game_lobby::SEAT_CLOCK;
 use handelsinseln::geom;
 use handelsinseln::model::*;
 use handelsinseln::rng::Rng;
 use handelsinseln::settings::{self, Settings};
+use handelsinseln::table_offer;
 use serde_json::{json, Value};
 
 const COLORS: [&str; 6] = ["rot", "blau", "orange", "weiss", "gruen", "violett"];
@@ -739,4 +742,72 @@ fn alle_varianten_erzeugen_ein_spielbares_brett() {
             "{variant}: Räuber nicht auf Wüste"
         );
     }
+}
+
+fn tisch_anker(list: &[(usize, &str)]) -> BTreeMap<usize, String> {
+    list.iter().map(|(p, s)| (*p, s.to_string())).collect()
+}
+
+#[test]
+fn tisch_platzverteilung_folgt_der_reihenfolge() {
+    let order = [0, 1, 2];
+    let a = tisch_anker(&[(0, "b"), (1, "l"), (2, "t")]);
+    let p = table_offer::place(&order, &a);
+    assert!(p.unsatisfied.is_empty(), "alle Wünsche möglich");
+    assert_eq!(p.seats.get(&0).map(String::as_str), Some("b"));
+    assert_eq!(p.seats.get(&1).map(String::as_str), Some("l"));
+    assert_eq!(p.seats.get(&2).map(String::as_str), Some("t"));
+
+    // Dieselben Plätze, andere Reihenfolge: Die Zuordnung darf rotieren.
+    let a = tisch_anker(&[(2, "b"), (0, "l"), (1, "t")]);
+    let p = table_offer::place(&order, &a);
+    assert!(p.unsatisfied.is_empty(), "Rotation ist erlaubt");
+    let mut clockwise = vec![0usize, 1, 2];
+    clockwise.sort_by_key(|pid| {
+        SEAT_CLOCK
+            .iter()
+            .position(|s| Some(*s) == p.seats.get(pid).map(String::as_str))
+            .unwrap()
+    });
+    assert_eq!(clockwise, vec![2, 0, 1], "Plätze laufen im Uhrzeigersinn");
+}
+
+#[test]
+fn tisch_platzverteilung_erkennt_konflikt_und_erlaubte_plaetze() {
+    let order = [0, 1, 2];
+    let a = tisch_anker(&[(0, "b"), (1, "tr"), (2, "t")]);
+    let p = table_offer::place(&order, &a);
+    assert_eq!(p.kept.len(), 2, "zwei Wünsche bleiben erhalten");
+    assert_eq!(
+        p.unsatisfied.iter().copied().collect::<Vec<_>>(),
+        vec![1],
+        "der unvereinbare Wunsch wird erneut gefragt"
+    );
+    let kept: BTreeMap<usize, String> = a
+        .iter()
+        .filter(|(q, _)| p.kept.contains(q))
+        .map(|(q, s)| (*q, s.clone()))
+        .collect();
+    let allowed = table_offer::allowed_seats(&order, &kept, 1);
+    assert_eq!(allowed, vec!["bl", "l", "tl"], "nur Plätze zwischen b und t");
+    let mut b = kept;
+    b.insert(1, allowed[0].clone());
+    assert!(table_offer::place(&order, &b).unsatisfied.is_empty());
+}
+
+#[test]
+fn tisch_platzverteilung_bei_doppeltem_wunsch() {
+    let order = [0, 1, 2];
+    let a = tisch_anker(&[(0, "b"), (1, "b")]);
+    let p = table_offer::place(&order, &a);
+    assert_eq!(p.kept.len(), 1, "nur einer kann auf dem Platz sitzen");
+    assert_eq!(p.unsatisfied.len(), 1);
+    assert_eq!(p.seats.len(), 3, "trotzdem alle Spieler platziert");
+}
+
+#[test]
+fn tisch_platzverteilung_erlaubte_plaetze_zwischen_ankern() {
+    let order = [0, 1, 2];
+    let a = tisch_anker(&[(0, "b"), (2, "t")]);
+    assert_eq!(table_offer::allowed_seats(&order, &a, 1), vec!["bl", "l", "tl"]);
 }

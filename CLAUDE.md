@@ -16,7 +16,7 @@ Commit-Messages sind deutsch. Details zu Funktionen/Einstellungen: `README.md`; 
 npm run dev                  # Rust, Port 8090, nur http, Spielstand /tmp/handelsinseln-dev; Rust-Änderung = Neustart
 npm start                    # Rust, PORT 8080, TLS 8443 (selbstsigniert; TLS_HOSTS für die Namen)
 cargo build --release --locked --manifest-path rust/Cargo.toml
-cargo test --release --locked --manifest-path rust/Cargo.toml --test rules   # 26 Rust-Regeltests (rund 0,05 s)
+cargo test --release --locked --manifest-path rust/Cargo.toml --test rules   # 31 Rust-Regeltests (rund 0,05 s)
 node tests/api.js            # HTTP/SSE: Spiele, Lobby, Rechte, Signalweg, Auto-Modus, ganze Partien
 node tests/tls.js            # HTTPS, Zertifikats-SANs, SSE über TLS
 python3 tests/browser_*.py   # echte Browser; einmalig: pip install -r requirements.txt && python3 -m playwright install chromium

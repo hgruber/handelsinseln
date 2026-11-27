@@ -18,6 +18,7 @@ use crate::hub::{Hub, HubError, JoinReq, Room};
 use crate::log;
 use crate::pair;
 use crate::rng::Rng;
+use crate::table_offer;
 
 static STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -300,12 +301,28 @@ fn table_stream(room: &Room, clients: &Clients) -> bool {
 }
 
 fn pview(room: &mut Room, clients: &Clients, pid: usize) -> Value {
+    // Angebotstisch: Nur die angenommenen Spieler steuern mit ihrem eigenen Gerät.
+    // Ablehnende bleiben in der normalen Ansicht, auch wenn Zuschauer verbunden sind.
+    let offer_based = room.game.S.players.iter().any(|p| p.am_tisch == Some(true));
+    let disp = if offer_based {
+        table_stream(room, clients)
+            && room
+                .game
+                .S
+                .players
+                .get(pid)
+                .map(|p| p.am_tisch == Some(true))
+                .unwrap_or(false)
+    } else {
+        displays(room, clients) > 0
+    };
     let mut v = room.game.view(Some(pid));
-    let disp = displays(room, clients) > 0;
     let av = arm::view_for(room, Some(pid));
+    let offer = table_offer::view(room, pid);
     if let Some(o) = v.as_object_mut() {
         o.insert("display".into(), json!(disp));
         o.insert("arm".into(), av);
+        o.insert("tableOffer".into(), offer);
     }
     v
 }
@@ -752,6 +769,9 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         match out {
             Some((tok, pid)) => {
                 inner.person_seen(&id);
+                if let Some(room) = inner.hub.rooms.get_mut(&rid) {
+                    table_offer::cancel_if_stale(room);
+                }
                 inner.broadcast(&rid);
                 inner.mark_dirty();
                 log::info("pause_fortgesetzt", &[("raum", rid.clone()), ("platz", pid.to_string())]);
@@ -1054,6 +1074,10 @@ fn handle_post_game<W: Write>(
                 }
             }
         }
+        if let Some(room) = inner.hub.rooms.get_mut(&out.game) {
+            // Ein Beitritt ändert die Mitglieder; ein laufendes Spieltisch-Angebot verfällt.
+            table_offer::cancel_if_stale(room);
+        }
         inner.broadcast(&out.game);
         return http::send_json(
             stream,
@@ -1081,6 +1105,7 @@ fn handle_post_game<W: Write>(
         );
         if let Some(room) = inner.hub.rooms.get_mut(&rid) {
             room.game.leave(&tok);
+            table_offer::cancel_if_stale(room);
         }
         inner.drop_clients(&tok, None);
         let humans = inner
@@ -1169,6 +1194,49 @@ fn handle_post_game<W: Write>(
         inner.broadcast(&rid);
         return http::send_json(stream, 200, &json!({"ok": true}));
     }
+    // ---------- Spieltisch-Angebot (Raum-Zustand, kein Spielstand) ----------
+    if matches!(
+        ty.as_str(),
+        "offer_table" | "table_offer" | "table_offer_seat" | "table_offer_cancel"
+    ) {
+        let id = b.get("id").and_then(|v| v.as_u64());
+        let res = {
+            let room = inner.hub.rooms.get_mut(&rid).unwrap();
+            match ty.as_str() {
+                "offer_table" => table_offer::create(room, pid),
+                "table_offer" => {
+                    let accept = b.get("accept").map(truthy).unwrap_or(false);
+                    table_offer::answer(room, pid, accept, id)
+                }
+                "table_offer_seat" => {
+                    let seat = b.get("seat").and_then(|v| v.as_str()).unwrap_or("");
+                    table_offer::seat(room, pid, seat, id)
+                }
+                _ => table_offer::cancel_by_host(room, pid, id),
+            }
+        };
+        if let Err(GameError(msg)) = res {
+            return json_error(stream, 400, &msg, None);
+        }
+        inner.broadcast(&rid);
+        return http::send_json(stream, 200, &json!({"ok": true}));
+    }
+    if ty == "start" {
+        let busy = inner
+            .hub
+            .rooms
+            .get(&rid)
+            .map(|r| r.table_offer.is_some())
+            .unwrap_or(false);
+        if busy {
+            return json_error(
+                stream,
+                400,
+                "Das Spieltisch-Angebot läuft noch – bitte warten oder abbrechen.",
+                None,
+            );
+        }
+    }
     let mut actor = pid;
     if let Some(as_pid) = b.get("as").and_then(|v| v.as_u64()) {
         let as_pid = as_pid as usize;
@@ -1202,6 +1270,10 @@ fn handle_post_game<W: Write>(
         let room = inner.hub.rooms.get_mut(&rid).unwrap();
         room.game.last_kicked = None;
         let r = room.game.act(actor, &b);
+        if r.is_ok() {
+            // Roster-, Phasen- oder Tischeinstellungen geändert? Dann gilt das Angebot nicht mehr.
+            table_offer::cancel_if_stale(room);
+        }
         (r, room.game.last_kicked.clone())
     };
     let (r, last_kicked) = result;
@@ -1511,6 +1583,20 @@ pub fn run(opts: Options) -> io::Result<()> {
             }
             for rid in &changed {
                 inner.broadcast(rid);
+            }
+            // Spieltisch-Angebote: Frist, Verfall und Re-Ask-Fortschritt
+            let offer_ids: Vec<String> = inner.hub.rooms.keys().cloned().collect();
+            for rid in offer_ids {
+                let t = now_ms();
+                let changed_offer = inner
+                    .hub
+                    .rooms
+                    .get_mut(&rid)
+                    .map(|room| table_offer::tick(room, t))
+                    .unwrap_or(false);
+                if changed_offer {
+                    inner.broadcast(&rid);
+                }
             }
             passe_aufraeumen(&mut inner);
             let ids: Vec<String> = inner.hub.rooms.keys().cloned().collect();

@@ -77,7 +77,8 @@
     } catch (e) { return { error: 'Keine Verbindung zum Server.' }; }
   }
   // Aktionen des Spielleiters selbst (nie im Namen eines Mitspielers)
-  const OWN_ACTS = new Set(['set_settings', 'rename', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start']);
+  const OWN_ACTS = new Set(['set_settings', 'rename', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start',
+    'offer_table', 'table_offer', 'table_offer_seat', 'table_offer_cancel']);
   async function act(type, params, asPid) {
     if (st.mock) { toast(`Mock-Modus: „${type}“ ${JSON.stringify(params || {})} nicht gesendet`, 'info'); console.log('act', type, params); return { ok: true }; }
     const body = Object.assign({ token: st.token, type }, params || {});
@@ -148,7 +149,7 @@
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
-    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate(); cancelBankAsk();
+    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate(); cancelBankAsk(); Menu.closeOffer();
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
@@ -209,6 +210,7 @@
     if (v.phase !== 'main' && v.phase !== 'setup') cancelBankAsk();
     rememberIdentity(v);
     syncCtl(v);
+    Menu.renderOffer(v); // Spieltisch-Angebot (Lobby und Spiel)
     if (!st.tableOn || st.watch) chipSeat(null); // Chips wieder aufrecht
     const mute = (x) => (x && x.watch ? Object.assign({}, x, { you: -1 }) : x); Sound.onView(mute(old), mute(v)); // Zuschauer: nie „mein Zug“
     // Controller-Ansicht: das Handy vibriert, sobald man dran ist (Browser ohne Vibration, z. B. iOS-Safari, tun nichts)
@@ -1256,7 +1258,9 @@
     $('defs').innerHTML = Art.defs();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
-    const ctx = { vpTip, vpIcons, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl, view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, showLogin: () => showScreens(), help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
+    const ctx = { vpTip, vpIcons, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl,
+      ctlOn: () => { st.ctlPref = true; localStorage.setItem('handelsinseln.ctl', '1'); if (V()) syncCtl(V()); },
+      view: V, act, post, toast, esc, Art, avatar, colorOf, setHTML, joined, leave: leaveGame, token: () => st.token, showLogin: () => showScreens(), help: () => { st.modal = 'help'; renderModal(V()); }, fit: () => fit(false), rotate: (d) => rotateBy(d),
       onChange: () => { renderVoiceUI(); } };
     Lobby.init(ctx); Menu.init(ctx); Voice.init(ctx);
     Regeln.init({ Art, costChips, settings: setg });

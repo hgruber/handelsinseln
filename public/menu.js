@@ -105,6 +105,7 @@
       stop: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>',
       rotL: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M5,12 A7,7 0 1 0 8,6.2 M8,2.5 V6.5 H4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       rotR: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M19,12 A7,7 0 1 1 16,6.2 M16,2.5 V6.5 H20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      tbl: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8,20 H16 M12,16 V20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     };
     // Karte drehen: immer über das Menü (keine eigenen Knöpfe neben dem Menü)
     const rot = item('rotL', I.rotL, 'Karte links drehen') + item('rotR', I.rotR, 'Karte rechts drehen');
@@ -115,6 +116,8 @@
       item('voice', I.mic, joined ? 'Sprachchat verlassen' : 'Sprachchat beitreten') +
       (joined ? item('mute', I.mic, V.micOn() ? 'Mikrofon stummschalten' : 'Mikrofon einschalten') + item('voicepanel', I.mic, 'Sprachchat-Einstellungen …') : '') +
       (host && running ? item('flow', I.flow, 'Auto Ablauf: ' + (v.settings && v.settings.dice === 'auto' ? 'Auto → Manuell' : 'Manuell → Auto')) : '') +
+      (v.tableOffer && v.tableOffer.canCancel ? item('cancelTableOffer', I.stop, 'Spieltisch-Angebot abbrechen')
+        : kannTischAnbieten(v) ? item('offerTable', I.tbl, 'Spieltisch anbieten') : '') +
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') + item('bg', I.bg, 'Hintergrund …') + (C.ctl() ? '' : rot) +
       (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karte anzeigen' : 'Nur Karten &amp; Aktionen') : '') +
@@ -144,6 +147,8 @@
     else if (id === 'fit') C.fit();
     else if (id === 'bg') { if (root.Bg) root.Bg.choose(); }
     else if (id === 'ctl') C.toggleCtl();
+    else if (id === 'offerTable') await C.act('offer_table');
+    else if (id === 'cancelTableOffer') { const v = C.view(); await C.act('table_offer_cancel', { id: v && v.tableOffer && v.tableOffer.id }); }
     else if (id === 'flow') { const v = C.view(); await C.act('set_settings', { settings: { dice: v.settings.dice === 'auto' ? 'manuell' : 'auto' } }); }
     else if (id === 'change') showChange();
     else if (id === 'end') { if (await confirm('Spiel beenden?', 'Das Spiel wird für alle sofort beendet. Alle sehen danach die Statistik.', 'Spiel beenden', true)) await C.act('end_game'); }
@@ -294,5 +299,98 @@
   }
   function hideStats() { const el = $('stats'); el.classList.remove('peek'); if (!el.hidden) { el.hidden = true; el._h = null; el.replaceChildren(); } }
 
-  root.Menu = { init, confirm, refresh: () => { refreshDlg(false); const v = C && C.view(); if (v && dlg && $('chgBox')) root.Lobby.syncPanel(v.settings); }, renderStats, hideStats, closeMenu, showSettings, showTablePlayer, isDialogOpen: () => !!dlg };
+  // ======================================================================================
+  // Spieltisch anbieten
+  // ======================================================================================
+  const SEAT_LABEL = { tl: 'oben links', t: 'oben Mitte', tr: 'oben rechts', l: 'links', r: 'rechts', bl: 'unten links', b: 'unten Mitte', br: 'unten rechts' };
+  const SEAT_ORDER = ['tl', 't', 'tr', 'l', null, 'r', 'bl', 'b', 'br'];
+  let angebot = null, angebotKey = '';
+
+  // Der Menüpunkt erscheint nur beim Spielleiter und nur auf mindestens FullHD.
+  function kannTischAnbieten(v) {
+    if (!v || v.watch || !v.settings || v.settings.table || v.host !== v.you) return false;
+    if (v.phase !== 'lobby' && v.phase !== 'setup' && v.phase !== 'main') return false;
+    const dpr = devicePixelRatio || 1;
+    return (screen.width >= 1920 && screen.height >= 1080) || (screen.width * dpr >= 1920 && screen.height * dpr >= 1080);
+  }
+
+  function closeOfferEl() { const el = $('tableOffer'); if (el) el.remove(); }
+  function closeOffer() { closeOfferEl(); angebot = null; angebotKey = ''; }
+
+  function offerHTML(v, o) {
+    const bySeat = {};
+    Object.entries(o.seats || {}).forEach(([pid, s]) => { bySeat[s] = Number(pid); });
+    const seat = (s) => {
+      const p = bySeat[s], q = p != null ? v.players[p] : null;
+      if (q) return `<div class="sa-seat taken">${C.avatar(p, 30)}<span>${C.esc(q.name)}</span></div>`;
+      const ok = (o.allowed || []).includes(s);
+      return `<button type="button" class="sa-seat${ok ? '' : ' off'}" data-tseat="${s}" ${ok ? '' : 'disabled'}>${C.esc(SEAT_LABEL[s])}</button>`;
+    };
+    const grid = `<div class="sa-grid">${SEAT_ORDER.map((s) => (s ? seat(s) : '<div class="sa-table">Tisch</div>')).join('')}</div>`;
+    if (o.mode === 'ask') {
+      return `<h2>An den Spieltisch?</h2><p class="lead">${C.esc(o.hostName)} lädt dich ein: Die Partie läuft dann auf dem großen Bildschirm, dein Gerät wird zur Steuerung (Controller-Ansicht).</p>` +
+        '<div class="mact"><button type="button" class="btn ghostb" data-toffer="no">Ablehnen</button><button type="button" class="btn gold" data-toffer="yes" data-focus>Annehmen</button></div>';
+    }
+    if (o.mode === 'seat') {
+      return `<h2>${o.askAgain ? 'Platz erneut wählen' : 'Platz wählen'}</h2><p class="lead">${o.askAgain ? 'Dein Wunschplatz passt nicht zur Zugreihenfolge. Wähle einen der markierten Plätze.' : 'An welchen Platz am Tisch möchtest du treten?'}</p>${grid}` +
+        `<p class="sa-hint">Das Angebot gilt noch etwa ${Math.max(1, Math.round((o.ms || 0) / 1000))} Sekunden.</p>` +
+        (o.canCancel ? '<div class="mact"><button type="button" class="btn ghostb" data-toffer="cancel">Angebot abbrechen</button></div>' : '');
+    }
+    const nm = (pid) => C.esc(v.players[pid] ? v.players[pid].name : '?');
+    const list = (label, pids) => (pids && pids.length ? `<li><span class="muted">${label}</span>${pids.map(nm).join(', ')}</li>` : '');
+    return `<h2>Spieltisch wird vorbereitet</h2><p class="lead">Warte auf die Antworten der Mitspieler …</p><ul class="tolist">${list('Zugesagt', o.accepted)}${list('Abgelehnt', o.declined)}${list('Offen', o.pending)}</ul>` +
+      (o.canCancel ? '<div class="mact"><button type="button" class="btn ghostb" data-toffer="cancel">Angebot abbrechen</button></div>' : '');
+  }
+
+  function renderOffer(v) {
+    const o = v && v.tableOffer;
+    if (!o) {
+      const prev = angebot;
+      if (prev) {
+        const me = v && v.players && v.you != null ? v.players[v.you] : null;
+        const dabei = prev.canCancel || (me && me.amTisch === true);
+        const ok = !!(v && v.settings && v.settings.table);
+        if (dabei && prev.mode !== 'declined') C.toast(ok ? 'Der Spieltisch ist eingerichtet.' : 'Der Spieltisch ist nicht zustande gekommen.', ok ? 'ok' : 'warn');
+      }
+      closeOffer();
+      return;
+    }
+    angebot = o;
+    if (o.mode === 'declined') { closeOfferEl(); return; }
+    if (o.mode === 'wait' && !o.canCancel) {
+      if (angebotKey !== o.id + ':wait') C.toast('Platz gewählt – warte auf die anderen.', 'ok');
+      angebotKey = o.id + ':wait';
+      closeOfferEl();
+      return;
+    }
+    const key = [o.id, o.mode, o.askAgain ? 1 : 0, JSON.stringify(o.seats || {}), (o.allowed || []).join(','), (o.accepted || []).join(','), (o.declined || []).join(','), (o.pending || []).join(',')].join('|');
+    if (key === angebotKey && $('tableOffer')) return;
+    angebotKey = key;
+    let el = $('tableOffer');
+    if (!el) { el = document.createElement('div'); el.id = 'tableOffer'; el.addEventListener('click', onOfferClick); document.body.appendChild(el); }
+    C.setHTML(el, `<div class="tofferback"><div class="toffer glass" role="dialog" aria-modal="true" aria-label="Spieltisch-Angebot"><div class="sa-box">${offerHTML(v, o)}</div></div></div>`);
+  }
+
+  async function onOfferClick(e) {
+    const b = e.target.closest('[data-toffer]');
+    if (b) {
+      const o = angebot; if (!o) return;
+      b.disabled = true;
+      let j;
+      if (b.dataset.toffer === 'yes') { if (C.ctlOn) C.ctlOn(); j = await C.act('table_offer', { accept: true, id: o.id }); }
+      else if (b.dataset.toffer === 'no') j = await C.act('table_offer', { accept: false, id: o.id });
+      else j = await C.act('table_offer_cancel', { id: o.id });
+      if (j && j.error) b.disabled = false;
+      return;
+    }
+    const s = e.target.closest('[data-tseat]');
+    if (s && !s.disabled && angebot) {
+      s.disabled = true;
+      const j = await C.act('table_offer_seat', { seat: s.dataset.tseat, id: angebot.id });
+      if (j && j.error) s.disabled = false;
+    }
+  }
+
+  root.Menu = { init, confirm, refresh: () => { refreshDlg(false); const v = C && C.view(); if (v && dlg && $('chgBox')) root.Lobby.syncPanel(v.settings); }, renderStats, hideStats, closeMenu, showSettings, showTablePlayer, isDialogOpen: () => !!dlg,
+    renderOffer, closeOffer, kannTischAnbieten };
 })(typeof self !== 'undefined' ? self : this);

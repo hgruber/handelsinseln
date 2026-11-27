@@ -60,6 +60,7 @@ impl Game {
             vanished: false,
             seat: None,
             table_guest: None,
+            am_tisch: None,
             bm: None,
             person_ids: Vec::new(),
             person_id: None,
@@ -265,9 +266,16 @@ impl Game {
     }
 
     pub fn sync_table(&mut self) {
-        self.S.settings.table = self.S.players.iter().any(|p| p.is_table_guest());
+        self.S.settings.table = self
+            .S
+            .players
+            .iter()
+            .any(|p| p.is_table_guest() || p.am_tisch == Some(true));
+        // Im Angebot gewählte Sitze bleiben erhalten; die übrigen werden beim Start neu vergeben.
         for p in self.S.players.iter_mut() {
-            p.seat = None;
+            if p.am_tisch != Some(true) {
+                p.seat = None;
+            }
         }
     }
 
@@ -671,6 +679,13 @@ impl Game {
             None,
         );
         if set.table {
+            // Angebotstisch: Die Sitze wurden beim Angebot gewählt, keine Abfrage am Tisch.
+            if self.S.players.iter().any(|p| p.am_tisch == Some(true)) {
+                self.after_seating();
+                self.S.v += 1;
+                self.settle();
+                return Ok(());
+            }
             let mut ask = vec![self.S.host];
             let ids: Vec<usize> = self.S.players.iter().map(|p| p.id).collect();
             for i in ids {

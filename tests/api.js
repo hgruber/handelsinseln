@@ -1,6 +1,6 @@
 'use strict';
 // Schnelle Tests des Rust-Servers über echtes HTTP/SSE: Spiele, Lobby, Rechte, Signalweg,
-// Verlassen/Auto-Modus und ganze Partien (Aktionen aus der Sicht gewählt).
+// Spieltisch-Angebot, Verlassen/Auto-Modus und ganze Partien (Aktionen aus der Sicht gewählt).
 // Aufruf: node tests/api.js   (setzt das Release-Binary voraus)
 const assert = require('assert');
 const { spawn } = require('child_process');
@@ -55,11 +55,11 @@ async function boot(extra = {}) {
       return { status: r.status, ...(await r.json()) };
     },
     get: async (p) => (await fetch(base + p)).json(),
-    connect: (token) => {
+    connect: (token, query = '') => {
       const c = { view: null, events: [], signals: [], ctrl: new AbortController() };
       (async () => {
         try {
-          const res = await fetch(base + '/api/events?token=' + encodeURIComponent(token), { signal: c.ctrl.signal });
+          const res = await fetch(base + '/api/events?token=' + encodeURIComponent(token) + query, { signal: c.ctrl.signal });
           c.status = res.status;
           if (res.status !== 200) return;
           const dec = new TextDecoder();
@@ -511,12 +511,186 @@ async function testGanzePartie(n, winPoints) {
   } finally { T.close(); }
 }
 
+async function playToMain(players, T) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60000) {
+    const views = players.map((p) => p.client.view);
+    if (views[0] && views[0].phase === 'main') return;
+    const pick = choose(views);
+    if (!pick) { await sleep(5); continue; }
+    const before = views[0].v;
+    const r = await T.post('/api/act', { token: players[pick.pid].token, ...pick.action });
+    assert(r.ok, `Aktion abgelehnt: ${r.error} ${JSON.stringify(pick.action)}`);
+    await waitUntil(() => players[0].client.view.v > before, 4000, 'Sicht nach Aktion');
+    const target = players[0].client.view.v;
+    await waitUntil(() => players.every((p) => p.client.view && p.client.view.v >= target), 4000, 'Sichten verteilt');
+  }
+  throw new Error('Hauptphase nicht erreicht');
+}
+
+function sitzordnungPasst(view) {
+  const clock = ['br', 'b', 'bl', 'l', 'tl', 't', 'tr', 'r'];
+  const n = view.order.length;
+  const sorted = view.players.map((p, i) => i).sort((a, b) => clock.indexOf(view.players[a].seat) - clock.indexOf(view.players[b].seat));
+  for (let r = 0; r < n; r++) {
+    if (sorted.every((pid, j) => pid === view.order[(r + j) % n])) return true;
+  }
+  return false;
+}
+
+async function testTischAngebotImSpiel() {
+  const T = await boot({ TABLE_OFFER_MS: 8000, TICK_MS: 100 });
+  try {
+    const players = [];
+    let game = null;
+    for (let i = 0; i < 4; i++) {
+      const j = await T.post('/api/join', { name: 'Spieler' + (i + 1), color: COL[i], ...(i === 0 ? { create: true } : { game }) });
+      assert(j.token, JSON.stringify(j));
+      game = j.game;
+      players.push({ pid: j.pid, token: j.token, client: T.connect(j.token) });
+    }
+    await waitUntil(() => players.every((p) => p.client.view), 3000, 'Sichten');
+    assert.equal((await T.post('/api/act', { token: players[0].token, type: 'set_settings', settings: { dice: 'auto', winPoints: 30 } })).ok, true);
+    assert.equal((await T.post('/api/act', { token: players[0].token, type: 'start' })).ok, true);
+    await playToMain(players, T);
+    const v0 = players[0].client.view;
+    const order = v0.order.slice();
+    assert.equal(v0.settings.table, false, 'noch kein Spieltisch');
+    assert.ok(v0.players.every((p) => p.seat == null), 'noch keine Sitze');
+
+    assert.equal((await T.post('/api/act', { token: players[0].token, type: 'offer_table' })).ok, true);
+    await waitUntil(() => players.every((p) => p.client.view.tableOffer), 3000, 'Angebot an alle');
+    const id = players[1].client.view.tableOffer.id;
+
+    // Der letzte Nicht-Host in der Reihenfolge lehnt ab; Host + zwei andere nehmen an.
+    const others = order.filter((pid) => pid !== 0);
+    const decl = others[others.length - 1];
+    const acceptors = order.filter((pid) => pid !== decl);
+    const plan = {};
+    plan[acceptors[0]] = 'b';
+    plan[acceptors[1]] = 'tr';
+    plan[acceptors[2]] = 't'; // absichtlich unvereinbar mit der Reihenfolge
+
+    for (const pid of acceptors) {
+      if (pid === 0) continue;
+      assert.equal((await T.post('/api/act', { token: players[pid].token, type: 'table_offer', accept: true, id })).ok, true);
+    }
+    assert.equal((await T.post('/api/act', { token: players[0].token, type: 'table_offer_seat', seat: plan[0], id })).ok, true);
+    for (const pid of acceptors) {
+      if (pid === 0) continue;
+      assert.equal((await T.post('/api/act', { token: players[pid].token, type: 'table_offer_seat', seat: plan[pid], id })).ok, true);
+    }
+    assert.equal((await T.post('/api/act', { token: players[decl].token, type: 'table_offer', accept: false, id })).ok, true);
+
+    // Mindestens einer muss erneut wählen; danach die erlaubten Plätze nehmen.
+    let sawReask = false;
+    for (let guard = 0; guard < 20 && players[0].client.view.settings.table !== true; guard++) {
+      let acted = false;
+      for (const p of players) {
+        const o = p.client.view.tableOffer;
+        if (o && o.mode === 'seat' && o.askAgain) {
+          sawReask = true;
+          assert.ok(o.allowed.length > 0, 'erlaubte Plätze vorhanden');
+          const r = await T.post('/api/act', { token: p.token, type: 'table_offer_seat', seat: o.allowed[0], id });
+          assert(r.ok, 'Platz aus der erneuten Auswahl: ' + r.error);
+          acted = true;
+          break;
+        }
+      }
+      if (!acted) await sleep(80); else await sleep(120);
+    }
+    assert.ok(sawReask, 'unvereinbare Plätze führen zu einer erneuten Auswahl');
+    const end = players[0].client.view;
+    assert.equal(end.settings.table, true, 'Spieltisch eingerichtet');
+    assert.equal(end.tableOffer, null, 'Angebot beendet');
+    assert.deepEqual(end.order, order, 'S.order bleibt unverändert');
+    assert.ok(end.players.every((p) => p.seat), 'alle haben einen Platz');
+    assert.equal(new Set(end.players.map((p) => p.seat)).size, end.players.length, 'Plätze sind eindeutig');
+    assert.ok(sitzordnungPasst(end), 'Sitzordnung entspricht der Zugreihenfolge');
+    assert.equal(end.players[0].amTisch, true, 'Host am Tisch');
+    assert.equal(end.players[decl].amTisch, false, 'Ablehner bleibt im Spiel, aber ohne Steuergerät');
+
+    const ht = T.connect(players[0].token, '&table=1');
+    await waitUntil(() => acceptors.every((pid) => players[pid].client.view.display === true), 4000, 'Annehmer: Display');
+    assert.equal(players[decl].client.view.display, false, 'Ablehner: kein Controller');
+    ht.ctrl.abort();
+    players.forEach((p) => p.client.ctrl.abort());
+    console.log('  ✓ Spieltisch anbieten im Spiel (Reihenfolge, Re-Ask, Display)');
+  } finally { T.close(); }
+}
+
+async function testTischAngebot() {
+  const T = await boot({ TABLE_OFFER_MS: 4000, TICK_MS: 100 });
+  try {
+    const j1 = await T.post('/api/join', { name: 'Anna', color: COL[0], create: true });
+    const j2 = await T.post('/api/join', { name: 'Bert', color: COL[1], game: j1.game });
+    const j3 = await T.post('/api/join', { name: 'Carla', color: COL[2], game: j1.game });
+    const c1 = T.connect(j1.token), c2 = T.connect(j2.token), c3 = T.connect(j3.token);
+    await waitUntil(() => c1.view && c2.view && c3.view, 3000, 'Sichten');
+
+    assert.equal((await T.post('/api/act', { token: j2.token, type: 'offer_table' })).status, 400, 'nur der Spielleiter bietet an');
+    assert.equal((await T.post('/api/act', { token: j1.token, type: 'offer_table' })).ok, true);
+    await waitUntil(() => c2.view.tableOffer && c3.view.tableOffer, 3000, 'Angebot sichtbar');
+    assert.equal(c2.view.tableOffer.mode, 'ask', 'Bert wird gefragt');
+    assert.equal(c1.view.tableOffer.mode, 'seat', 'Spielleiter wählt seinen Platz');
+    const id = c2.view.tableOffer.id;
+
+    // Anna (Host) wählt oben, Bert nimmt an und wählt unten, Carla lehnt ab.
+    assert.equal((await T.post('/api/act', { token: j1.token, type: 'table_offer_seat', seat: 't', id })).ok, true);
+    assert.equal((await T.post('/api/act', { token: j2.token, type: 'table_offer', accept: true, id })).ok, true);
+    await waitUntil(() => c2.view.tableOffer && c2.view.tableOffer.mode === 'seat', 3000, 'Platzwahl Bert');
+    assert.equal((await T.post('/api/act', { token: j2.token, type: 'table_offer_seat', seat: 'b', id })).ok, true);
+    assert.equal((await T.post('/api/act', { token: j3.token, type: 'table_offer', accept: false, id })).ok, true);
+
+    await waitUntil(() => c1.view.settings.table === true, 3000, 'Tisch eingerichtet');
+    assert.equal(c1.view.tableOffer, null, 'Angebot beendet');
+    assert.equal(c1.view.players[0].amTisch, true, 'Host am Tisch');
+    assert.equal(c1.view.players[1].amTisch, true, 'Bert am Tisch');
+    assert.equal(c1.view.players[2].amTisch, false, 'Carla nicht am Tisch');
+    assert.equal(c1.view.players[0].seat, 't');
+    assert.equal(c1.view.players[1].seat, 'b');
+    assert.equal(c1.view.players[2].seat, null, 'Carla bekommt ihren Platz beim Start');
+
+    // Start ohne Platzabfrage: after_seating füllt und legt die Reihenfolge fest.
+    assert.equal((await T.post('/api/act', { token: j1.token, type: 'start' })).ok, true);
+    await waitUntil(() => c1.view.phase === 'setup', 4000, 'Start');
+    assert.notEqual(c1.view.step, 'setup_seat', 'keine Platzabfrage am Tisch');
+    const seats = c1.view.players.map((p) => p.seat);
+    assert.ok(seats.every(Boolean), 'alle haben einen Platz: ' + JSON.stringify(seats));
+    assert.equal(new Set(seats).size, seats.length, 'Plätze sind eindeutig');
+
+    // Controller: Die Tisch-Anzeige des Spielleiters anschließen.
+    const ht = T.connect(j1.token, '&table=1');
+    await waitUntil(() => c2.view.display === true, 4000, 'Bert: Controller-Ansicht möglich');
+    assert.equal(c3.view.display, false, 'Carla bleibt in der normalen Ansicht');
+    ht.ctrl.abort();
+    [c1, c2, c3].forEach((c) => c.ctrl.abort());
+
+    // Alle lehnen ab: kein Tisch, Angebot verschwindet.
+    const k1 = await T.post('/api/join', { name: 'Dora', color: COL[3], create: true });
+    const k2 = await T.post('/api/join', { name: 'Emil', color: COL[4], game: k1.game });
+    const d1 = T.connect(k1.token), d2 = T.connect(k2.token);
+    await waitUntil(() => d1.view && d2.view, 3000, 'Sichten 2');
+    assert.equal((await T.post('/api/act', { token: k1.token, type: 'offer_table' })).ok, true);
+    await waitUntil(() => d2.view.tableOffer && d2.view.tableOffer.mode === 'ask', 3000, 'Angebot 2');
+    const id2 = d2.view.tableOffer.id;
+    assert.equal((await T.post('/api/act', { token: k2.token, type: 'table_offer', accept: false, id: id2 })).ok, true);
+    await waitUntil(() => d1.view.tableOffer === null, 3000, 'Angebot verfällt');
+    assert.equal(d1.view.settings.table, false, 'kein Tisch');
+    assert.ok(d1.view.log.some((l) => l.text.includes('nicht zustande gekommen')), 'Protokoll meldet das Scheitern');
+    d1.ctrl.abort(); d2.ctrl.abort();
+    console.log('  ✓ Spieltisch anbieten (Lobby: annehmen, ablehnen, Controller, kein Tisch)');
+  } finally { T.close(); }
+}
+
 (async () => {
   try {
     await testStatic();
     await testLobbyAndRechte();
     await testAutoModus();
     await testKopplung();
+    await testTischAngebot();
+    await testTischAngebotImSpiel();
     await testPerson();
     await testPause();
     await testPassAblauf();

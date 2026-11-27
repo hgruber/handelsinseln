@@ -92,6 +92,9 @@ pub struct Player {
     pub seat: Option<String>,
     #[serde(rename = "tableGuest", skip_serializing_if = "Option::is_none", default)]
     pub table_guest: Option<bool>,
+    /// Nimmt am angebotenen Spieltisch teil (eigenes Gerät bleibt die Steuerung).
+    #[serde(rename = "amTisch", skip_serializing_if = "Option::is_none", default)]
+    pub am_tisch: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub bm: Option<BotMemory>,
     /// Pseudonyme der Personen (HMAC aus dem Spielerpass und der serverId). Mehrere Geräte
