@@ -17,15 +17,19 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const compactMQ = matchMedia('(max-width: 900px), (max-height: 520px)'); // Handy/kleines Tablet: kompaktes HUD (siehe style.css)
+  const COMPACT_W = 900; // Breite des kompakten HUDs (siehe style.css: @media (max-width: 900px))
+  const compactMQ = matchMedia(`(max-width: ${COMPACT_W}px), (max-height: 520px)`); // Handy/kleines Tablet: kompaktes HUD (siehe style.css)
   const compact = () => compactMQ.matches;
   const touchMQ = matchMedia('(pointer: coarse)'); // Bedienung per Finger: Kartenaktionen erst nach Bestätigung
+  const swipeMQ = matchMedia(`(pointer: coarse) and (max-width: ${COMPACT_W}px)`); // Wischen Karte ⇄ Konsole nur am Finger im kompakten HUD
   const S = 100;
+  const SWIPE_START = 12, SWIPE_FIRE = 70, SWIPE_MINV = 0.5; // px Start, px Auslösung, px/ms für einen schnellen Wisch
+  let swipe = null, swipeEnd = null; // laufende Geste / Endpunkt (unterdrückt den Klick nach dem Wisch)
 
   const st = {
     token: localStorage.getItem('handelsinseln.token') || null, view: null, mode: null, moveFrom: null, mock: null,
     es: null, logOpen: false, tab: 'log', modal: null, modalKey: '', draft: {}, draftKey: '',
-    ctlPref: localStorage.getItem('handelsinseln.ctl') !== '0', ctl: false,
+    ctlPref: localStorage.getItem('handelsinseln.ctl') !== '0', ctl: false, swipeOn: false, swipeAt: 0, slideT: null,
     openPc: null, firstBoard: true, known: new Set(), lastSeq: null, lastHand: null, chatSeen: 0, seenChat: -1, color: null,
   };
 
@@ -149,8 +153,8 @@
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
-    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate(); cancelBankAsk(); Menu.closeOffer();
-    localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
+    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; st.swipeOn = false; document.body.classList.remove('watch', 'ctl', 'swipe-on', 'ctl-in', 'ctl-out'); Table.deactivate(); cancelBankAsk(); Menu.closeOffer();
+    localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; updateSwipe(null); setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
     if (msg) toast(msg, 'warn');
@@ -235,11 +239,16 @@
 
   // ---- Controller-Ansicht (Handy als Steuerung, das Spielfeld zeigt die Tisch-Anzeige) ----------------
   // Sie gilt nur, solange im Spiel eine Tisch-Anzeige (Zuschauer) verbunden ist; die Wahl des Spielers bleibt gemerkt.
+  function ctlAllowed(v) {
+    return !!(v && !v.watch && !st.tableOn && v.display && (v.phase === 'main' || v.phase === 'setup'));
+  }
   function syncCtl(v) {
-    const on = !!(st.ctlPref && v && !v.watch && !st.tableOn && v.display && (v.phase === 'main' || v.phase === 'setup'));
-    if (on === st.ctl) return;
-    st.ctl = on; document.body.classList.toggle('ctl', on);
-    if (on) { st.mode = null; st.moveFrom = null; } else setTimeout(() => { if (V()) fit(false); }, 80);
+    const on = st.ctlPref && ctlAllowed(v);
+    if (on !== st.ctl) {
+      st.ctl = on; document.body.classList.toggle('ctl', on);
+      if (on) { st.mode = null; st.moveFrom = null; } else setTimeout(() => { if (V()) fit(false); }, 80);
+    }
+    updateSwipe(v);
   }
   // Pflichtschritte am Spielfeld (Ritter/7: Räuber, Aufbau, Straßenbau): Die Auswahl geht sofort an den Spieltisch, ohne extra „Am Spieltisch wählen“.
   // Je Schritt nur einmal (nach „Abbrechen“ bleibt der Knopf zum erneuten Freigeben).
@@ -251,8 +260,88 @@
     act('arm', {});
   }
   function toggleCtl() {
+    const before = st.ctl;
     st.ctlPref = !st.ctlPref; localStorage.setItem('handelsinseln.ctl', st.ctlPref ? '1' : '0');
     const v = V(); syncCtl(v); if (v) { renderHUD(v); renderTargets(v); }
+    ctlSlide(st.ctl === before ? null : st.ctl ? 'in' : 'out');
+  }
+
+  // ---- Wischen zwischen Karte (links) und Controller-Konsole (rechts) ------------------------
+  // Nur am Finger und im kompakten HUD (swipeMQ); die freien Flächen des HUD sind die Gestenfläche.
+  // Karte, Menü, Dialoge, Pflichtschritt und Bedienelemente bleiben unberührt.
+  function swipeDialogOpen() {
+    return !$('armPanel').hidden || !!document.querySelector('.menu-pop, .mback, .passback, .pairback, .bankback, .bgdlg, .chooser');
+  }
+  function swipeBlocked(t) {
+    return !!t.closest('button, input, textarea, select, a, .tc, .bb, .dcard, .dstack, .tchip, .pc, #dice, #devRow, #camBtns, #toasts, [data-a], [data-do], [data-arm]');
+  }
+  function updateSwipe(v) {
+    const on = swipeMQ.matches && ctlAllowed(v);
+    st.swipeOn = on;
+    if (!on) swipe = null;
+    document.body.classList.toggle('swipe-on', on);
+    const b = $('btnSwipeCtl');
+    b.hidden = !on;
+    if (on) {
+      const label = st.ctl ? 'Karte anzeigen' : 'Konsole anzeigen';
+      b.title = label; b.setAttribute('aria-label', label);
+    }
+  }
+  function ctlSlide(kind) {
+    const b = document.body;
+    b.classList.remove('ctl-in', 'ctl-out');
+    if (!kind) return;
+    void b.offsetWidth;
+    b.classList.add(kind === 'in' ? 'ctl-in' : 'ctl-out');
+    clearTimeout(st.slideT);
+    st.slideT = setTimeout(() => b.classList.remove('ctl-in', 'ctl-out'), 240);
+  }
+  function swipeDown(e) {
+    if (!st.swipeOn || e.pointerType !== 'touch' || !e.isPrimary) return;
+    if (swipeDialogOpen() || swipeBlocked(e.target)) return;
+    swipe = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, active: false };
+  }
+  function swipeMove(e) {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    if (!st.swipeOn || swipeDialogOpen()) { swipe = null; return; }
+    const dx = e.clientX - swipe.x0, dy = e.clientY - swipe.y0;
+    if (swipe.active) return;
+    if (Math.abs(dx) <= SWIPE_START) {
+      if (Math.abs(dy) > SWIPE_START && Math.abs(dy) > Math.abs(dx)) swipe = null; // senkrecht: scrollen bzw. Karte bewegen lassen
+      return;
+    }
+    if (Math.abs(dx) <= 1.5 * Math.abs(dy)) { swipe = null; return; } // nicht deutlich waagerecht
+    swipe.active = true;
+    try { $('hud').setPointerCapture(e.pointerId); } catch (_) { /* egal */ }
+  }
+  function swipeUp(e) {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    const s = swipe; swipe = null;
+    if (!s.active || !st.swipeOn || swipeDialogOpen()) return;
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0;
+    if (Math.abs(dx) <= 1.5 * Math.abs(dy)) return;
+    const speed = Math.abs(dx) / Math.max(1, e.timeStamp - s.t0);
+    if (Math.abs(dx) < SWIPE_FIRE && !(Math.abs(dx) >= 30 && speed >= SWIPE_MINV)) return;
+    swipeEnd = { x: e.clientX, y: e.clientY }; st.swipeAt = performance.now();
+    if (dx < 0 && !st.ctl) toggleCtl();
+    else if (dx > 0 && st.ctl) toggleCtl();
+  }
+  function initSwipe() {
+    const hud = $('hud');
+    swipeMQ.addEventListener('change', () => updateSwipe(V()));
+    $('btnSwipeCtl').addEventListener('click', () => toggleCtl());
+    hud.addEventListener('pointerdown', swipeDown, { passive: true });
+    hud.addEventListener('pointermove', swipeMove, { passive: true });
+    hud.addEventListener('pointerup', swipeUp);
+    hud.addEventListener('pointercancel', () => { swipe = null; });
+    // Sobald der Wisch waagerecht feststeht, gehört die Geste uns (kein Scrollen/Zurück-Wischen des Browsers).
+    hud.addEventListener('touchmove', (e) => { if (swipe && swipe.active && e.cancelable) e.preventDefault(); }, { passive: false });
+    // Der Klick am Ende eines Wischs darf darunter nichts auslösen.
+    hud.addEventListener('click', (e) => {
+      if (!swipeEnd || performance.now() - st.swipeAt > 350) return;
+      if (Math.hypot(e.clientX - swipeEnd.x, e.clientY - swipeEnd.y) > 24) return;
+      e.preventDefault(); e.stopPropagation(); st.swipeAt = 0; swipeEnd = null;
+    }, true);
   }
   const ARM_NAME = { settlement: 'Siedlung', city: 'Stadt', road: 'Straße', ship: 'Schiff', takeover: 'Übernahme', move: 'Schiff versetzen' };
   const FORCED_NAME = { setup_settlement: 'Siedlung', setup_road: 'Straße oder Schiff', road_building: 'Straße oder Schiff', robber: 'Räuber oder Pirat' };
@@ -1315,6 +1404,7 @@
   // ======================================================================================
   function boot() {
     $('defs').innerHTML = Art.defs();
+    initSwipe();
     $('nameIn').value = localStorage.getItem('handelsinseln.name') || '';
     st.color = localStorage.getItem('handelsinseln.color') || null;
     const ctx = { vpTip, vpIcons, get mockLogin() { return st.loginMock; }, tableOn: () => !!st.tableOn, ctl: () => st.ctl, toggleCtl,

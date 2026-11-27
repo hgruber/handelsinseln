@@ -711,3 +711,20 @@ body.ctl #armPanel .aact .btn.big { min-width: 0; padding: 7px 14px; font-size: 
 .passbox .rank { margin: 0; }
 .passbox .rank li { padding: 4px 10px; } .passbox .rank .nm { font-size: 15px; } .passbox .rank b { font-size: 16px; }
 .lb-links { display: flex; gap: 6px; align-items: center; margin: -4px 0 6px; font-size: 13px; }
+
+/* ================= Wischen: Karte (links) ⇄ Controller-Konsole (rechts) =================
+   Nur am Finger und im kompakten HUD; app.js schaltet dafür body.swipe-on (Breite wie @media max-width: 900px). */
+#btnSwipeCtl { width: 34px; height: 34px; border-radius: 10px; }
+body.swipe-on #banner { right: calc(94px + env(safe-area-inset-right)); } /* Platz für Kartenknopf + Hamburger */
+body.swipe-on.ctl #banner { padding-right: 90px; }
+#swipeDots { display: none; position: fixed; right: calc(3px + env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); z-index: 30; flex-direction: column; gap: 6px; padding: 6px 4px; border-radius: 999px; background: rgba(8, 18, 38, .42); border: 1px solid var(--line); pointer-events: none; }
+body.swipe-on #swipeDots { display: flex; }
+#swipeDots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .32); }
+body:not(.ctl) #swipeDots i:first-child, body.ctl #swipeDots i:last-child { background: var(--gold2); box-shadow: 0 0 5px rgba(248, 220, 146, .7); }
+body.swipe-on #banner, body.swipe-on #banner .bn, body.swipe-on #score, body.swipe-on #dicebox { touch-action: pan-y; }
+body.swipe-on.ctl #tradeDock .tpanel, body.swipe-on.ctl #tradeDock .tbody { touch-action: pan-y; }
+body.swipe-on { overscroll-behavior-x: none; }
+@keyframes ctlSlideIn { from { opacity: .2; transform: translateX(18%); } }
+@keyframes ctlSlideOut { from { opacity: .2; transform: translateX(-18%); } }
+body.ctl-in #hud { animation: ctlSlideIn .2s ease-out; }
+body.ctl-out #hud, body.ctl-out #board { animation: ctlSlideOut .2s ease-out; }

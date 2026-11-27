@@ -109,7 +109,9 @@ die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/bro
   Würfel und Meldungen – ohne Handkarten, Chat oder Aktionen; bis zu 8 Zuschauer je Spiel.
 - **Controller-Ansicht:** Sieht ein Handy dem Tisch zu, schaltet es von selbst auf Karten und Aktionen um. Eine Aktion am Spielfeld
   wird erst am Handy freigegeben; der Tisch zeigt die möglichen Ziele, die Bestätigung erfolgt am Handy. So kann niemand für den
-  Spieler am Zug handeln. Rückfragen (Abwerfen, Gold, Opfer, Handel) bleiben am Handy.
+  Spieler am Zug handeln. Rückfragen (Abwerfen, Gold, Opfer, Handel) bleiben am Handy. Auf dem Handy wechselt ein waagerechter
+  Wisch zwischen Karte und Konsole (links öffnet die Konsole); der Kartenknopf neben dem Menü tut dasselbe. Auf großen Bildschirmen
+  und ohne Tisch-Anzeige bleibt es beim Menüeintrag.
 - **Platz auf ein Handy koppeln:** Am Tisch auf das ▦ in der Leiste eines Platzes tippen; der Spieltisch zeigt einen QR-Code, das
   Handy scannt ihn. Danach spielt das Handy an diesem Platz; ein Bot wird dabei zum menschlichen Spieler. Die Kopplung ersetzt die
   frühere Kontrollübergabe.
