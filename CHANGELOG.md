@@ -4,6 +4,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+## [1.2.0] - 2026-11-27
+
 ### Hinzugefügt
 - **Spieltisch anbieten:** Der Spielleiter kann im laufenden Spiel und in der Lobby über das Menü „Spieltisch anbieten“ alle Mitspieler an den digitalen Spieltisch einladen; der Menüpunkt erscheint nur auf Bildschirmen ab FullHD (1920×1080). Jeder Mensch entscheidet auf seinem Gerät, wer annimmt wählt dort einen von acht Plätzen. Danach wird der Bildschirm des Spielleiters zur Tischplatte, die angenommenen Geräte wechseln in die Controller-Ansicht. Ablehnende und Bots bleiben im Spiel, bekommen einen freien Platz und werden am Tisch nur öffentlich gezeigt; ihr Gerät bleibt in der normalen Ansicht. Bei bereits fester Zugreihenfolge prüft der Server die Sitzordnung im Uhrzeigersinn und lässt unpassende Plätze erneut wählen (nur die dann möglichen Plätze). Ein Angebot gilt eine Minute (`TABLE_OFFER_MS`) und verfällt bei Mitglieder- oder Phasenwechseln.
 - **Fortsetzen auf der Startseite:** Laufende Partien mit einem eigenen Platz (Spielerpass) erscheinen in der Spieleliste der Startseite als „Fortsetzen“ und lassen sich direkt von dort wieder betreten – ohne Umweg über „Meine Partien“. Pausierte Partien bleiben unter „Meine Partien“; der Hinweis „Noch kein offenes Spiel – eröffne das erste!“ entfällt, sobald eine eigene Partie zum Fortsetzen da ist.
