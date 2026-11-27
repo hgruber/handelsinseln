@@ -505,7 +505,10 @@
     lastSettings = v.settings || lastSettings;
     // Seitenverhältnis des Spielleiter-Bildschirms: die Karte wird passend zum Format erzeugt (die Karte ändert sich nur bei deutlicher Abweichung)
     if (host) { const asp = Math.max(0.6, Math.min(2.4, Math.round(innerWidth / innerHeight * 20) / 20)); if (Math.abs((eff('aspect') || 0) - asp) > 0.12) queue('aspect', asp); }
-    $('lbGame').textContent = v.gameName || '';
+    const nameEl = $('lbGame');
+    nameEl.readOnly = !host;
+    nameEl.title = host ? 'Spielname – tippen zum Ändern; leer lässt den Standardnamen stehen' : (v.gameName || '');
+    if (document.activeElement !== nameEl) nameEl.value = v.gameName || '';
     $('lbCount').textContent = `${v.players.length}/${v.maxPlayers || 6}`;
 
     // Spielerliste
@@ -608,6 +611,22 @@
 
   function initLobby() {
     onSettingsEvents($('lobbySettings'));
+    // Spielname im Lobby-Kopf: nur der Spielleiter tippt; Enter/blur übernimmt, Escape verwirft
+    const nameEl = $('lbGame');
+    let nameBefore = '';
+    const saveName = async () => {
+      const v = C.view();
+      if (!v || v.host !== v.you) return;
+      const name = nameEl.value.trim();
+      if (name === (v.gameName || '')) return;
+      await C.act('rename', { name });
+    };
+    nameEl.addEventListener('focus', () => { nameBefore = nameEl.value; });
+    nameEl.addEventListener('blur', saveName);
+    nameEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); }
+      else if (e.key === 'Escape') { nameEl.value = nameBefore; nameEl.blur(); }
+    });
     if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) document.documentElement.classList.add('ios'); // iOS: Scroll-Container braucht pointer-events:auto (siehe lobby.css)
     $('lobby').addEventListener('click', async (e) => {
       const v = C.view(); if (!v) return;

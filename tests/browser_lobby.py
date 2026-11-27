@@ -40,6 +40,12 @@ try:
             pg.wait_for_selector('#lobby:not([hidden])', timeout=6000)
         check(len(games()[0]['players']) == 3, 'drei Spieler in einem Spiel')
 
+        # --- Spielname im Lobby-Kopf: der Spielleiter ändert ihn, die Spieleliste übernimmt ihn
+        A.fill('#lbGame', 'Abendrunde'); A.press('#lbGame', 'Enter')
+        wait_until(lambda: games()[0]['name'] == 'Abendrunde', timeout=5)
+        B.wait_for_function("document.getElementById('lbGame').value === 'Abendrunde'", timeout=4000)
+        check(B.evaluate("document.getElementById('lbGame').readOnly"), 'nur der Spielleiter ändert den Namen')
+
         # --- Zweites paralleles Spiel eröffnet ein vierter Browser; Liste zeigt beide
         D = newpage('Vierter')
         D.fill('#nameIn', 'Dora'); D.locator('#swatches .sw').first.click()

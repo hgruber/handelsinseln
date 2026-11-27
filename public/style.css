@@ -22,10 +22,10 @@ svg { display: block; }
 #sea canvas.sea-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #sea .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(2, 8, 20, .55) 100%); pointer-events: none; }
 
-/* kleiner Einstieg in die Hintergrundwahl (Login, Lobby, Statistik; im Spiel im Menü) */
+/* kleiner Einstieg in die Hintergrundwahl (Login, Statistik; in Lobby und Spiel im Menü) */
 #bgBtn { position: fixed; left: 14px; bottom: 14px; z-index: 30; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px); color: var(--gold2); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(0, 0, 0, .42); opacity: .82; transition: opacity .15s, transform .15s; }
 #bgBtn:hover { opacity: 1; transform: translateY(-1px); }
-body.in-game #bgBtn { display: none; }
+body.in-game #bgBtn, body[data-screen="lobby"] #bgBtn { display: none; }
 .bgdlg { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; }
 .bgdlg-back { position: absolute; inset: 0; background: rgba(3, 8, 18, .62); backdrop-filter: blur(3px); }
 .bgdlg-card { position: relative; width: min(880px, 96vw); max-height: 92vh; overflow: auto; padding: 22px 24px; text-align: left; animation: rise .28s cubic-bezier(.2, .9, .3, 1) both; }

@@ -53,7 +53,8 @@ Aus der Nähe: gemalte Landschaften, Werte-Chips, Siedlungen, Straßen und Schif
 **Lobby:** Name, Farbe und Avatar wählen (28 Porträts, nie doppelt), Bots dazuholen, Variante und Regeln einstellen – dann
 „Spiel starten“. Name und Avatar werden beim ersten Beitritt festgelegt; die Farbe bleibt als Standard, bis ein anderer
 Mensch sie belegt – dann weicht zuerst ein Bot auf eine freie Farbe aus. Der Hintergrund lässt sich pro Gerät wählen:
-Meer, Seekarte, Nebelmeer, Holz oder Pergament.
+Meer, Seekarte, Nebelmeer, Holz oder Pergament. Der Spielleiter kann der Partie außerdem im Lobby-Kopf einen eigenen
+Namen geben; er erscheint sofort in der Spieleliste auf der Anmeldung.
 
 ![Lobby mit drei Bots](docs/screenshots/lobby.webp)
 

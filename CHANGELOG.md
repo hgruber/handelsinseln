@@ -4,7 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Eigener Spielname:** Der Spielleiter kann den Namen der Partie im Lobby-Kopf antippen und ändern; er erscheint sofort in der Spieleliste auf der Anmeldung. Ein leer gelassener Name stellt „Spiel N“ wieder her, unbenannte Spiele zeigen in der Liste weiterhin „Spiel von …“.
+
 ### Geändert
+- **Hintergrundwahl in der Lobby nur noch im Menü:** Das Palettensymbol unten links erscheint in der Lobby nicht mehr; die Wahl liegt dort inzwischen im Hamburger-Menü („Hintergrund …“). Auf der Anmeldung und in der Statistik bleibt das Symbol.
 - **Kopf und Reiter für alles rund um den Pass:** Sobald der Pass mit dem ersten Spiel gebunden ist, steht auf der Anmeldung und in beiden Passansichten oben ein Kopf mit großem Avatar, Farbring, Name und „Spielerpass aktiv“ als Link zum Pass (dahinter die Farbe). Darunter führen die Reiter „Meine Partien“ und „Mein Spielerpass“ weiter. Auf der Anmeldung entfällt die Farbpalette und erscheint nur wieder, wenn ein anderer Mensch die Farbe belegt.
 - **Name und Avatar bleiben fest:** Beim ersten erfolgreichen Beitritt werden Name und Avatar gespeichert und mit dem Pass verbunden; danach sind sie auf der Anmeldung gesperrt. Die gespeicherte Farbe ist der Standard, lässt sich aber ändern, wenn ein anderer Mensch sie in der gewählten Partie belegt. Bei einer Farbkollision weicht zuerst ein Bot auf eine freie Farbe aus, bevor ein Mensch wechseln muss.
 - **Spielerpass unsichtbar, bis ein Spiel beginnt:** Der Pass aus vier Wörtern liegt im Hintergrund bereit; Name, Avatar und Farbe werden erst beim ersten Beitritt mit ihm verbunden. Vorher zeigt die Anmeldung nur den Link „Ich habe einen Spielerpass“ zum Eingeben eines vorhandenen Passes und sonst keinen Hinweis auf Pass oder Partien. Wird der Pass gelöscht, werden Name, Avatar und Farbe wieder frei wählbar; ein neuer Pass entsteht beim nächsten Spiel. Die Rückfrage beim Verlassen einer laufenden Partie weist darauf hin, den Pass zu notieren und dass die Partie nach spätestens 30 Tagen ohne Zugriff gelöscht wird.

@@ -77,7 +77,7 @@
     } catch (e) { return { error: 'Keine Verbindung zum Server.' }; }
   }
   // Aktionen des Spielleiters selbst (nie im Namen eines Mitspielers)
-  const OWN_ACTS = new Set(['set_settings', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start']);
+  const OWN_ACTS = new Set(['set_settings', 'rename', 'end_game', 'resume_game', 'new_game', 'regen_board', 'close_seats', 'add_bot', 'kick', 'chat', 'start']);
   async function act(type, params, asPid) {
     if (st.mock) { toast(`Mock-Modus: „${type}“ ${JSON.stringify(params || {})} nicht gesendet`, 'info'); console.log('act', type, params); return { ok: true }; }
     const body = Object.assign({ token: st.token, type }, params || {});

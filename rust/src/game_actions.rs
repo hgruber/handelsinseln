@@ -45,6 +45,7 @@ impl Game {
             "new_game" => return self.new_game(pid),
             "resume_game" => return self.resume_game(pid, a.get("winPoints")),
             "set_settings" => return self.set_settings(pid, a.get("settings").unwrap_or(&Value::Null)),
+            "rename" => return self.rename_game(pid, astr(a, "name").unwrap_or("")),
             "regen_board" => {
                 self.host_only(pid, "das Spielfeld neu würfeln")?;
                 self.regen();

@@ -616,10 +616,18 @@ fn lobby_farbe_name_max_sechs_host_und_reconnect() {
         g.join(n, c, None, None).unwrap();
     }
     assert!(g.join("G", "rot", None, None).unwrap_err().0.contains("voll"));
+    // Spielname: nur der Spielleiter, nur vor Spielbeginn, höchstens 40 Zeichen; leer = Standardname
+    expect_act_err(&mut g, 1, json!({ "type": "rename", "name": "Abendrunde" }), "Spielleiter");
+    assert!(g.act(0, &json!({ "type": "rename", "name": "x".repeat(41) })).is_err());
+    g.act(0, &json!({ "type": "rename", "name": "  Abendrunde  " })).unwrap();
+    assert_eq!(g.meta_name, "Abendrunde");
+    g.act(0, &json!({ "type": "rename", "name": "" })).unwrap();
+    assert_eq!(g.meta_name, "Test");
     expect_act_err(&mut g, 1, json!({ "type": "start" }), "Spielleiter");
     assert_eq!(g.join("x", "rot", Some(&token), None).unwrap().1, 0);
     g.act(0, &json!({ "type": "start" })).unwrap();
     assert_eq!(g.S.phase, "setup");
+    expect_act_err(&mut g, 0, json!({ "type": "rename", "name": "Spät" }), "vor Spielbeginn");
     assert!(g.join("Neu", "rot", None, None).unwrap_err().0.contains("läuft"));
 }
 

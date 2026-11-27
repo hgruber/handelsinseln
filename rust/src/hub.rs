@@ -161,7 +161,9 @@ impl Hub {
             .map(|p| p.name.clone())
             .or_else(|| S.players.first().map(|p| p.name.clone()))
             .unwrap_or_default();
-        let name = if !S.players.is_empty() {
+        let name = if room.game.meta_name != room.game.meta_default {
+            room.game.meta_name.clone()
+        } else if !S.players.is_empty() {
             format!("Spiel von {}", host_name)
         } else {
             room.game.meta_name.clone()
@@ -432,7 +434,7 @@ impl Hub {
             .map(|r| {
                 json!({
                     "id": r.id,
-                    "meta": {"id": r.game.meta_id, "name": r.game.meta_name},
+                    "meta": {"id": r.game.meta_id, "name": r.game.meta_name, "default": r.game.meta_default},
                     "S": &r.game.S,
                     "pausedAt": r.paused_at,
                 })
@@ -464,11 +466,17 @@ impl Hub {
             let meta = r.get("meta").cloned().unwrap_or(Value::Null);
             let mid = meta.get("id").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
             let mname = meta.get("name").and_then(|v| v.as_str()).unwrap_or("Spiel").to_string();
+            let mdefault = meta
+                .get("default")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&mname)
+                .to_string();
             let mut state = state;
             for p in state.players.iter_mut() {
                 p.connected = p.bot.is_some() || p.is_table_guest();
             }
-            let game = Game::from_state(state, self.rnd.clone(), &mid, &mname);
+            let mut game = Game::from_state(state, self.rnd.clone(), &mid, &mname);
+            game.meta_default = mdefault;
             let now = now_ms();
             let absent: HashMap<String, i64> = game
                 .S

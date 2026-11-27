@@ -701,7 +701,7 @@
       img.onload = () => { tex.__meer = img; schedule(); };
       img.src = 'img/meerbg.webp';
     }
-    // Einstiegsknopf (im Spiel liegt die Wahl im Spielmenü)
+    // Einstiegsknopf (in Lobby und Spiel liegt die Wahl im Menü)
     if (!$('bgBtn')) {
       const b = document.createElement('button');
       b.id = 'bgBtn'; b.type = 'button';

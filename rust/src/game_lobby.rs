@@ -424,6 +424,20 @@ impl Game {
         Ok(())
     }
 
+    /// Spielname setzen (nur Spielleiter, nur Lobby). Ein leerer Name stellt den Standardnamen wieder her.
+    pub fn rename_game(&mut self, pid: usize, name: &str) -> Result<(), GameError> {
+        self.host_only(pid, "den Spielnamen ändern")?;
+        let name = norm_name(name);
+        if name.chars().count() > 40 {
+            return Err(GameError(
+                "Bitte einen Spielnamen mit höchstens 40 Zeichen angeben.".into(),
+            ));
+        }
+        self.meta_name = if name.is_empty() { self.meta_default.clone() } else { name };
+        self.S.v += 1;
+        Ok(())
+    }
+
     pub fn set_settings(&mut self, pid: usize, patch: &Value) -> Result<(), GameError> {
         if self.S.phase != "lobby" {
             return self.change_settings(pid, patch);

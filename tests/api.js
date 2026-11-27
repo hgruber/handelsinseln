@@ -206,6 +206,14 @@ async function testLobbyAndRechte() {
     assert.equal((await T.post('/api/act', { token: b.token, type: 'set_settings', settings: { winPoints: 10 } })).status, 400);
     assert.equal((await T.post('/api/act', { token: a.token, type: 'set_settings', settings: { winPoints: 10, dice: 'auto', variant: 'nebel' } })).ok, true);
     await waitUntil(() => cb.view && cb.view.settings.winPoints === 10, 3000, 'Einstellungen');
+    // Spielname: nur der Spielleiter, höchstens 40 Zeichen, leer → Standardname; er steht in der Spieleliste
+    assert.equal((await T.post('/api/act', { token: b.token, type: 'rename', name: 'Abendrunde' })).status, 400);
+    assert.equal((await T.post('/api/act', { token: a.token, type: 'rename', name: 'x'.repeat(41) })).status, 400);
+    assert.equal((await T.post('/api/act', { token: a.token, type: 'rename', name: 'Abendrunde' })).ok, true);
+    await waitUntil(() => cb.view && cb.view.gameName === 'Abendrunde', 3000, 'Spielname');
+    assert.equal((await T.get('/api/lobby')).games.find((g) => g.id === a.game).name, 'Abendrunde');
+    assert.equal((await T.post('/api/act', { token: a.token, type: 'rename', name: '' })).ok, true);
+    assert.equal((await T.get('/api/lobby')).games.find((g) => g.id === a.game).name, 'Spiel von Anna');
     const before = JSON.stringify(cb.view.hexes);
     assert.equal((await T.post('/api/act', { token: a.token, type: 'regen_board' })).ok, true);
     await waitUntil(() => JSON.stringify(cb.view.hexes) !== before, 3000, 'neues Brett');
