@@ -168,7 +168,7 @@
   function joined(j) {
     st.token = j.token; localStorage.setItem('handelsinseln.token', j.token);
     showScreens(); connect();
-    Person.link();
+    if (!j.watch) Person.link(); // Zuschauer haben keinen Platz zum Verknüpfen
   }
 
   // ======================================================================================

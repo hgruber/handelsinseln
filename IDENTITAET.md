@@ -41,7 +41,7 @@ heute.
 | Spiel | **Host / Spielleiter** | der Platz, der die Lobby leitet (`S.host`) | in der Partie | wie der Platz |
 | Spiel | **Bot** (Autopilot) | Platz ohne Token (`token: None`), gesteuert von `bot.rs` | in der Partie | wie der Platz |
 | Person | **Person** | derselbe Mensch über Partien und Server hinweg | nirgends gespeichert, nur gedacht | – |
-| Person | **Spielerpass** | vier Wörter; der Schlüssel zum Schließfach | auf dem Gerät | bis der Nutzer ihn ersetzt |
+| Person | **Spielerpass** | vier Wörter; der Schlüssel zum Schließfach; in jedem Browser automatisch angelegt | auf dem Gerät | bis der Nutzer ihn ersetzt; sonst 30 Tage nach dem letzten Zugriff |
 | Person | **Personen-ID** (`personId`) | `HMAC-SHA256(pass, serverId)`; das Pseudonym, das der Server sieht | auf dem Gerät berechnet, an den Server gesendet | pro Server neu |
 | Person | **serverId** | stabile Zufallskennung der Installation | `DATA_DIR/server.json`, öffentlich | Installation |
 | Person | **`personen/<id>.json`** | Zuordnung Personen-ID → Raum-Token/Partien | `DATA_DIR` | bis zum Aufräumen |
@@ -99,8 +99,10 @@ Der **Raum-Token** ist das Spielgeheimnis (wer ihn hat, spielt den Platz). Der
    angezeigt, das Handy scannt immer. Der PC braucht nie eine Kamera.
 3. **Der Token steht nie im QR-Code.** Im Code steht ein Nonce, das ein Gerät mit Sitzung
    einlöst. Ein abfotografierter Code ist nach Ablauf und nach einmaliger Einlösung wertlos.
-4. **Personenbezug ist Opt-in pro Server.** Ohne Zustimmung bleibt es bei Namen und
-   Statistik wie heute.
+4. **Personenbezug ist der Standard, aber löschbar.** Jeder Browser hat einen Spielerpass;
+   wer ihn nicht will, entfernt ihn auf dem Gerät. Personenbezogene Daten (Pass-Zuordnung,
+   pausierte Partien, Zuordnung im Abschlussbericht) werden nach 30 Tagen ohne Zugriff
+   abgeräumt.
 
 ## Baustein A – Gerätekopplung per Nonce
 
@@ -175,10 +177,17 @@ Der Spielerpass findet die eigenen Partien auf einem neuen oder verlorenen Gerä
   `state.json`, beendete aus `partien.jsonl`.
 - Code-Rotation (neuer Pass = neue ID) löst die Zuordnung; offen, ob dabei auch die alten
   Raum-Tokens verdrängt werden sollen („alle Geräte abmelden“).
-- Der Pass bleibt freiwillig: kein Login beim Start, nur ein Menüpunkt „Mein Spielerpass“.
-- Pause: Verlässt der letzte Mensch eine laufende Partie, bleibt sie nur stehen, wenn **alle**
+- Der Pass wird in jedem Browser automatisch angelegt; „Mein Spielerpass“ zeigt ihn und nimmt
+  einen vorhandenen an. Ein explizites Entfernen bleibt möglich, beim nächsten Start entsteht
+  wieder einer.
+- Aufbewahrung: `DATA_DIR/personen.json` hält je Personen-ID Erstanlage und letzten Zugriff.
+  Nach 30 Tagen ohne Zugriff (`PASS_MS`) und mindestens 24 h nach Erstanlage (`PASS_MIN_MS`)
+  verschwinden der Pass, seine pausierten Partien und seine Zuordnung in den
+  Abschlussberichten; laufende Partien der Mitspieler bleiben bestehen (nur der Verweis wird
+  gelöst).
+- Pause: Verlässt der letzte Mensch eine laufende Partie, bleibt sie stehen, wenn **alle**
   menschlichen Plätze einen Pass haben; `POST /api/person/resume` holt den Platz samt neuem
-  Raum-Token zurück (Standard 7 Tage, `PAUSE_MS`). Ohne Pass für alle wird wie bisher abgeräumt.
+  Raum-Token zurück (Standard 30 Tage, `PAUSE_MS`). Ohne Pass für alle wird wie bisher abgeräumt.
 - WebCrypto (`crypto.subtle`) braucht HTTPS oder localhost. Über http im LAN ist der
   Personenbezug nicht verfügbar (nur die Platz-Ebene); alternativ SHA-256 in
   `shared/` selbst implementieren.
@@ -227,6 +236,8 @@ unverändert, weil es eine andere Funktion ist.
 - `public/app.js`: Fragment `#k=` lesen, `claim`/`check`, Spielerpass im Menü.
 - `public/qr.js` (neu): QR-Encoder, vendored oder selbst geschrieben.
 - `DATA_DIR/server.json`: `serverId` beim ersten Start erzeugen, stabil halten.
+- `DATA_DIR/personen.json` (neu): Personen-ID → Erstanlage und letzter Zugriff; Grundlage der
+  30-Tage-Aufräumung.
 
 ## Umsetzung in Stufen
 

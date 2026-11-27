@@ -430,6 +430,40 @@ async function testPause() {
   } finally { T.close(); }
 }
 
+async function testPassAblauf() {
+  const pausiert = async (T, id) => {
+    const j = await T.post('/api/join', { name: 'Ida', color: COL[0], create: true });
+    await T.post('/api/act', { token: j.token, type: 'add_bot', kind: 'baumeister' });
+    await T.post('/api/act', { token: j.token, type: 'start' });
+    await T.post('/api/person/link', { token: j.token, personId: id });
+    await T.post('/api/leave', { token: j.token });
+    return j;
+  };
+
+  // Ohne Zugriff läuft die Aufbewahrung ab: Pass und pausierte Partie verschwinden.
+  let T = await boot({ PASS_MS: 100, PASS_MIN_MS: 0, TICK_MS: 50 });
+  try {
+    const id = 'a'.repeat(64);
+    await pausiert(T, id);
+    await sleep(400);
+    const r = await T.post('/api/person', { personId: id });
+    assert.equal(r.partien.length, 0, 'abgelaufener Pass: pausierte Partie abgeräumt');
+    console.log('  ✓ Spielerpass: Aufbewahrung nach 30 Tagen (Testfrist)');
+  } finally { T.close(); }
+
+  // Das Mindestalter von 24 h schützt frisch angelegte Pässe.
+  T = await boot({ PASS_MS: 50, PASS_MIN_MS: 60000, TICK_MS: 50 });
+  try {
+    const id = 'b'.repeat(64);
+    await pausiert(T, id);
+    await sleep(300);
+    const r = await T.post('/api/person', { personId: id });
+    assert.equal(r.partien.length, 1, 'frischer Pass bleibt trotz Inaktivität');
+    assert.equal(r.partien[0].paused, true, 'Partie bleibt pausiert');
+    console.log('  ✓ Spielerpass: Mindestalter 24 h (Testfrist)');
+  } finally { T.close(); }
+}
+
 async function testGanzePartie(n, winPoints) {
   const T = await boot();
   try {
@@ -477,6 +511,7 @@ async function testGanzePartie(n, winPoints) {
     await testKopplung();
     await testPerson();
     await testPause();
+    await testPassAblauf();
     await testGanzePartie(2, 6);
     await testGanzePartie(3, 8);
     console.log('API-Tests bestanden');

@@ -154,7 +154,7 @@
     if (v && v.watch) { C.leave(); return; } // Zuschauer: nichts zu bestätigen
     const txt = lobby ? 'Du verlässt die Lobby.'
       : v && v.phase === 'ended' ? 'Du verlässt das Spiel.'
-      : 'Haben alle menschlichen Mitspieler einen Spielerpass, wird die Partie pausiert und lässt sich unter „Meine Partien“ fortsetzen. Sonst wird sie abgeräumt. Einen Pass kann jeder im Menü anlegen.';
+      : 'Haben alle menschlichen Mitspieler einen Spielerpass, wird die Partie pausiert und lässt sich unter „Meine Partien“ fortsetzen. Sonst wird sie abgeräumt. Notiert euch euren Spielerpass, falls der Browser seine Daten verliert – sonst kommt niemand mehr an die Partie. Pausierte Partien werden nach spätestens 30 Tagen ohne Zugriff gelöscht.';
     if (await confirm('Spiel verlassen?', txt, 'Verlassen', true)) C.leave();
   }
   function init(ctx) {

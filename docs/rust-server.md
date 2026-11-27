@@ -13,7 +13,7 @@ cargo build --manifest-path rust/Cargo.toml --release
 
 Umgebungsvariablen: `PORT`, `LISTEN`,
 `DATA_DIR`, `APP_VERSION`, `LOG_LEVEL`, `STUN_URL`, `MAX_GAMES`, `BOT_MS`, `TICK_MS`, `GRACE_MS`,
-`ABSENT_MS`, `HANDOVER_MS`, `RNG_SEED`, `LOG_TIMESTAMP` (`0`/`off` = ohne Zeitstempel im Log), `HTTPS_PORT` (Standard 8443, `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`,
+`ABSENT_MS`, `HANDOVER_MS`, `PAUSE_MS`, `PASS_MS`, `PASS_MIN_MS`, `RNG_SEED`, `LOG_TIMESTAMP` (`0`/`off` = ohne Zeitstempel im Log), `HTTPS_PORT` (Standard 8443, `0` = aus), `TLS_HOSTS`, `TLS_CERT`/`TLS_KEY`,
 zusätzlich `ROOT_DIR` (Verzeichnis mit `public/` und `shared/`;
 sonst wird es neben bzw. oberhalb des Programms gesucht) und `NO_SAVE=1` für Tests.
 

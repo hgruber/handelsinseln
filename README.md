@@ -132,14 +132,16 @@ die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/bro
 - **Auf dem Handy weiterspielen:** In der Lobby „Handy koppeln“ wählen, am Spieltisch das ▦ in der Leiste eines Platzes. Das
   andere Gerät scannt den QR-Code mit der Kamera. Der Code gilt 60 Sekunden und nur einmal; der Sitzungsschlüssel selbst steht
   nie im QR-Code.
-- **Partien wiederfinden:** „Mein Spielerpass“ legt vier Wörter an (oder nimmt vorhandene an). Mit ihnen erscheinen unter
-  „Meine Partien“ alle laufenden und beendeten Partien – auch auf einem neuen Gerät oder nach dem Löschen der Browserdaten.
-  Der Pass bleibt auf dem Gerät; an den Server geht nur eine daraus abgeleitete, servergebundene Kennung. Behandle die Wörter
-  wie ein Passwort. Ohne Pass spielst du wie bisher und bleibst anonym.
+- **Partien wiederfinden:** Jeder Browser hat von Anfang an einen Spielerpass aus vier Wörtern; vorhandene lassen sich
+  unter „Mein Spielerpass“ eingeben. Mit ihm erscheinen unter „Meine Partien“ alle laufenden und beendeten Partien – auch
+  auf einem neuen Gerät oder nach dem Löschen der Browserdaten. Der Pass bleibt auf dem Gerät; an den Server geht nur eine
+  daraus abgeleitete, servergebundene Kennung. Behandle die Wörter wie ein Passwort und notiere sie dir, bevor du eine
+  Partie pausierst: Verliert der Browser seine Daten, kommt sonst niemand mehr an die Partie. Ein Pass samt seinen Partien
+  wird nach 30 Tagen ohne Zugriff gelöscht.
 - **Pausieren:** Verlässt der letzte Mensch eine laufende Partie und haben alle menschlichen Mitspieler einen Spielerpass,
-  wird sie pausiert (7 Tage) statt abgeräumt und lässt sich unter „Meine Partien“ fortsetzen. Fehlt einem Mitspieler der
-  Pass, wird die Partie wie bisher abgeräumt – deshalb lohnt es sich, den Pass vor dem Verlassen anzulegen (Lobby- und
-  Spiel-Menü).
+  wird sie pausiert (bis zu 30 Tage) statt abgeräumt und lässt sich unter „Meine Partien“ fortsetzen. Fehlt einem
+  Mitspieler der Pass, wird die Partie wie bisher abgeräumt. Beim Verlassen erinnert die Rückfrage daran, den Pass zu
+  notieren.
 
 ## Spielen
 
@@ -234,6 +236,9 @@ Bank, aufdeckbare Felder, Wertechips), Entwicklungskarten je Art sowie die Hausr
 | `BOT_MS` | `800` | Takt der Bots |
 | `TICK_MS` | `2000` | Takt der Zeitprüfung |
 | `GRACE_MS` | `20000` | Kulanz, bis ein Spiel ohne verbundenen Menschen endet |
+| `PAUSE_MS` | `2592000000` | Aufbewahrung einer pausierten Partie (30 Tage) |
+| `PASS_MS` | `2592000000` | Aufbewahrung eines Spielerpasses nach dem letzten Zugriff (30 Tage) |
+| `PASS_MIN_MS` | `86400000` | Mindestalter eines Passes vor dem Abräumen (24 h) |
 | `PAIR_MS` | `60000` | Gültigkeit eines Kopplungscodes |
 | `SSE_PING_MS` | `20000` | Lebenszeichen im Ereignisstrom |
 | `LOG_LEVEL` | `info` | `error`/`warn`/`info`/`debug`/`silent` |

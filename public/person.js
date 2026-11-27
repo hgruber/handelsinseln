@@ -8,6 +8,8 @@
 
   function init(ctx) {
     C = ctx;
+    // Jeder Browser hat von Anfang an einen Spielerpass; er ist der Standard.
+    if (!getPass() && root.Woerter) setPass(root.Woerter.pass());
     syncLabel();
     ensureServer();
   }
@@ -77,10 +79,11 @@
     const b = open(
       '<div class="pq">Mein Spielerpass</div>' +
       '<div class="passwords">' + words + '</div>' +
-      '<p class="pnote">Mit diesen Wörtern findest du deine Partien auf jedem Gerät wieder. Behandle sie wie ein Passwort – wer sie kennt, sieht deine Partien.</p>' +
+      '<p class="pnote">Mit diesen Wörtern findest du deine Partien auf jedem Gerät wieder. Behandle sie wie ein Passwort – wer sie kennt, sieht deine Partien. Notiere sie dir, bevor du eine Partie pausierst: Verliert der Browser seine Daten, kommt sonst niemand mehr an die Partie. Ein Spielerpass samt seinen Partien wird nach 30 Tagen ohne Zugriff gelöscht.</p>' +
       '<div class="pact column">' +
       '<button type="button" class="btn gold" data-p="list">Meine Partien</button>' +
       '<button type="button" class="btn ghostb" data-p="new">Neuen Pass anlegen</button>' +
+      '<button type="button" class="btn ghostb" data-p="in">Vorhandenen Pass eingeben</button>' +
       '<button type="button" class="btn ghostb" data-p="clear">Pass von diesem Gerät entfernen</button>' +
       '</div><div class="pact"><button type="button" class="btn" data-p="close">Schließen</button></div>'
     );
@@ -89,6 +92,7 @@
       const what = x.dataset.p;
       if (what === 'list') list();
       else if (what === 'new') anew();
+      else if (what === 'in') enter();
       else if (what === 'clear') { setPass(''); close(); C.toast('Spielerpass von diesem Gerät entfernt.', 'ok'); }
       else close();
     });
@@ -97,7 +101,7 @@
   function choose() {
     const b = open(
       '<div class="pq">Spielerpass</div>' +
-      '<p class="pnote">Mit einem Spielerpass findest du deine Partien wieder – auch nach dem Löschen der Browserdaten oder auf einem anderen Gerät. Er ist freiwillig.</p>' +
+      '<p class="pnote">Mit einem Spielerpass findest du deine Partien wieder – auch nach dem Löschen der Browserdaten oder auf einem anderen Gerät. Normalerweise legt der Browser ihn von selbst an. Nach 30 Tagen ohne Zugriff wird er samt seinen Partien gelöscht.</p>' +
       '<div class="pact column"><button type="button" class="btn gold" data-p="new">Neuen Pass anlegen</button>' +
       '<button type="button" class="btn ghostb" data-p="in">Vorhandenen eingeben</button></div>' +
       '<div class="pact"><button type="button" class="btn" data-p="close">Abbrechen</button></div>'
@@ -115,7 +119,7 @@
     const b = open(
       '<div class="pq">Dein Spielerpass</div>' +
       '<div class="passwords big">' + C.esc(p) + '</div>' +
-      '<p class="pnote">Notiere dir diese vier Wörter jetzt. Sie werden nicht wieder angezeigt. Wer sie kennt, sieht deine Partien.</p>' +
+      '<p class="pnote">Notiere dir diese vier Wörter jetzt. Sie werden nicht wieder angezeigt. Wer sie kennt, sieht deine Partien. Nach 30 Tagen ohne Zugriff wird der Pass samt seinen Partien gelöscht.</p>' +
       '<div class="pact"><button type="button" class="btn gold" data-p="ok">Ich habe sie notiert</button>' +
       '<button type="button" class="btn ghostb" data-p="no">Abbrechen</button></div>'
     );

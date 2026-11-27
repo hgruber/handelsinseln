@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gerätekopplung und Spielerpass im echten Browser:
 Host zeigt in der Lobby einen QR-Code und einen Kurzcode, ein zweites Gerät (frischer Browser-Kontext)
-koppelt sich per Code und landet in derselben Lobby; danach legt der Host einen Spielerpass an,
+koppelt sich per Code und landet in derselben Lobby; der Host hat seinen Spielerpass automatisch,
 und ein dritter Browser findet die Partie allein mit den vier Wörtern wieder – laufend wie beendet,
 letztere mit Rückblick auf Endstand, Punkteverlauf und Regeln.
 Aufruf: python3 tests/browser_pair.py"""
@@ -53,18 +53,17 @@ try:
         check(ok, 'anzeigendes Gerät meldet die Verbindung und schließt den Dialog')
         check(A.locator('#lobbyList').inner_text().count('Hanna') == 1, 'Host und Handy sehen dieselbe Lobby')
 
-        # --- Spielerpass anlegen
+        # --- Spielerpass ist automatisch angelegt
+        passw = A.evaluate("localStorage.getItem('handelsinseln.pass')")
+        check(passw and len(passw.split()) == 4, 'Pass automatisch aus vier Wörtern')
         A.click('#lbMenuBtn')
         A.click('.lb-pop [data-mi=pass]')
-        A.wait_for_selector('.passbox [data-p=new]', timeout=4000)
-        A.click('.passbox [data-p=new]')
-        A.wait_for_selector('.passwords.big', timeout=4000)
-        passw = A.locator('.passwords.big').inner_text().strip()
-        check(len(passw.split()) == 4, 'Pass aus vier Wörtern')
+        A.wait_for_selector('.passbox [data-p=pass]', timeout=4000)
+        A.click('.passbox [data-p=pass]')
+        A.wait_for_selector('.passwords', timeout=4000)
+        check(A.locator('.passwords').inner_text().strip() == passw, 'Dialog zeigt den automatisch angelegten Pass')
         A.screenshot(path=f'{SHOTS}/02-spielerpass.png')
-        A.click('.passbox [data-p=ok]')
-        stored = A.evaluate("localStorage.getItem('handelsinseln.pass')")
-        check(stored == passw, 'Pass auf dem Gerät gespeichert')
+        A.click('.passbox [data-p=close]')
         time.sleep(0.8)  # Verknüpfung mit der Partie ist unterwegs
 
         # --- Eine beendete Partie im Archiv, gefunden über dieselbe Personen-ID
@@ -87,6 +86,8 @@ try:
         # --- Drittes Gerät findet die Partie nur mit dem Pass
         C = newpage('Neu')
         C.click('#myGamesBtn')
+        C.wait_for_selector('.passbox [data-p=pass]', timeout=4000)
+        C.click('.passbox [data-p=pass]')
         C.wait_for_selector('.passbox [data-p=in]', timeout=4000)
         C.click('.passbox [data-p=in]')
         C.fill('.passin', passw)

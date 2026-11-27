@@ -94,7 +94,11 @@ pub struct Player {
     pub table_guest: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub bm: Option<BotMemory>,
-    /// Pseudonym der Person (HMAC aus dem Spielerpass und der serverId), nur wenn der Spieler ihn verknüpft hat.
+    /// Pseudonyme der Personen (HMAC aus dem Spielerpass und der serverId). Mehrere Geräte
+    /// desselben Platzes können verschiedene Pässe haben; jeder darf die Partie wiederfinden.
+    #[serde(rename = "personIds", skip_serializing_if = "Vec::is_empty", default)]
+    pub person_ids: Vec<String>,
+    /// Alte Ablage aus 1.1.0 (eine Personen-ID); bleibt lesbar, neue Verknüpfungen stehen in `person_ids`.
     #[serde(rename = "personId", skip_serializing_if = "Option::is_none", default)]
     pub person_id: Option<String>,
 }
@@ -102,6 +106,31 @@ pub struct Player {
 impl Player {
     pub fn is_table_guest(&self) -> bool {
         self.table_guest.unwrap_or(false)
+    }
+    /// Gehört der Platz zu dieser Personen-ID?
+    pub fn person_hat(&self, id: &str) -> bool {
+        self.person_ids.iter().any(|x| x == id) || self.person_id.as_deref() == Some(id)
+    }
+    /// Weitere Personen-ID am Platz vermerken (etwa ein zweites Gerät mit eigenem Pass).
+    /// Höchstens acht Geräte je Platz, damit die Liste nicht unbegrenzt wächst.
+    pub fn person_verknuepfen(&mut self, id: &str) {
+        if !self.person_hat(id) && self.person_ids.len() < 8 {
+            self.person_ids.push(id.to_string());
+        }
+    }
+    /// Sitzt an diesem Platz ein abgelaufener Pass?
+    pub fn person_verloren(&self, abgelaufen: &[String]) -> bool {
+        let treffer = |x: &str| abgelaufen.iter().any(|e| e == x);
+        self.person_ids.iter().any(|x| treffer(x))
+            || self.person_id.as_deref().map(treffer).unwrap_or(false)
+    }
+    /// Abgelaufene Personen-IDs von diesem Platz lösen.
+    pub fn personen_aufraeumen(&mut self, abgelaufen: &[String]) {
+        let treffer = |x: &str| abgelaufen.iter().any(|e| e == x);
+        self.person_ids.retain(|x| !treffer(x));
+        if self.person_id.as_deref().map(treffer).unwrap_or(false) {
+            self.person_id = None;
+        }
     }
 }
 

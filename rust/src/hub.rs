@@ -41,7 +41,7 @@ pub struct Hub {
     pub max_games: usize,
     pub max_watchers: usize,
     pub watch_grace_ms: i64,
-    /// Wie lange eine pausierte Partie liegen bleibt (Standard: 7 Tage).
+    /// Wie lange eine pausierte Partie liegen bleibt (Standard: 30 Tage, wie der Spielerpass).
     pub pause_ms: i64,
 }
 
@@ -89,7 +89,7 @@ impl Hub {
             max_games: env_usize("MAX_GAMES", 3),
             max_watchers: 8,
             watch_grace_ms: 60_000,
-            pause_ms: env_i64("PAUSE_MS", 7 * 24 * 60 * 60 * 1000),
+            pause_ms: env_i64("PAUSE_MS", 30 * 24 * 60 * 60 * 1000),
         }
     }
 

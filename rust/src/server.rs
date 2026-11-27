@@ -58,6 +58,11 @@ pub struct Inner {
     pub stun: Option<String>,
     pub https_port: Option<u16>,
     pub server_id: String,
+    /// Spielerpässe: Personen-ID → (Erstanlage, letzter Zugriff) in ms.
+    pub personen: HashMap<String, (i64, i64)>,
+    /// Aufbewahrung nach dem letzten Zugriff (Standard 30 Tage) und Mindestalter (Standard 24 h).
+    pub pass_ms: i64,
+    pub pass_min_ms: i64,
 }
 
 #[derive(Clone)]
@@ -98,6 +103,32 @@ impl Inner {
     }
     fn mark_dirty(&mut self) {
         self.dirty_since = Some(now_ms());
+    }
+    /// Zugriff auf einen Spielerpass vermerken (Grundlage der 30-Tage-Aufräumung).
+    fn person_seen(&mut self, id: &str) {
+        let now = now_ms();
+        let e = self.personen.entry(id.to_string()).or_insert((now, now));
+        e.1 = now;
+        self.save_personen();
+    }
+    fn save_personen(&self) {
+        if self.no_save {
+            return;
+        }
+        let mut o = serde_json::Map::new();
+        for (id, (erst, zuletzt)) in &self.personen {
+            o.insert(id.clone(), json!({"erst": erst, "zuletzt": zuletzt}));
+        }
+        if let Err(e) = std::fs::create_dir_all(&self.data_dir) {
+            log::error("speichern_fehler", &[("fehler", e.to_string())]);
+            return;
+        }
+        let tmp = self.data_dir.join("personen.json.tmp");
+        let target = self.data_dir.join("personen.json");
+        let data = Value::Object(o).to_string();
+        if let Err(e) = std::fs::write(&tmp, data).and_then(|_| std::fs::rename(&tmp, &target)) {
+            log::error("speichern_fehler", &[("fehler", e.to_string())]);
+        }
     }
     fn save(&mut self) {
         if self.no_save {
@@ -327,6 +358,7 @@ fn report(room: &Room, reason: Option<&str>, version: &str, data_dir: &Path, no_
                 "vp": g.vp(p.id) + g.hidden_vp(p.id) as i64,
                 "left": p.left, "vanished": p.vanished,
                 "personId": p.person_id,
+                "personIds": p.person_ids,
                 "stats": st.players.get(p.id),
             })
         })
@@ -614,6 +646,7 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
             Some(x) => x,
             None => return json_error(stream, 400, "Ungültige Personen-ID.", None),
         };
+        passe_aufraeumen(&mut inner);
         let mut partien: Vec<Value> = Vec::new();
         for room in inner.hub.rooms.values() {
             if room.game.S.phase == "ended" {
@@ -621,7 +654,7 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
             }
             let paused_room = room.paused_at.is_some();
             for p in &room.game.S.players {
-                if p.person_id.as_deref() != Some(id.as_str()) {
+                if !p.person_hat(&id) {
                     continue;
                 }
                 // Laufend und erreichbar – oder der Platz wartet (verlassen bzw. Partie pausiert)
@@ -642,6 +675,10 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         }
         let laufend = partien.len();
         partien.extend(archiv_partien(&inner.data_dir, &id));
+        // Nur Pässe mit Partien werden aufbewahrt – fremde IDs füllen das Register nicht.
+        if !partien.is_empty() {
+            inner.person_seen(&id);
+        }
         log::info("person_partien", &[("laufend", laufend.to_string()), ("gesamt", partien.len().to_string())]);
         http::send_json(stream, 200, &json!({"partien": partien}))
     } else if path == "/api/person/link" {
@@ -649,14 +686,20 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
             Some(x) => x,
             None => return json_error(stream, 400, "Ungültige Personen-ID.", None),
         };
+        passe_aufraeumen(&mut inner);
         let (rid, pid) = match token.as_deref().and_then(|t| inner.hub.find_by_token(t)) {
             Some(f) => f,
             None => return json_error(stream, 401, "Unbekannte Sitzung – bitte neu anmelden.", None),
         };
+        let mut verknuepft = false;
         if let Some(room) = inner.hub.rooms.get_mut(&rid) {
             if let Some(p) = room.game.S.players.get_mut(pid) {
-                p.person_id = Some(id);
+                p.person_verknuepfen(&id);
+                verknuepft = true;
             }
+        }
+        if verknuepft {
+            inner.person_seen(&id);
         }
         inner.mark_dirty();
         http::send_json(stream, 200, &json!({"ok": true}))
@@ -669,6 +712,7 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
             Some(g) => g.to_string(),
             None => return json_error(stream, 400, "Keine Partie angegeben.", None),
         };
+        passe_aufraeumen(&mut inner);
         let mut out: Option<(String, usize)> = None;
         let mut err: Option<String> = None;
         match inner.hub.rooms.get_mut(&rid) {
@@ -678,7 +722,7 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
                     err = Some("Diese Partie ist beendet.".into());
                 } else {
                     let pid = room.game.S.players.iter().position(|p| {
-                        p.person_id.as_deref() == Some(id.as_str()) && p.bot.is_none() && !p.is_table_guest()
+                        p.person_hat(&id) && p.bot.is_none() && !p.is_table_guest()
                     });
                     match pid {
                         None => err = Some("Zu dieser Partie gehört kein Platz mit deinem Spielerpass.".into()),
@@ -707,6 +751,7 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
         }
         match out {
             Some((tok, pid)) => {
+                inner.person_seen(&id);
                 inner.broadcast(&rid);
                 inner.mark_dirty();
                 log::info("pause_fortgesetzt", &[("raum", rid.clone()), ("platz", pid.to_string())]);
@@ -720,6 +765,141 @@ fn handle_post<W: Write>(app: &App, stream: &mut W, req: &Request, path: &str) -
     }
 }
 
+/// Aufbewahrte Spielerpässe aus `personen.json` (Personen-ID → Erstanlage, letzter Zugriff).
+fn load_personen(data_dir: &Path) -> HashMap<String, (i64, i64)> {
+    let mut out = HashMap::new();
+    let s = match std::fs::read_to_string(data_dir.join("personen.json")) {
+        Ok(s) => s,
+        Err(_) => return out,
+    };
+    let v: Value = match serde_json::from_str(&s) {
+        Ok(v) => v,
+        Err(_) => return out,
+    };
+    if let Some(o) = v.as_object() {
+        for (id, x) in o {
+            if norm_person(id).is_none() {
+                continue;
+            }
+            let erst = x.get("erst").and_then(|v| v.as_i64()).unwrap_or(0);
+            let zuletzt = x.get("zuletzt").and_then(|v| v.as_i64()).unwrap_or(erst);
+            out.insert(id.clone(), (erst, zuletzt));
+        }
+    }
+    out
+}
+
+/// Abgelaufene Spielerpässe samt ihren pausierten Partien abräumen; in laufenden Partien
+/// nur den Verweis lösen, damit Mitspieler weiterspielen können.
+fn passe_aufraeumen(inner: &mut Inner) {
+    let now = now_ms();
+    let abgelaufen: Vec<String> = inner
+        .personen
+        .iter()
+        .filter(|(_, (erst, zuletzt))| {
+            now.saturating_sub(*zuletzt) >= inner.pass_ms && now.saturating_sub(*erst) >= inner.pass_min_ms
+        })
+        .map(|(id, _)| id.clone())
+        .collect();
+    if abgelaufen.is_empty() {
+        return;
+    }
+    for id in &abgelaufen {
+        inner.personen.remove(id);
+    }
+    inner.save_personen();
+    let mut remove = Vec::new();
+    for room in inner.hub.rooms.values_mut() {
+        if room.paused_at.is_some() && room.game.S.players.iter().any(|p| p.person_verloren(&abgelaufen)) {
+            room.removed_why = Some("Spielerpass abgelaufen".into());
+            remove.push(room.id.clone());
+        }
+    }
+    for rid in &remove {
+        room_gone(inner, rid, "Spielerpass abgelaufen");
+        drop_room(inner, rid);
+    }
+    for room in inner.hub.rooms.values_mut() {
+        for p in room.game.S.players.iter_mut() {
+            p.personen_aufraeumen(&abgelaufen);
+        }
+    }
+    if !inner.no_save {
+        archiv_personen_entfernen(&inner.data_dir, &abgelaufen);
+    }
+    inner.mark_dirty();
+    log::info(
+        "passe_abgelaufen",
+        &[
+            ("passe", abgelaufen.len().to_string()),
+            ("partien", remove.len().to_string()),
+        ],
+    );
+}
+
+/// Abgelaufene Personen-IDs aus den Abschlussberichten entfernen; die Berichte selbst bleiben
+/// für die Mitspieler erhalten.
+fn archiv_personen_entfernen(data_dir: &Path, ids: &[String]) {
+    let path = data_dir.join("partien.jsonl");
+    let s = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    let mut out = String::new();
+    for line in s.lines() {
+        let mut v: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => {
+                out.push_str(line);
+                out.push('\n');
+                continue;
+            }
+        };
+        if let Some(ps) = v.get_mut("players").and_then(|p| p.as_array_mut()) {
+            for p in ps.iter_mut() {
+                if let Some(o) = p.as_object_mut() {
+                    if let Some(a) = o.get_mut("personIds").and_then(|x| x.as_array_mut()) {
+                        a.retain(|x| {
+                            x.as_str()
+                                .map(|s| !ids.iter().any(|i| i == s))
+                                .unwrap_or(true)
+                        });
+                    }
+                    let leer = o
+                        .get("personIds")
+                        .and_then(|x| x.as_array())
+                        .map(|a| a.is_empty())
+                        .unwrap_or(false);
+                    if leer {
+                        o.remove("personIds");
+                    }
+                    let hit = o
+                        .get("personId")
+                        .and_then(|x| x.as_str())
+                        .map(|x| ids.iter().any(|i| i == x))
+                        .unwrap_or(false);
+                    if hit {
+                        o.remove("personId");
+                    }
+                }
+            }
+        }
+        out.push_str(&serde_json::to_string(&v).unwrap_or_else(|_| line.to_string()));
+        out.push('\n');
+    }
+    let tmp = data_dir.join("partien.jsonl.tmp");
+    if let Err(e) = std::fs::write(&tmp, out).and_then(|_| std::fs::rename(&tmp, &path)) {
+        log::error("bericht_fehler", &[("fehler", e.to_string())]);
+    }
+}
+
+fn env_ms(name: &str, def: i64) -> i64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(def)
+}
+
 /// Personen-ID: 64 Hex-Zeichen (HMAC-SHA256), Kleinbuchstaben.
 fn norm_person(s: &str) -> Option<String> {
     let s = s.trim().to_ascii_lowercase();
@@ -728,6 +908,16 @@ fn norm_person(s: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Steht die Personen-ID an diesem Platz des Abschlussberichts?
+/// Neu ist die Liste `personIds`; `personId` bleibt für ältere Berichte lesbar.
+fn bericht_person(p: &Value, id: &str) -> bool {
+    p.get("personIds")
+        .and_then(|x| x.as_array())
+        .map(|a| a.iter().any(|x| x.as_str() == Some(id)))
+        .unwrap_or(false)
+        || p.get("personId").and_then(|x| x.as_str()) == Some(id)
 }
 
 /// Abgeschlossene Partien der Person aus partien.jsonl.
@@ -746,11 +936,12 @@ fn archiv_partien(data_dir: &Path, id: &str) -> Vec<Value> {
             Some(p) => p,
             None => continue,
         };
-        for (i, p) in ps.iter().enumerate() {
-            if p.get("personId").and_then(|x| x.as_str()) != Some(id) {
-                continue;
-            }
-            out.push(json!({
+        let i = match ps.iter().position(|p| bericht_person(p, id)) {
+            Some(i) => i,
+            None => continue,
+        };
+        let p = &ps[i];
+        out.push(json!({
                 "game": v.get("room"), "name": p.get("name"), "vp": p.get("vp"),
                 "startedAt": v.get("startedAt"), "endedAt": v.get("endedAt"), "result": v.get("result"),
                 "reason": v.get("reason"), "winner": v.get("winner"), "rounds": v.get("rounds"),
@@ -762,7 +953,6 @@ fn archiv_partien(data_dir: &Path, id: &str) -> Vec<Value> {
                     "vp": q.get("vp"), "you": j == i,
                 })).collect::<Vec<_>>(),
             }));
-        }
     }
     out
 }
@@ -1281,6 +1471,9 @@ pub fn run(opts: Options) -> io::Result<()> {
         stun: opts.stun.clone(),
         https_port,
         server_id: ensure_server_id(&opts.data_dir),
+        personen: load_personen(&opts.data_dir),
+        pass_ms: env_ms("PASS_MS", 30 * 24 * 60 * 60 * 1000),
+        pass_min_ms: env_ms("PASS_MIN_MS", 24 * 60 * 60 * 1000),
     }));
     let app = App { inner: inner.clone(), root: Arc::new(opts.root.clone()) };
     let addr = match &opts.listen {
@@ -1319,6 +1512,7 @@ pub fn run(opts: Options) -> io::Result<()> {
             for rid in &changed {
                 inner.broadcast(rid);
             }
+            passe_aufraeumen(&mut inner);
             let ids: Vec<String> = inner.hub.rooms.keys().cloned().collect();
             for rid in ids {
                 let before = inner.hub.rooms.get(&rid).map(|r| r.game.S.v).unwrap_or(0);

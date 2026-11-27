@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pause mit Spielerpass im echten Browser:
-Solo gegen einen Bot, Spielerpass anlegen, Spiel verlassen – die Partie pausiert statt abgeräumt
-und lässt sich unter „Meine Partien“ fortsetzen.
+Solo gegen einen Bot, den automatisch angelegten Spielerpass zeigen, Spiel verlassen – die Partie
+pausiert statt abgeräumt und lässt sich unter „Meine Partien“ fortsetzen.
 Aufruf: python3 tests/browser_pause.py"""
 import time
 from playwright.sync_api import sync_playwright
@@ -28,16 +28,16 @@ try:
         pg.wait_for_selector('#board:not([hidden])', timeout=8000)
         check(True, 'Partie mit Bot gestartet')
 
-        # --- Spielerpass anlegen
+        # --- Spielerpass ist automatisch angelegt und mit der Partie verknüpft
+        passw = pg.evaluate("localStorage.getItem('handelsinseln.pass')")
+        check(passw and len(passw.split()) == 4, 'Pass automatisch aus vier Wörtern')
         pg.click('#btnMenu')
         pg.click('.menu-pop [data-mi=pass]')
-        pg.wait_for_selector('.passbox [data-p=new]', timeout=4000)
-        pg.click('.passbox [data-p=new]')
-        pg.wait_for_selector('.passwords.big', timeout=4000)
-        passw = pg.locator('.passwords.big').inner_text().strip()
-        check(len(passw.split()) == 4, 'Pass aus vier Wörtern')
-        pg.click('.passbox [data-p=ok]')
-        check(pg.evaluate("localStorage.getItem('handelsinseln.pass')") == passw, 'Pass auf dem Gerät gespeichert')
+        pg.wait_for_selector('.passbox [data-p=pass]', timeout=4000)
+        pg.click('.passbox [data-p=pass]')
+        pg.wait_for_selector('.passwords', timeout=4000)
+        check(pg.locator('.passwords').inner_text().strip() == passw, 'Dialog zeigt den Pass')
+        pg.click('.passbox [data-p=close]')
         time.sleep(0.8)  # Verknüpfung mit der Partie ist unterwegs
 
         # --- Spiel verlassen → Partie pausiert

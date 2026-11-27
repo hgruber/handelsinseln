@@ -61,6 +61,7 @@ impl Game {
             seat: None,
             table_guest: None,
             bm: None,
+            person_ids: Vec::new(),
             person_id: None,
         }
     }
@@ -328,7 +329,7 @@ impl Game {
                 continue;
             }
             n += 1;
-            if p.person_id.is_none() {
+            if p.person_ids.is_empty() && p.person_id.is_none() {
                 return false;
             }
         }
