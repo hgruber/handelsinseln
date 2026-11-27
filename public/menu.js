@@ -118,7 +118,7 @@
       item('sound', I.sound, root.Sound.enabled() ? 'Töne ausschalten' : 'Töne einschalten') +
       item('fit', I.fit, 'Brett zentrieren') + item('bg', I.bg, 'Hintergrund …') + (C.ctl() ? '' : rot) +
       (v.display && running ? item('ctl', I.ctl, C.ctl() ? 'Karte anzeigen' : 'Nur Karten &amp; Aktionen') : '') +
-      item('help', I.help, 'Hilfe &amp; Spielregeln') + item('pass', I.key, root.Person.getPass() ? 'Meine Partien' : 'Spielerpass') + '<hr>' +
+      item('help', I.help, 'Hilfe &amp; Spielregeln') + item('pass', I.key, root.Person.label()) + '<hr>' +
       (host && running ? item('change', I.gear, 'Spiel ändern') + item('end', I.stop, 'Spiel beenden', 'danger') : '') + item('leave', I.exit, 'Spiel verlassen', 'danger');
     // Spieltisch: das Menü öffnet im Platz des Spielleiters und ist damit wie dieser in seine Blickrichtung gedreht (klappt zur Tischmitte auf)
     const seat = C.tableOn && C.tableOn() && $('camBtns').closest('.seathb');

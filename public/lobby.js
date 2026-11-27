@@ -26,6 +26,7 @@
   const menschHatFarbe = (c) => selPlayers().some((p) => p.color === c && !p.bot);
   const gespeicherteFarbe = () => localStorage.getItem('handelsinseln.color') || '';
   const farbKollision = () => { const c = gespeicherteFarbe(); return !!c && menschHatFarbe(c); };
+  const passAktiv = () => !!(root.Person && root.Person.aktiv && root.Person.aktiv());
 
   function normalizeSel() {
     const j = joinable();
@@ -37,13 +38,13 @@
   const gespeicherterAvatar = () => localStorage.getItem('handelsinseln.avatar') || '';
   // Avatar: gemerkter oder zufälliger Vorschlag; ist er im gewählten Spiel schon vergeben, wird ein freier zufällig gewählt
   function pickAvatar() {
-    const t = takenAvatars(), fest = gespeicherterAvatar();
+    const t = takenAvatars(), fest = passAktiv() ? gespeicherterAvatar() : '';
     if (fest && AVS.HUMAN_IDS.includes(fest) && !t.includes(fest)) { L.avatar = fest; return; }
     if (L.avatar && (t.includes(L.avatar) || !AVS.HUMAN_IDS.includes(L.avatar))) L.avatar = null;
     if (!L.avatar) { const free = AVS.HUMAN_IDS.filter((a) => !t.includes(a)); L.avatar = free[Math.floor(Math.random() * free.length)] || AVS.HUMAN_IDS[0]; }
   }
   function renderAvatars() {
-    const fest = !!gespeicherterAvatar(), cur = AVS.HUMAN.find((a) => a.id === L.avatar) || AVS.HUMAN[0];
+    const fest = passAktiv() && !!gespeicherterAvatar(), cur = AVS.HUMAN.find((a) => a.id === L.avatar) || AVS.HUMAN[0];
     const lab = $('avLabel'); if (lab) lab.textContent = fest ? 'Dein Avatar (festgelegt)' : 'Dein Avatar';
     if (fest) {
       C.setHTML($('avatars'), `<button type="button" class="avsel" disabled title="Dein Avatar ist festgelegt."><img src="img/av/${cur.id}.webp" alt="" draggable="false"><span class="avn">${C.esc(cur.name)}</span></button>`);
@@ -58,15 +59,22 @@
   // Feste Farbe gilt, solange kein anderer Mensch sie belegt; bei Kollision weicht zuerst ein Bot.
   function pickColor() {
     const saved = gespeicherteFarbe();
+    if (!passAktiv()) {
+      if (!L.color || menschHatFarbe(L.color)) {
+        L.color = (saved && !menschHatFarbe(saved)) ? saved : (Object.keys(C.Art.COLORS).find((c) => !menschHatFarbe(c)) || null);
+      }
+      return;
+    }
     if (saved && !menschHatFarbe(saved)) { L.color = saved; return; }
     if (!L.color || menschHatFarbe(L.color)) {
       L.color = Object.keys(C.Art.COLORS).find((c) => !menschHatFarbe(c)) || null;
     }
   }
   function renderSwatches() {
-    const saved = gespeicherteFarbe(), kollision = farbKollision(), fest = !!saved && !kollision;
-    const sel = L.color, lab = $('swLabel');
-    if (lab) lab.textContent = fest ? 'Deine Farbe (festgelegt)' : kollision ? 'Deine Farbe (vergeben – bitte wählen)' : 'Deine Farbe';
+    const saved = gespeicherteFarbe(), aktiv = passAktiv(), kollision = aktiv && farbKollision(), fest = aktiv && !!saved && !kollision;
+    const sel = L.color, lab = $('swLabel'), feld = $('colorFld');
+    if (feld) feld.hidden = aktiv && !!saved && !kollision; // mit gebundenem Pass zeigt der Kopf die Farbe
+    if (lab) lab.textContent = kollision ? 'Deine Farbe (vergeben – bitte wählen)' : 'Deine Farbe';
     C.setHTML($('swatches'), Object.entries(C.Art.COLORS).map(([c, hex]) => {
       const tk = menschHatFarbe(c), off = fest ? c !== sel : tk;
       return `<button type="button" class="sw${sel === c ? ' on' : ''}${tk ? ' taken' : ''}${fest && c !== sel ? ' fest' : ''}" data-c="${c}" role="radio" aria-checked="${sel === c}" ${off ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}${fest ? ' (festgelegt)' : tk ? ' (in diesem Spiel vergeben)' : ''}" style="--c:${hex};--c2:${C.Art.darken(hex, .35)}"><span>${tk ? '✕' : ''}</span></button>`;
@@ -77,10 +85,11 @@
   function renderLoginId() {
     const name = localStorage.getItem('handelsinseln.name') || '';
     const av = gespeicherterAvatar();
-    const fest = !!(name && av);
+    const fest = passAktiv() && !!(name && av);
     $('nameFld').hidden = fest;
     $('avatarFld').hidden = fest;
     $('loginId').hidden = !fest;
+    lockIdentity();
     if (!fest) return;
     const col = L.color || gespeicherteFarbe();
     const hex = C.Art.COLORS[col] || '#8a93a6';
@@ -160,19 +169,23 @@
       if (r.games) { L.games = r.games; L.sel = null; }
       pollGames(); return;
     }
-    // Erst nach einem erfolgreichen Beitritt festhalten: Name und Avatar bleiben danach fest.
-    if (!localStorage.getItem('handelsinseln.name')) localStorage.setItem('handelsinseln.name', name);
-    if (!localStorage.getItem('handelsinseln.avatar')) localStorage.setItem('handelsinseln.avatar', L.avatar);
+    // Beim ersten Spiel (oder nach dem Löschen des Passes) wird die sichtbare Identität gebunden.
+    if (!passAktiv()) {
+      localStorage.setItem('handelsinseln.name', name);
+      localStorage.setItem('handelsinseln.avatar', L.avatar);
+    } else {
+      if (!localStorage.getItem('handelsinseln.name')) localStorage.setItem('handelsinseln.name', name);
+      if (!localStorage.getItem('handelsinseln.avatar')) localStorage.setItem('handelsinseln.avatar', L.avatar);
+    }
     localStorage.setItem('handelsinseln.color', L.color);
-    lockIdentity();
     L.notice = ''; C.joined(r);
   }
   function lockIdentity() {
     const name = localStorage.getItem('handelsinseln.name') || '';
-    if (!name) return;
-    $('nameIn').value = name;
-    $('nameIn').readOnly = true;
-    $('nameIn').title = 'Dein Name ist festgelegt.';
+    if (name) $('nameIn').value = name;
+    const fest = passAktiv() && !!name;
+    $('nameIn').readOnly = fest;
+    $('nameIn').title = fest ? 'Dein Name ist festgelegt.' : '';
   }
   function initLogin() {
     $('swatches').addEventListener('click', (e) => { const b = e.target.closest('.sw'); if (!b || b.disabled) return; L.color = b.dataset.c; renderSwatches(); });
@@ -562,7 +575,7 @@
     lbPop = document.createElement('div');
     lbPop.className = 'menu-pop glass lb-pop';
     lbPop.setAttribute('role', 'menu');
-    lbPop.innerHTML = item('pair', 'Handy koppeln') + item('pass', root.Person.getPass() ? 'Meine Partien' : 'Spielerpass') + '<hr>' +
+    lbPop.innerHTML = item('pair', 'Handy koppeln') + item('pass', root.Person.label()) + '<hr>' +
       item('bg', 'Hintergrund …') + item('fit', 'Brett zentrieren') + item('rotL', 'Karte links drehen') + item('rotR', 'Karte rechts drehen') +
       item('sound', 'Töne ' + (root.Sound.enabled() ? 'ausschalten' : 'einschalten')) + item('help', 'Hilfe &amp; Spielregeln');
     document.body.appendChild(lbPop);

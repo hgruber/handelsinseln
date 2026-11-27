@@ -168,7 +168,7 @@
   function joined(j) {
     st.token = j.token; localStorage.setItem('handelsinseln.token', j.token);
     showScreens(); connect();
-    if (!j.watch) Person.link(); // Zuschauer haben keinen Platz zum Verknüpfen
+    if (!j.watch) { Person.binden(); Person.link(); } // Zuschauer haben keinen Platz zum Verknüpfen
   }
 
   // ======================================================================================
@@ -190,9 +190,23 @@
   // ======================================================================================
   // View anwenden
   // ======================================================================================
+  // Auf einem neuen Gerät die eigene Identität aus der Sitzung übernehmen, sobald sie fehlt.
+  function rememberIdentity(v) {
+    const P = window.Person;
+    if (st.mock || !v || v.watch || v.you == null || !P || !P.aktiv()) return;
+    const p = v.players && v.players[v.you];
+    if (!p) return;
+    try {
+      if (!localStorage.getItem('handelsinseln.name') && p.name) localStorage.setItem('handelsinseln.name', p.name);
+      if (!localStorage.getItem('handelsinseln.avatar') && p.avatar) localStorage.setItem('handelsinseln.avatar', p.avatar);
+      if (!localStorage.getItem('handelsinseln.color') && p.color) localStorage.setItem('handelsinseln.color', p.color);
+    } catch (e) { /* egal */ }
+  }
+
   function applyView(v) {
     const old = st.view;
     st.view = v;
+    rememberIdentity(v);
     syncCtl(v);
     if (!st.tableOn || st.watch) chipSeat(null); // Chips wieder aufrecht
     const mute = (x) => (x && x.watch ? Object.assign({}, x, { you: -1 }) : x); Sound.onView(mute(old), mute(v)); // Zuschauer: nie „mein Zug“

@@ -18,6 +18,9 @@ try:
         pg.on('response', lambda r: r.status >= 400 and r.status not in (400, 401) and '/img/' not in r.url and problems.append(f'HTTP {r.status} {r.url}'))
         pg.goto(BASE)
         check(pg.locator('#loginId').is_hidden(), 'erster Besuch: noch kein fester Spielerpass-Kopf')
+        check(pg.locator('#myGamesBtn').inner_text().strip() == 'Ich habe einen Spielerpass', 'nur der Pass-Eingang')
+        pg.wait_for_timeout(800)
+        pg.screenshot(path=f'{SHOTS}/00-anmeldung-neu.png')
 
         # --- Solo gegen einen Bot
         pg.fill('#nameIn', 'Ida'); pg.locator('#swatches .sw').first.click(); pg.click('#createBtn')
@@ -52,6 +55,7 @@ try:
         check(pg.locator('#loginIdName').inner_text().strip() == 'Ida', 'Name im Kopf')
         check(pg.locator('#loginIdAv img').count() == 1, 'Avatar im Kopf')
         check(pg.locator('#nameFld').is_hidden() and pg.locator('#avatarFld').is_hidden(), 'Name und Avatar sind gesperrt')
+        check(pg.locator('#colorFld').is_hidden(), 'Farbpalette entfällt bei gebundenem Pass')
         pg.wait_for_timeout(800)
         pg.screenshot(path=f'{SHOTS}/01-anmeldung-pass.png')
 
@@ -68,6 +72,30 @@ try:
         check(pg.evaluate("!!localStorage.getItem('handelsinseln.token')"), 'Token nach dem Fortsetzen gespeichert')
         pg.screenshot(path=f'{SHOTS}/02-fortgesetzt.png')
         check(pg.evaluate("document.body.dataset.screen") in ('setup', 'main'), 'Partie läuft nach dem Fortsetzen')
+
+        # --- Pass löschen: Name, Avatar und Farbe sind wieder frei wählbar
+        pg.wait_for_timeout(400)
+        ov = pg.locator('.devshow.manual')
+        if ov.count():
+            ov.first.click(force=True)  # Hinweis „Spielreihenfolge“ schließen
+        pg.click('#btnMenu')
+        pg.click('.menu-pop [data-mi=pass]')
+        pg.wait_for_selector('.passbox [data-p=pass]', timeout=4000)
+        pg.click('.passbox [data-p=pass]')
+        pg.wait_for_selector('.passbox [data-p=clear]', timeout=4000)
+        pg.click('.passbox [data-p=clear]')
+        pg.click('#btnMenu')
+        pg.click('.menu-pop [data-mi=leave]')
+        pg.wait_for_selector('[data-d=yes]', timeout=4000)
+        pg.click('[data-d=yes]')
+        pg.wait_for_selector('#login:not([hidden])', timeout=6000)
+        check(pg.locator('#nameFld').is_visible(), 'Name wieder wählbar')
+        check(pg.locator('#avatarFld').is_visible(), 'Avatar wieder wählbar')
+        check(pg.locator('#myGamesBtn').inner_text().strip() == 'Ich habe einen Spielerpass', 'nur noch der Pass-Eingang')
+        check(pg.locator('#colorFld').is_visible(), 'Farbpalette wieder da')
+        check(pg.locator('#swatches .sw:not([disabled])').count() > 1, 'Farbauswahl wieder frei')
+        pg.wait_for_timeout(800)
+        pg.screenshot(path=f'{SHOTS}/03-anmeldung-ohne-pass.png')
 finally:
     server.terminate()
 

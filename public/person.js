@@ -4,14 +4,41 @@
 (function (root) {
   'use strict';
   const KEY = 'handelsinseln.pass';
+  const AKTIV = 'handelsinseln.passAktiv';
   let C = null, serverId = null, serverP = null, box = null;
 
   function init(ctx) {
     C = ctx;
-    // Jeder Browser hat von Anfang an einen Spielerpass; er ist der Standard.
-    if (!getPass() && root.Woerter) setPass(root.Woerter.pass());
+    // Der Pass liegt im Hintergrund bereit; sichtbar wird er erst mit dem ersten Spiel.
+    ensurePass();
     syncLabel();
     ensureServer();
+  }
+
+  function ensurePass() {
+    if (!getPass() && root.Woerter) setPass(root.Woerter.pass());
+    return getPass();
+  }
+
+  // Ist Name, Avatar und Farbe schon mit dem Pass verdrahtet?
+  function aktiv() {
+    try { return localStorage.getItem(AKTIV) === '1'; } catch (e) { return false; }
+  }
+  // Beim Beitritt: Pass sicherstellen und die sichtbare Identität an ihn binden.
+  function binden() {
+    ensurePass();
+    try { localStorage.setItem(AKTIV, '1'); } catch (e) { /* egal */ }
+    syncLabel();
+    refreshLogin();
+  }
+  function loesen() {
+    try { localStorage.removeItem(AKTIV); } catch (e) { /* egal */ }
+    syncLabel();
+    refreshLogin();
+  }
+  function refreshLogin() {
+    const l = document.getElementById('login');
+    if (l && !l.hidden && root.Lobby && root.Lobby.loginShown) root.Lobby.loginShown();
   }
 
   function ensureServer() {
@@ -32,10 +59,13 @@
     syncLabel();
   }
 
-  // Beschriftung auf der Anmeldung: ohne Pass führt der Link zum Pass, mit Pass zu den Partien.
+  // Beschriftung auf der Anmeldung: vor dem ersten Spiel nur der Pass-Eingang.
+  function label() {
+    return aktiv() ? 'Meine Partien' : 'Ich habe einen Spielerpass';
+  }
   function syncLabel() {
     const b = document.getElementById('myGamesBtn');
-    if (b) b.textContent = getPass() ? 'Meine Partien' : 'Spielerpass';
+    if (b) b.textContent = label();
   }
   function normalize(p) {
     return String(p || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
@@ -53,7 +83,7 @@
 
   // Die laufende Partie mit dem Pass verknüpfen (damit „Meine Partien“ sie findet).
   async function link() {
-    const pass = getPass();
+    const pass = ensurePass();
     if (!pass || !C.token()) return;
     const id = await personId(pass);
     if (!id) return;
@@ -93,7 +123,10 @@
       if (what === 'list') list();
       else if (what === 'new') anew();
       else if (what === 'in') enter();
-      else if (what === 'clear') { setPass(''); close(); C.toast('Spielerpass von diesem Gerät entfernt.', 'ok'); }
+      else if (what === 'clear') {
+        setPass(''); loesen(); close();
+        C.toast('Spielerpass von diesem Gerät entfernt.', 'ok');
+      }
       else close();
     });
   }
@@ -126,7 +159,7 @@
     b.addEventListener('click', (e) => {
       const x = e.target.closest('[data-p]'); if (!x) return;
       if (x.dataset.p === 'ok') {
-        setPass(p); close(); link();
+        setPass(p); binden(); close(); link();
         C.toast('Spielerpass angelegt.', 'ok');
       } else close();
     });
@@ -145,7 +178,7 @@
     const go = async () => {
       const p = normalize(inp.value);
       if (p.split(' ').length !== 4) { C.toast('Bitte alle vier Wörter eingeben.', 'warn'); return; }
-      setPass(p); close(); await link(); list();
+      setPass(p); binden(); close(); await link(); list();
     };
     b.addEventListener('click', (e) => {
       const x = e.target.closest('[data-p]'); if (!x) return;
@@ -168,6 +201,8 @@
   }
 
   async function list() {
+    // Vor dem ersten Spiel gibt es keine Partienliste, nur den Pass-Eingang.
+    if (!aktiv()) return enter();
     const pass = getPass();
     if (!pass) return choose();
     const id = await personId(pass);
@@ -270,5 +305,5 @@
     });
   }
 
-  root.Person = { init, dialog, list, link, personId, getPass, close };
+  root.Person = { init, dialog, list, link, personId, getPass, close, aktiv, binden, loesen, label };
 })(window);

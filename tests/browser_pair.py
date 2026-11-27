@@ -85,11 +85,9 @@ try:
 
         # --- Drittes Gerät findet die Partie nur mit dem Pass
         C = newpage('Neu')
+        check(C.locator('#myGamesBtn').inner_text().strip() == 'Ich habe einen Spielerpass', 'vor dem ersten Spiel nur der Pass-Eingang')
         C.click('#myGamesBtn')
-        C.wait_for_selector('.passbox [data-p=pass]', timeout=4000)
-        C.click('.passbox [data-p=pass]')
-        C.wait_for_selector('.passbox [data-p=in]', timeout=4000)
-        C.click('.passbox [data-p=in]')
+        C.wait_for_selector('.passin', timeout=4000)
         C.fill('.passin', passw)
         C.click('.passbox [data-p=ok]')
         C.wait_for_selector('.prow', timeout=8000)
