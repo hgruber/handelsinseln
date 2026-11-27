@@ -1110,7 +1110,8 @@
       case 'move': if (st.ctl) { await act(v.arm && v.arm.mode === 'move' ? 'disarm' : 'arm', { mode: 'move' }); break; } st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
-        if (!st.tableOn && missingOf(v.me.hand, COST[k]).length) { // fehlende Rohstoffe vorher per Bank tauschen
+        // Auch am Spieltisch: fehlende Rohstoffe vorher im Namen des fokussierten Tischspielers tauschen.
+        if (missingOf(v.me.hand, COST[k]).length) {
           const plan = bankPlan(v, k); if (!plan) break;
           let ok = true; for (const t of plan) { const j = await act('bank_trade', { give: t.give, get: t.get }); if (j.error) { ok = false; break; } }
           if (!ok) break;
@@ -1175,6 +1176,7 @@
     const mock = q.get('mock');
     if (mock) {
       st.mock = mock;
+      if (q.get('table') === '1') st.tableOn = true; // Test: Tischpfad ohne echte Tisch-Anzeige
       if (mock === 'anmeldung') { st.loginMock = q.get('games') || 'games'; $('nameIn').value = $('nameIn').value || 'Anna'; showScreens(); return; }
       const url = '/tests/mock/' + encodeURIComponent(mock) + '.json';
       const show = (v) => {

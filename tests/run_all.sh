@@ -22,6 +22,7 @@ ALLE=(
   "API|node tests/api.js"
   "Browser Lobby|python3 tests/browser_lobby.py"
   "Browser Spieltisch|python3 tests/browser_table.py"
+  "Browser Tisch-Banktausch|python3 tests/browser_table_bank.py"
   "Browser Kopplung+Pass|python3 tests/browser_pair.py"
   "Browser Pause+Pass|python3 tests/browser_pause.py"
   "Browser Vorschau|python3 tests/browser_lobby_preview.py"
