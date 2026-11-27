@@ -25,6 +25,7 @@ ALLE=(
   "Browser Tisch-Banktausch|python3 tests/browser_table_bank.py"
   "Browser Kopplung+Pass|python3 tests/browser_pair.py"
   "Browser Pause+Pass|python3 tests/browser_pause.py"
+  "Browser Fortsetzen|python3 tests/browser_resume_start.py"
   "Browser Vorschau|python3 tests/browser_lobby_preview.py"
   "Browser Kartenwelten|python3 tests/browser_welten.py"
   "Browser Zuschauer|python3 tests/browser_watch.py"

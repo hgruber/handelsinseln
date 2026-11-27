@@ -138,7 +138,8 @@ die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/bro
 - **Partien wiederfinden:** Im Hintergrund legt der Browser einen Spielerpass aus vier Wörtern an; sichtbar wird er erst
   mit dem ersten Spiel, wenn Name, Avatar und Farbe an ihn gebunden werden. Bis dahin steht auf der Anmeldung nur „Ich
   habe einen Spielerpass“ bereit, um einen vorhandenen Pass einzugeben. Mit dem Pass erscheinen unter „Meine Partien“ alle
-  laufenden und beendeten Partien – auch auf einem neuen Gerät oder nach dem Löschen der Browserdaten. Ist der Pass
+  laufenden und beendeten Partien – auch auf einem neuen Gerät oder nach dem Löschen der Browserdaten. Laufende Partien mit
+  eigenem Platz zeigt die Startseite direkt als „Fortsetzen“; pausierte Partien erreichst du weiterhin über „Meine Partien“. Ist der Pass
   gebunden, steht auf der Anmeldung und in den Passansichten oben ein Kopf mit Avatar, Name, „Spielerpass aktiv“ und Farbe;
   darunter führen „Meine Partien“ und „Mein Spielerpass“ weiter. Die Farbpalette erscheint nur, wenn ein anderer Mensch die
   Farbe belegt. Der Pass bleibt auf dem Gerät; an den Server geht nur eine daraus abgeleitete, servergebundene Kennung.

@@ -188,6 +188,31 @@
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
   }
 
+  // Laufende Partien des Passes für die Startseite – ohne Dialog, ohne Fehlermeldung.
+  async function laufende() {
+    if (!aktiv()) return [];
+    const pass = getPass();
+    if (!pass) return [];
+    const id = await personId(pass);
+    if (!id) return [];
+    const r = await C.post('/api/person', { personId: id });
+    if (!r || r.error) return [];
+    return (r.partien || []).filter((p) => p.running);
+  }
+
+  // Partie wieder betreten: vorhandenen Sitzungstoken nehmen oder den Platz über den Pass zurückholen.
+  async function fortsetzen(p) {
+    if (!p) return { error: 'Keine Partie gewählt.' };
+    if (!p.paused && p.token) return { token: p.token, game: p.game };
+    const pass = getPass();
+    if (!pass) return { error: 'Kein Spielerpass vorhanden.' };
+    const id = await personId(pass);
+    if (!id) return { error: 'Der Spielerpass braucht HTTPS oder localhost.' };
+    const r = await C.post('/api/person/resume', { personId: id, game: p.game });
+    if (r && r.error) return r;
+    return { token: r.token, game: r.game };
+  }
+
   // Kopf von „Meine Partien“: Avatar mit Farbring, Name und Farbe aus diesem Browser.
   function kopf() {
     const name = (() => { try { return localStorage.getItem('handelsinseln.name') || 'Spieler'; } catch (e) { return 'Spieler'; } })();
@@ -250,14 +275,9 @@
       const p = r.partien[Number(x.dataset.i)];
       if (!p) return;
       if (!p.running) { detail(p); return; }
-      if (p.paused) {
-        // Pausierte Partie: der Pass holt den Platz samt neuem Sitzungstoken zurück.
-        const res = await C.post('/api/person/resume', { personId: await personId(getPass()), game: p.game });
-        if (res.error) { C.toast(res.error, 'err'); return; }
-        close(); C.joined({ token: res.token, game: res.game });
-        return;
-      }
-      if (p.token) { close(); C.joined({ token: p.token, game: p.game }); }
+      const res = await fortsetzen(p);
+      if (res.error) { C.toast(res.error, 'err'); return; }
+      close(); C.joined(res);
     });
   }
 
@@ -317,5 +337,5 @@
     });
   }
 
-  root.Person = { init, dialog, list, link, personId, getPass, close, aktiv, binden, loesen, label };
+  root.Person = { init, dialog, list, link, personId, getPass, close, aktiv, binden, loesen, label, laufende, fortsetzen };
 })(window);

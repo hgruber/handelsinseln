@@ -16,12 +16,14 @@
   // ======================================================================================
   // Anmeldung: Name, Farbe, Spieleliste
   // ======================================================================================
-  const L = { botsOpen: false, games: [], sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
+  const L = { botsOpen: false, games: [], mine: new Map(), sel: null, color: null, avatar: null, timer: 0, notice: '', err: '' };
   const AVS = root.Avatars;
   const joinable = () => L.games.filter((g) => g.joinable !== false);
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
   const watchable = (g) => !!g && g.joinable === false && !!g.watchable; // läuft: nur zuschauen
   const watchSel = () => watchable(selGame());
+  const resumeOf = (g) => (g && L.mine.get(g.id)) || null; // eigene laufende Partie (Spielerpass)
+  const resumeSel = () => resumeOf(selGame());
   const selPlayers = () => (selGame() ? selGame().players || [] : []);
   const menschHatFarbe = (c) => selPlayers().some((p) => p.color === c && !p.bot);
   const gespeicherteFarbe = () => localStorage.getItem('handelsinseln.color') || '';
@@ -110,12 +112,15 @@
     // Nicht beitretbar (läuft, beendet, Plätze geschlossen oder voll): ausgegraut, nicht anwählbar
     const off = g.joinable === false, why = g.table ? 'Spieltisch' : g.phase === 'ended' ? 'Beendet' : g.phase !== 'lobby' ? 'Läuft bereits' : g.closed ? 'Plätze besetzt' : 'Voll';
     const run = watchable(g); // laufendes Spiel: anwählbar zum Zuschauen, farblich abgesetzt
-    const tag = run ? `<button type="button" class="gcard run${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}" title="Läuft bereits – du kannst zusehen.">` : off ? `<div class="gcard off" role="option" aria-disabled="true" aria-selected="false" title="${why} – Beitritt nicht mehr möglich.">` : `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}">`;
+    const res = resumeOf(g); // eigene laufende Partie: direkt fortsetzen
+    const ttl = res ? 'Deine Partie – Fortsetzen.' : run ? 'Läuft bereits – du kannst zusehen.' : off ? `${why} – Beitritt nicht mehr möglich.` : '';
+    // Eigene Partien sind auch dann anwählbar, wenn sie nicht mehr beitretbar sind (z. B. Plätze geschlossen).
+    const tag = res ? `<button type="button" class="gcard${run ? ' run' : ''}${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}" title="${ttl}">` : run ? `<button type="button" class="gcard run${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}" title="${ttl}">` : off ? `<div class="gcard off" role="option" aria-disabled="true" aria-selected="false" title="${ttl}">` : `<button type="button" class="gcard${L.sel === g.id ? ' on' : ''}" data-g="${C.esc(g.id)}" role="option" aria-selected="${L.sel === g.id}"${ttl ? ` title="${ttl}"` : ''}>`;
     return tag +
       `<span class="gtop"><b class="gname">${C.esc(g.name || 'Spiel')}</b><span class="gvar">${C.esc(VNAME[g.variant] || g.variant || '')}</span></span>` +
       `<span class="ghost-line">Spielleiter: <b>${C.esc(g.host)}</b></span>` +
-      `<span class="gbot"><span class="gdots">${dots}</span>${run ? '<span class="goff run">Läuft – ansehen</span>' : off ? `<span class="goff">${why}</span>` : `<span class="gcnt">${n}/${plan > n ? plan : max}</span>`}</span>` +
-      (names ? `<span class="gnames">${names}</span>` : '') + (off && !run ? '</div>' : '</button>');
+      `<span class="gbot"><span class="gdots">${dots}</span>${res ? '<span class="goff res" title="Du hast hier einen Platz.">Fortsetzen</span>' : run ? '<span class="goff run">Läuft – ansehen</span>' : off ? `<span class="goff">${why}</span>` : `<span class="gcnt">${n}/${plan > n ? plan : max}</span>`}</span>` +
+      (names ? `<span class="gnames">${names}</span>` : '') + (off && !run && !res ? '</div>' : '</button>');
   }
   function renderGames() {
     normalizeSel(); pickColor(); renderSwatches(); pickAvatar(); renderAvatars();
@@ -123,15 +128,34 @@
     const html = (j.length ? '' : '<p class="gempty">Noch kein offenes Spiel – eröffne das erste!</p>') + j.map(gameCard).join('') + rest.map(gameCard).join('');
     C.setHTML($('gameList'), html);
     $('gameList').closest('.fld').hidden = !L.games.length;
-    const jb = $('joinBtn'), ws = watchSel(); jb.hidden = !j.length && !ws;
-    jb.textContent = ws ? 'Spiel ansehen' : 'Beitreten';
+    const jb = $('joinBtn'), ws = watchSel(), rb = resumeSel();
+    jb.hidden = !j.length && !ws && !L.games.some((g) => resumeOf(g));
+    jb.textContent = rb ? 'Fortsetzen' : ws ? 'Spiel ansehen' : 'Beitreten';
     const needPick = !selGame();
-    jb.classList.toggle('dis', needPick); jb.setAttribute('aria-disabled', String(needPick)); jb.title = needPick ? 'Wähle zuerst ein Spiel aus der Liste.' : '';
+    jb.classList.toggle('dis', needPick); jb.setAttribute('aria-disabled', String(needPick));
+    jb.title = needPick ? 'Wähle zuerst ein Spiel aus der Liste.' : rb ? 'Setze deine Partie fort.' : '';
     $('createBtn').classList.toggle('gold', !j.length && !ws); $('createBtn').classList.toggle('ghostb', !!j.length || ws);
     const info = $('loginInfo');
     info.classList.toggle('notice', !!L.notice);
     info.textContent = L.notice || L.err || '';
   }
+  // Eigene laufende Partien (Spielerpass) für „Fortsetzen“ auf der Startseite.
+  let meineP = null;
+  async function ladeMeine() {
+    const P = root.Person;
+    if (!P || !P.aktiv || !P.aktiv()) { L.mine = new Map(); return; }
+    if (meineP) return meineP;
+    meineP = (async () => {
+      try {
+        const list = await P.laufende();
+        L.mine = new Map((list || []).filter((p) => p.game).map((p) => [p.game, p]));
+      } catch (e) { L.mine = new Map(); }
+      meineP = null;
+      if (!$('login').hidden) renderGames();
+    })();
+    return meineP;
+  }
+
   async function pollGames() {
     clearTimeout(L.timer);
     if ($('login').hidden) return;
@@ -152,7 +176,22 @@
     if (r.error) { C.toast(r.error, 'err'); pollGames(); return; }
     L.notice = ''; C.joined(r);
   }
+  async function doResume(p) {
+    ['joinBtn', 'createBtn'].forEach((i) => $(i).classList.add('dis'));
+    const r = await root.Person.fortsetzen(p);
+    ['joinBtn', 'createBtn'].forEach((i) => $(i).classList.remove('dis'));
+    if (!r || r.error) {
+      C.toast((r && r.error) || 'Fortsetzen nicht möglich.', 'err');
+      ladeMeine(); pollGames();
+      return;
+    }
+    L.notice = ''; C.joined({ token: r.token, game: r.game });
+  }
   async function doJoin(forceCreate) {
+    if (!forceCreate) {
+      const rb = resumeSel();
+      if (rb) { await doResume(rb); return; }
+    }
     if (!forceCreate && watchSel()) { if (C.mockLogin) { C.toast('Mock-Modus: watch ' + L.sel, 'info'); return; } return doWatch(L.sel); }
     const name = $('nameIn').value.trim();
     if (!name) { $('loginForm').reportValidity(); return; }
@@ -219,7 +258,7 @@
     L.avatar = localStorage.getItem('handelsinseln.avatar') || null;
     lockIdentity();
   }
-  function loginShown() { renderGames(); pollGames(); }
+  function loginShown() { renderGames(); pollGames(); ladeMeine(); }
   function setNotice(t) { L.notice = t || ''; }
 
   // ======================================================================================
