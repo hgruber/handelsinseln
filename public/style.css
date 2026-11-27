@@ -338,6 +338,9 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .modal { width: min(640px, 94vw); max-height: 92vh; overflow: auto; padding: 24px 28px 22px; border-radius: 22px; text-align: center; animation: rise .35s cubic-bezier(.2, .9, .3, 1) both; }
 .modal h2 { margin: 0 0 4px; font: 700 28px var(--serif); color: var(--gold2); } .modal .lead { margin: 4px 0 6px; color: #d7e1f2; font-size: 16px; }
 .modal h3 { margin: 14px 0 6px; font: 700 14px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--gold2); text-align: left; }
+/* Alle Entwicklungskarten der Hand (Controller-Ansicht) */
+.devgrid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0 4px; }
+.devgrid .dcard { width: 72px; height: 104px; cursor: pointer; }
 .cnt-line { font: 18px var(--serif); margin: 0 0 6px; color: #ffcf8a; } .cnt-line.ok { color: #7fe3ae; }
 .mact { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
 .steal { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
@@ -550,7 +553,9 @@ body.moving .glass, body.moving .ibtn, body.moving .bn, body.moving .pc, body.mo
 /* ================= Controller-Ansicht (body.ctl) =================
    Das Handy ist nur Steuerung: kein Spielfeld, die Bedienung füllt den Bildschirm. Das Spielfeld zeigt die Tisch-Anzeige (Zuschauer). */
 body.ctl #board, body.ctl #sideToggle { display: none !important; }
-body.ctl #hud { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; pointer-events: auto; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+body.ctl { overflow: hidden; }
+/* Nichts scrollt: Alles, was zur Bedienung gehört, passt auf den Bildschirm; Zusatzfenster öffnen sich als Schicht. */
+body.ctl #hud { display: flex; flex-direction: column; gap: 10px; overflow: hidden; height: 100vh; height: 100dvh; pointer-events: auto; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); box-sizing: border-box; }
 body.ctl #hud > * { position: static !important; transform: none; flex: none; }
 body.ctl #camBtns { position: fixed !important; top: calc(10px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); z-index: 30; }
 body.ctl #banner { order: 1; width: auto; padding-right: 54px; justify-content: flex-start; pointer-events: auto; }
@@ -567,7 +572,27 @@ body.ctl #devRow { flex: 0 1 auto; max-width: 100%; }
 body.ctl #hand { flex-direction: column; align-items: stretch; }
 body.ctl #build .bb { height: 96px; } body.ctl #build { gap: 8px; flex-wrap: wrap; justify-content: center; }
 body.ctl #build .bb .lb { font-size: 11.5px; }
-body.ctl #bottom { min-height: 0; }
+body.ctl #bottom { min-height: 0; overflow: hidden; }
+body.ctl #devRow { overflow: visible; flex: 0 0 auto; }
+/* Entwicklungskarten als Stapel: ein Tipp öffnet das Kartenfenster */
+body.ctl .dstack { position: relative; display: inline-flex; align-items: center; gap: 9px; height: 58px; margin: 8px 10px 2px 2px; padding: 3px 12px 3px 6px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .22); background: linear-gradient(180deg, #2c3b5c, #172238); color: #cbd5e6; font: 700 12px var(--sans); cursor: pointer;
+  box-shadow: 3px -3px 0 -1px #24334f, 3px -3px 0 0 rgba(255, 255, 255, .16), 6px -6px 0 -1px #1c2942, 6px -6px 0 0 rgba(255, 255, 255, .1); }
+body.ctl .dstack .dsi { display: grid; place-items: center; width: 40px; height: 48px; border-radius: 7px; background: linear-gradient(180deg, #6a7bb0, #2c3560); }
+body.ctl .dstack .dsc { display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 13px; background: linear-gradient(180deg, #223a60, #0e1c34); border: 2px solid var(--gold); color: var(--gold2); font: 700 16px var(--serif); }
+body.ctl .dstack .dsp { font: 700 10.5px var(--sans); color: var(--gold2); font-style: normal; }
+body.ctl .dstack.hasplay { border-color: var(--gold); box-shadow: 3px -3px 0 -1px #24334f, 6px -6px 0 -1px #1c2942, 0 0 14px rgba(232, 185, 90, .5); }
+/* Handelsfenster in der Controller-Ansicht: eigene Schicht über der Bedienung, passend verkleinert (trade.js) */
+body.ctl #side { position: static; order: 5; }
+body.ctl #tradeDock { position: fixed; left: 6px; right: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); z-index: 46; max-height: calc(100vh - 12px); max-height: calc(100dvh - 12px); overflow: hidden; }
+body.ctl #tradeDock .tbody { padding: 8px 10px 10px; }
+body.ctl #tradeDock .tpanel > header { padding: 6px 8px 6px 12px; font-size: 15px; }
+body.ctl #tradeDock .who { margin-bottom: 6px; font-size: 15px; }
+body.ctl #tradeDock .tc { padding: 3px 1px 2px; border-radius: 8px; }
+body.ctl #tradeDock .tc .tn { display: none; }
+body.ctl #tradeDock .tc svg { width: 24px; height: 24px; }
+body.ctl #tradeDock .tc .cnt { font-size: 16px; min-height: 16px; }
+body.ctl #tradeDock .presets, body.ctl #tradeDock .rates { margin-top: 6px; }
+body.ctl #tradeDock .tact { margin-top: 8px; }
 body.ctl #resRow .rcard { width: 62px; height: 92px; } body.ctl #resRow .rcard .face svg { width: 34px; height: 34px; } body.ctl #resRow .rcard .face { padding-bottom: 14px; }
 body.ctl #resRow .rcard .rn { display: block; font-size: 10px; } /* Beschriftung wie in der Karten-Ansicht, auch auf kleinen Bildschirmen */
 body.ctl .dcard { width: 58px; height: 88px; font-size: 10px; padding: 5px 1px; gap: 3px; border-width: 2px; border-radius: 10px; filter: none; color: #fff; background: linear-gradient(180deg, #6a7bb0, #2c3560); }

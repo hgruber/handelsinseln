@@ -39,7 +39,7 @@
         `<ul class="rl-ul"><li>Siedlungen müssen an einer <b>eigenen Straße oder einem eigenen Schiff</b> liegen.</li><li>Eine <b>Stadt</b> ersetzt eine eigene Siedlung (die Siedlung geht zurück in deinen Vorrat).</li>` +
         `<li>Straßen führen über Land, <b>Schiffe</b> über das Meer; beide bilden zusammen eine Handelsroute.</li>` +
         `<li>Ein Schiff mit offenem Ende darf einmal pro Zug versetzt werden – nicht in dem Zug, in dem es gebaut wurde.</li></ul>`) +
-      sec('Handeln', `<ul class="rl-ul"><li><b>Mit Spielern:</b> ${s.playerTrade === false ? 'In dieser Partie nicht erlaubt – nur mit der Bank.' : 'Im eigenen Zug machst du ein Angebot; andere nehmen an, lehnen ab oder machen ein Gegenangebot.'}</li>` +
+      sec('Handeln', `<ul class="rl-ul"><li><b>Mit Spielern:</b> ${s.playerTrade === false ? 'In dieser Partie nicht erlaubt – nur mit der Bank.' : 'Im eigenen Zug (nach dem Würfeln) machst du ein Angebot; als Mitspieler kannst du dem Spielenden jederzeit eines machen. Andere nehmen an, lehnen ab oder machen ein Gegenangebot.'}</li>` +
         `<li><b>Mit der Bank:</b> <b>${bank}:1</b> – ${bank} gleiche Rohstoffe gegen einen beliebigen.</li>` +
         `<li><b>Hafen:</b> Eine Siedlung oder Stadt an der Hafenkante schaltet <b>3:1</b> (allgemeiner Hafen) oder <b>2:1</b> (Spezialhafen für eine Sorte) frei.</li></ul>`) +
       sec('Die 7 – Räuber &amp; Pirat', `<div class="rl-pic"><img src="img/stein-raeuber.webp" alt="" height="56" draggable="false"><img src="img/stein-pirat.webp" alt="" height="56" draggable="false"></div>` +

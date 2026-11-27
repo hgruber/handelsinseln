@@ -81,6 +81,9 @@ impl Game {
         if !self.S.settings.player_trade {
             return Err(GameError("In diesem Spiel ist nur der Handel mit der Bank erlaubt.".into()));
         }
+        if self.S.trade.is_some() {
+            return Err(GameError("Es läuft bereits ein Angebot. Warte darauf oder ziehe es zurück.".into()));
+        }
         let give = clean_cards(a.get("give").unwrap_or(&Value::Null))?;
         let want = clean_cards(a.get("want").unwrap_or(&Value::Null))?;
         if sum_cards(&give) == 0 || sum_cards(&want) == 0 {
@@ -190,6 +193,9 @@ impl Game {
     }
 
     pub fn trade_confirm(&mut self, pid: usize, a: &Value) -> Result<(), GameError> {
+        if self.S.sbp.is_some() || self.S.phase != "main" {
+            return Err(GameError("Gerade ist kein Handel möglich.".into()));
+        }
         let tr = match self.S.trade.clone() {
             Some(t) if t.from == pid => t,
             _ => return Err(GameError("Du hast kein offenes Angebot.".into())),

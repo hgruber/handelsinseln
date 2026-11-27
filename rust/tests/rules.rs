@@ -488,7 +488,7 @@ fn spielerhandel_angebot_zusage_gegenangebot_abschluss() {
         &mut g,
         1,
         json!({ "type": "trade_confirm", "with": 2 }),
-        "am Zug",
+        "kein offenes Angebot",
     );
     g.act(0, &json!({ "type": "trade_confirm", "with": 2 })).unwrap();
     assert_eq!(g.pl(0).hand.holz, 1);
@@ -509,6 +509,61 @@ fn spielerhandel_angebot_zusage_gegenangebot_abschluss() {
         0,
         json!({ "type": "trade_offer", "give": { "holz": 1 }, "want": { "holz": 1 } }),
         "dieselbe",
+    );
+}
+
+#[test]
+fn wuerfelhinweis_nur_mit_spielbarer_entwicklungskarte() {
+    let mut g = hand_board(3);
+    let txt = |g: &Game| g.prompt(Some(0), "roll").as_str().unwrap().to_string();
+    assert_eq!(txt(&g), "Du bist dran – würfle!");
+    g.pl_mut(0).dev.push(DevCard { id: 1, kind: "siegpunkt".to_string(), bought: 0 });
+    assert_eq!(txt(&g), "Du bist dran – würfle!");
+    let turn_no = g.S.turn_no;
+    g.pl_mut(0).dev.push(DevCard { id: 2, kind: "ritter".to_string(), bought: turn_no });
+    assert_eq!(txt(&g), "Du bist dran – würfle!", "frisch gekaufte Karten zählen nicht");
+    g.pl_mut(0).dev.push(DevCard { id: 3, kind: "ritter".to_string(), bought: 0 });
+    assert!(txt(&g).contains("Entwicklungskarte spielen"));
+}
+
+#[test]
+fn angebot_als_mitspieler_auch_vor_dem_wurf_des_spielenden() {
+    let mut g = hand_board(3);
+    hand(&mut g, 0, 0, 0, 0, 0, 1);
+    hand(&mut g, 1, 1, 0, 0, 0, 0);
+    // Mitspieler darf dem Spielenden jederzeit ein Angebot machen – dessen Wurf ist nicht nötig.
+    g.S.ts.rolled = false;
+    g.act(1, &json!({ "type": "trade_offer", "give": { "holz": 1 }, "want": { "erz": 1 } }))
+        .unwrap();
+    assert_eq!(g.S.trade.as_ref().unwrap().from, 1);
+    // Solange ein Angebot läuft, kann kein zweites eröffnet werden.
+    hand(&mut g, 2, 1, 0, 0, 0, 0);
+    expect_act_err(
+        &mut g,
+        2,
+        json!({ "type": "trade_offer", "give": { "holz": 1 }, "want": { "erz": 1 } }),
+        "bereits ein Angebot",
+    );
+    // Der Spielende nimmt an, der Mitspieler bestätigt auch außer der Reihe.
+    g.act(0, &json!({ "type": "trade_respond", "accept": true })).unwrap();
+    g.act(1, &json!({ "type": "trade_confirm", "with": 0 })).unwrap();
+    assert_eq!(g.pl(1).hand.erz, 1);
+    assert_eq!(g.pl(0).hand.holz, 1);
+    assert!(g.S.trade.is_none());
+    // Der Spielende selbst bietet erst nach dem Würfeln.
+    expect_act_err(
+        &mut g,
+        0,
+        json!({ "type": "trade_offer", "give": { "holz": 1 }, "want": { "erz": 1 } }),
+        "Würfle zuerst",
+    );
+    // Die Bank bleibt dem Spielenden im eigenen Zug vorbehalten.
+    hand(&mut g, 0, 4, 0, 0, 0, 0);
+    expect_act_err(
+        &mut g,
+        1,
+        json!({ "type": "bank_trade", "give": "holz", "get": "erz" }),
+        "am Zug",
     );
 }
 

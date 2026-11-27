@@ -3,7 +3,7 @@
 wie Rohstoffkarten von den Feldern/der Bank zu den Spielern fliegen. Geprüft: Karten erscheinen, starten leicht versetzt,
 fliegen vom richtigen Feld los, verschwinden nach dem Flug, werden beim erneuten Verbinden nicht nachgespielt.
 Aufruf: python3 tests/browser_fx.py"""
-import time
+import re, time
 from playwright.sync_api import sync_playwright
 from lib import check, finish, poster, problems, shots, sse_event, start_server, wait_until
 
@@ -24,8 +24,9 @@ try:
           window.__fx = [];
           new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('fxc')) {
             const a = n.getAnimations()[0]; const t = a ? a.effect.getTiming() : {};
-            const tr = a ? a.effect.getKeyframes()[0].transform : '';
-            window.__fx.push({ back: n.classList.contains('back'), mine: n.classList.contains('mine'), delay: t.delay, dur: t.duration, from: tr, w: n.offsetWidth });
+            const kf = a ? a.effect.getKeyframes() : [];
+            const tr = kf.length ? kf[0].transform : '', last = kf.length ? kf[kf.length - 1].transform : '';
+            window.__fx.push({ back: n.classList.contains('back'), mine: n.classList.contains('mine'), delay: t.delay, dur: t.duration, from: tr, last, w: n.offsetWidth });
           } }).observe(document, { childList: true, subtree: true });
         """)
         pg.goto(BASE)
@@ -101,6 +102,34 @@ try:
         time.sleep(0.9)
         # die Bots spielen weiter: Animationen sind nur dann ein Fehler, wenn seit dem Verbinden nichts Neues geschah
         check(len(pg2.evaluate('window.__fx')) == 0 or max_fx() > before, 'beim Verbinden werden alte Kartenbewegungen nicht nachgespielt')
+        # --- Verdeckte Bewegung (Diebstahl): startet und landet in der Spielerstatistik, nicht im Rohstoffstapel
+        pg.evaluate("""() => {
+          window.Fx.reset();
+          window.Fx.play({ you: 0, fx: [] });
+          window.__fx.length = 0;
+          window.Fx.play({ you: 0, fx: [
+            { id: 999999, f: 'p:1', t: 'p:2', n: 1, pub: false, why: 'steal' },
+            { id: 1000000, f: 'h:0,0', t: 'p:2', n: 1, pub: true, c: { holz: 1 }, why: 'roll' },
+          ] });
+        }""")
+        time.sleep(0.15)
+        syn = pg.evaluate('window.__fx')
+        back = [f for f in syn if f['back']]
+        check(len(back) == 1, f'verdeckte Bewegung erzeugt eine Kartenrückseite ({len(back)})')
+        if back:
+            def center(f):
+                m = re.search(r'translate\((-?[\d.]+)px, (-?[\d.]+)px\)', f['tr'])
+                return (float(m.group(1)) + f['w'] / 2, float(m.group(2)) + f['w'] * 0.65) if m else None
+            stats = lambda pid, sel='.stats': pg.evaluate("([pid, sel]) => { const r = document.querySelector('.pc[data-pid=\"' + pid + '\"] ' + sel).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }", [pid, sel])
+            a = center({'tr': back[0]['from'], 'w': back[0]['w']}); z = center({'tr': back[0]['last'], 'w': back[0]['w']})
+            s1, s2 = stats(1), stats(2)
+            check(a and abs(a[0] - s1['x']) <= 3 and abs(a[1] - s1['y']) <= 3, 'Raub startet in der Spielerstatistik des Bestohlenen')
+            check(z and abs(z[0] - s2['x']) <= 3 and abs(z[1] - s2['y']) <= 3, 'verdeckte Karte landet in der Spielerstatistik des Empfängers')
+            vis = [f for f in syn if not f['back'] and not f['mine']]
+            check(len(vis) == 1, 'sichtbare Bewegung an einen Mitspieler zeigt das Gesicht')
+            if vis:
+                v2 = center({'tr': vis[0]['last'], 'w': vis[0]['w']}); res2 = stats(2, '.stats > span:first-child')
+                check(v2 and abs(v2[0] - res2['x']) <= 3 and abs(v2[1] - res2['y']) <= 3, 'sichtbarer Rohstoff landet auf der Rohstoffzahl des Mitspielers')
         b.close()
 finally:
     server.terminate()

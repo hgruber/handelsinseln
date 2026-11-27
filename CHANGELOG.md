@@ -10,6 +10,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Eigener Spielname:** Der Spielleiter kann den Namen der Partie im Lobby-Kopf antippen und ändern; er erscheint sofort in der Spieleliste auf der Anmeldung. Ein leer gelassener Name stellt „Spiel N“ wieder her, unbenannte Spiele zeigen in der Liste weiterhin „Spiel von …“.
 
 ### Geändert
+- **Handelsansicht immer erreichbar:** „Handeln“ lässt sich jederzeit öffnen. Ein Angebot an alle kann der Spielende nach dem Würfeln abgeben, als Mitspieler ist es jederzeit an den Spielenden möglich – wie ein Gegenangebot, samt Bestätigung. Banktausch bleibt dem eigenen Zug vorbehalten; die Knöpfe sind sonst nur ausgegraut und nennen den Grund.
+- **Controller-Ansicht ohne Scrollen:** Rohstoffe und Handelsanzeige passen auf den Bildschirm; bei knappem Platz (Querformat) wird die Bedienleiste verkleinert statt zu scrollen. Entwicklungskarten liegen als Stapel mit Anzahl und öffnen per Tipp ein Fenster mit allen Karten, das sich wieder schließen lässt.
 - **Banktausch beim Bauen mit Auswahl:** Gibt es für fehlende Baurohstoffe mehrere Tauschwege mit der Bank, fragt der Client nach Kurs und Menge; getauscht und gebaut wird erst nach der Bestätigung, Abbrechen ändert nichts. Ohne Alternative bleibt der automatische Tausch. Das gilt für alle Bauten und für eigenes Gerät, Controller-Ansicht und Spieltisch.
 - **Bauen am Spieltisch mit Banktausch:** Fehlende Rohstoffe werden auch am digitalen Spieltisch vor dem Bauen automatisch mit der Bank getauscht (bisher kam trotz möglichem Tausch „Dir fehlen Rohstoffe …“).
 - **Beitreten erst nach Spielwahl:** Auf der Anmeldung ist „Beitreten“ ausgegraut, solange kein Spiel aus der Liste gewählt ist; auch das einzige offene Spiel wird nicht mehr automatisch vorausgewählt. Der Knopf nennt den Grund beim Antippen.
@@ -18,6 +20,10 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - **Name und Avatar bleiben fest:** Beim ersten erfolgreichen Beitritt werden Name und Avatar gespeichert und mit dem Pass verbunden; danach sind sie auf der Anmeldung gesperrt. Die gespeicherte Farbe ist der Standard, lässt sich aber ändern, wenn ein anderer Mensch sie in der gewählten Partie belegt. Bei einer Farbkollision weicht zuerst ein Bot auf eine freie Farbe aus, bevor ein Mensch wechseln muss.
 - **Spielerpass unsichtbar, bis ein Spiel beginnt:** Der Pass aus vier Wörtern liegt im Hintergrund bereit; Name, Avatar und Farbe werden erst beim ersten Beitritt mit ihm verbunden. Vorher zeigt die Anmeldung nur den Link „Ich habe einen Spielerpass“ zum Eingeben eines vorhandenen Passes und sonst keinen Hinweis auf Pass oder Partien. Wird der Pass gelöscht, werden Name, Avatar und Farbe wieder frei wählbar; ein neuer Pass entsteht beim nächsten Spiel. Die Rückfrage beim Verlassen einer laufenden Partie weist darauf hin, den Pass zu notieren und dass die Partie nach spätestens 30 Tagen ohne Zugriff gelöscht wird.
 - **Aufbewahrung:** Der Server merkt sich je Personen-ID Erstanlage und letzten Zugriff (`DATA_DIR/personen.json`). Nach 30 Tagen ohne Zugriff (`PASS_MS`) und mindestens 24 h nach Erstanlage (`PASS_MIN_MS`) wird der Pass samt seinen pausierten Partien abgeräumt und die Personen-ID aus den Abschlussberichten entfernt; laufende Partien der Mitspieler bleiben bestehen. Pausierte Partien bleiben jetzt bis zu 30 Tage liegen (`PAUSE_MS`, vorher 7 Tage).
+
+### Behoben
+- **Würfelhinweis nur mit Entwicklungskarte:** „Vorher darfst du eine Entwicklungskarte spielen“ steht nur noch da, wenn tatsächlich eine spielbare Karte auf der Hand liegt (kein frisch gekauftes, Siegpunkt- oder Stadtmauer-Blatt).
+- **Kartenanimationen treffen den richtigen Stapel:** Sichtbare Rohstoffe landen auf dem Rohstoffstapel des Empfängers; verdeckte Karten landen in seiner Spielerstatistik, beim Bestehlen starten sie dort.
 
 ## [1.1.0] - 2026-11-26
 

@@ -410,6 +410,7 @@ impl Game {
 
     pub fn main_act(&mut self, pid: usize, a: &Value) -> Result<(), GameError> {
         let t = astr(a, "type").unwrap_or("");
+        // Handelsantworten hängen nicht am Zug (Gegenangebot, Annehmen, Ablehnen).
         if t == "trade_respond" {
             return self.trade_respond(pid, a);
         }
@@ -417,6 +418,20 @@ impl Game {
             return Err(GameError(
                 "Zuerst müssen alle Pflichten (Abwerfen/Goldwahl) erledigt sein.".into(),
             ));
+        }
+        // Spielerhandel: Jeder darf dem Spielenden ein Angebot machen (wie ein Gegenangebot);
+        // nur der Spielende selbst muss dafür gewürfelt haben. Angebot und Abschluss gehen an alle.
+        if t == "trade_offer" {
+            if pid == self.S.turn {
+                self.need_rolled()?;
+            }
+            return self.trade_offer(pid, a);
+        }
+        if t == "trade_confirm" {
+            return self.trade_confirm(pid, a);
+        }
+        if t == "trade_cancel" {
+            return self.trade_cancel(pid);
         }
         if let Some(sbp) = self.S.sbp.clone() {
             if pid != sbp.pid.unwrap_or(usize::MAX) {
@@ -513,12 +528,6 @@ impl Game {
                 self.need_rolled()?;
                 self.take_over(pid, a)
             }
-            "trade_offer" => {
-                self.need_rolled()?;
-                self.trade_offer(pid, a)
-            }
-            "trade_confirm" => self.trade_confirm(pid, a),
-            "trade_cancel" => self.trade_cancel(pid),
             "end_turn" => self.end_turn(pid),
             _ => Err(GameError("Unbekannte Aktion.".into())),
         }

@@ -237,7 +237,22 @@ impl Game {
             }
             "roll" => {
                 if me {
-                    "Du bist dran – würfle! (Vorher darfst du eine Entwicklungskarte spielen.)"
+                    let dev = pid
+                        .and_then(|p| S.players.get(p))
+                        .map(|p| {
+                            !S.ts.dev_played
+                                && p.dev.iter().any(|d| {
+                                    d.kind != "siegpunkt"
+                                        && d.kind != "stadtmauer"
+                                        && d.bought < S.turn_no
+                                })
+                        })
+                        .unwrap_or(false);
+                    if dev {
+                        "Du bist dran – würfle! (Vorher darfst du eine Entwicklungskarte spielen.)"
+                    } else {
+                        "Du bist dran – würfle!"
+                    }
                 } else {
                     return Value::from(format!("{} ist am Zug.", tn));
                 }

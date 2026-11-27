@@ -774,9 +774,29 @@
     Trade.render();
     renderModal(v);
     renderVoiceUI();
+    fitCtlHud();
     // eigener Zug => Titel
     document.title = (isMe() ? '▶ ' : '') + 'Die Handelsinseln';
   }
+
+  // Controller-Ansicht: Passt die Bedienleiste nicht (z. B. im Querformat), wird sie verkleinert statt zu scrollen.
+  function fitCtlHud() {
+    const b = $('bottom');
+    if (!b) return;
+    if (!st.ctl) { b.style.zoom = ''; return; }
+    b.style.zoom = '';
+    const hud = $('hud'), cs = getComputedStyle(hud);
+    const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    const gap = (parseFloat(cs.rowGap) || 0);
+    let top = 0, n = 0;
+    for (const el of hud.children) {
+      if (el === b || el.offsetParent === null || getComputedStyle(el).position === 'fixed') continue;
+      top += el.offsetHeight; n++;
+    }
+    const avail = innerHeight - pad - top - gap * n;
+    if (b.scrollHeight > avail && avail > 0) b.style.zoom = Math.max(0.5, avail / b.scrollHeight).toFixed(3);
+  }
+  addEventListener('resize', () => { if (st.ctl && V()) fitCtlHud(); });
 
   function renderBanner(v) {
     const you = isMe();
@@ -849,15 +869,28 @@
     const lim = ml === null ? Infinity : ml || 7, tot = sumO(hand);
     const warn = tot > lim ? `<span class="handwarn" title="Du hast ${tot} Karten (Limit ${lim}). Bei einer 7 musst du die Hälfte abwerfen.">⚠ ${tot}/${lim}</span>` : '';
     setHTML($('resRow'), res + warn);
-    const cards = v.me.dev.map((d) => {
-      const why = d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.type === 'stadtmauer' ? 'Stadtmauer – bleibt verdeckt und erlaubt bei einer 7 eine Handkarte mehr.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
-      return `<button class="dcard${d.playable ? ' play' : ''}${d.fresh ? ' fresh' : ''}${d.type === 'siegpunkt' || d.type === 'stadtmauer' ? ' vpc' : ''}" data-a="dev" data-type="${d.type}" data-id="${esc(d.id)}" title="${esc(Art.DEV_NAMES[d.type] + ' – ' + why)}" ${d.playable ? '' : 'aria-disabled="true"'}>` +
-        `${Art.dev(d.type, 34)}<span>${Art.DEV_NAMES[d.type]}</span>${d.fresh ? '<i class="new">neu</i>' : ''}</button>`;
-    }).join('');
-    setHTML($('devRow'), cards || '<span class="muted small">Keine Entwicklungskarten</span>');
+    if (st.ctl) renderDevStack(v);
+    else {
+      const cards = v.me.dev.map((d) => {
+        const why = d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.type === 'stadtmauer' ? 'Stadtmauer – bleibt verdeckt und erlaubt bei einer 7 eine Handkarte mehr.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
+        return `<button class="dcard${d.playable ? ' play' : ''}${d.fresh ? ' fresh' : ''}${d.type === 'siegpunkt' || d.type === 'stadtmauer' ? ' vpc' : ''}" data-a="dev" data-type="${d.type}" data-id="${esc(d.id)}" title="${esc(Art.DEV_NAMES[d.type] + ' – ' + why)}" ${d.playable ? '' : 'aria-disabled="true"'}>` +
+          `${Art.dev(d.type, 34)}<span>${Art.DEV_NAMES[d.type]}</span>${d.fresh ? '<i class="new">neu</i>' : ''}</button>`;
+      }).join('');
+      setHTML($('devRow'), cards || '<span class="muted small">Keine Entwicklungskarten</span>');
+    }
     const mine = v.players[v.you];
     const pts = mine.vp + (v.me.hiddenVp || 0);
     setHTML($('score'), `<div class="sc" title="Deine Siegpunkte (inkl. verdeckter Siegpunktkarten). Wer ${v.winPoints} erreicht, gewinnt."><b>${pts}</b><span>/ ${v.winPoints}</span><small>Punkte</small></div>`);
+  }
+
+  // Controller-Ansicht: Entwicklungskarten als Stapel, damit nichts scrollt. Ein Tipp zeigt alle in einem Fenster.
+  function renderDevStack(v) {
+    const devs = v.me.dev || [];
+    if (!devs.length) { setHTML($('devRow'), '<span class="muted small">Keine Entwicklungskarten</span>'); return; }
+    const playable = devs.filter((d) => d.playable).length, top = devs.find((d) => d.playable) || devs[0];
+    setHTML($('devRow'), `<button class="dstack${playable ? ' hasplay' : ''}" data-a="devall" title="Alle ${devs.length} Entwicklungskarten anzeigen${playable ? ` – ${playable} spielbar` : ''}">` +
+      `<span class="dsi">${Art.dev(top.type, 30)}</span><span class="dsl">Entwicklungskarten</span><b class="dsc">${devs.length}</b>` +
+      (playable ? `<i class="dsp">▶ ${playable}</i>` : '') + '</button>');
   }
 
   // Banktausch für Bauten: fehlende Rohstoffe mit dem günstigsten Kurs ausgleichen.
@@ -1000,9 +1033,10 @@
       ((lg.shipFrom && lg.shipFrom.length && isMe()) ? `<button class="bb${(st.ctl ? curMode() === 'move' : st.moveFrom) ? ' on' : ''}" data-a="move" title="Ein Schiff versetzen: klicke ein markiertes Schiff, dann das Ziel."><span class="ic">${Art.pieceIcon('ship', v.players[v.you].color, 38)}</span><span class="lb">${compact() ? 'Fahren' : 'Versetzen'}</span><span class="cost"><span class="cc">⇄</span></span></button>` : '') +
       ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${curMode() === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
       (() => {
-        const canT = st.tableOn || (isMe() && (v.step === 'main' || v.step === 'sbp'));
-        const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: nur Handel mit der Bank.' : 'Handeln: mit der Bank oder den Mitspielern') : (v.phase !== 'main' ? 'Erst nach dem Aufbau.' : v.turn !== v.you ? 'Nur im eigenen Zug.' : 'Jetzt nicht möglich.');
-        return `<button class="bb trade${Trade.isOpen() && canT ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">${setg().playerTrade === false ? 'nur Bank' : 'Bank · Spieler'}</span></button>`;
+        // Die Handelsansicht lässt sich immer öffnen; gesperrt sind darin nur die Aktionen, die gerade nicht gehen.
+        const canT = v.phase === 'main' || v.phase === 'setup';
+        const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: nur Handel mit der Bank.' : v.turn === v.you ? 'Handeln: mit der Bank oder den Mitspielern' : 'Handeln: Angebot an den Spielenden (wie ein Gegenangebot)') : 'Erst nach dem Aufbau.';
+        return `<button class="bb trade${Trade.isOpen() ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">${setg().playerTrade === false ? 'nur Bank' : 'Bank · Spieler'}</span></button>`;
       })();
     setHTML($('build'), html);
   }
@@ -1072,7 +1106,7 @@
       `<tr><td>${Art.dev('ritter', 28)}</td><th>Entwicklungskarte</th><td>${costChips('dev')}</td></tr></table>${row.length ? '' : ''}` +
       `<h3>Entwicklungskarten</h3><ul><li><b>Ritter</b> – Räuber versetzen &amp; stehlen</li><li><b>Straßenbau</b> – 2 Wege gratis</li><li><b>Erfindung</b> – 2 beliebige Rohstoffe</li><li><b>Monopol</b> – alle Karten einer Sorte einsammeln</li><li><b>Siegpunkt</b> – 1 verdeckter Punkt</li></ul></div>` +
       `<div><h3>Kurzregeln</h3><ul>` +
-      `<li><b>Handel:</b> ${setg().playerTrade === false ? 'In dieser Partie nur mit der Bank' : 'Im eigenen Zug mit allen Mitspielern (Angebot) oder mit der Bank'} <b>${setg().bankRate || 4}:1</b>. Mit Hafen <b>3:1</b>, mit Spezialhafen <b>2:1</b> für die passende Sorte.</li>` +
+      `<li><b>Handel:</b> ${setg().playerTrade === false ? 'In dieser Partie nur mit der Bank' : 'Angebot an alle im eigenen Zug (nach dem Würfeln) oder als Mitspieler jederzeit an den Spielenden; Banktausch nur im eigenen Zug, Kurs'} <b>${setg().bankRate || 4}:1</b>. Mit Hafen <b>3:1</b>, mit Spezialhafen <b>2:1</b> für die passende Sorte.</li>` +
       `<li><b>Häfen:</b> Eine eigene Siedlung/Stadt an der Hafenkante schaltet den Kurs frei.</li>` +
       `<li><b>Räuber:</b> Bei einer 7 verlieren alle mit mehr als ${setg().handLimit === null ? '∞ (unbegrenzt)' : setg().handLimit || 7} Karten die Hälfte. Der Räuber blockiert ein Landfeld und bestiehlt einen Nachbarn.</li>` +
       `<li><b>Pirat:</b> Blockiert ein Meerfeld (keine Schiffe/Erträge der angrenzenden Siedlungen) und bestiehlt.</li>` +
@@ -1131,6 +1165,13 @@
           `<div class="mact"><button class="btn ghostb" data-m="close">Abbrechen</button></div>`;
       case 'steal':
         return `<h2>Wen bestiehlst du?</h2><p class="lead">Eine zufällige Karte wandert zu dir.</p><div class="steal">${v.legal.steal.map((pid) => `<button type="button" class="stl" data-m="steal" data-pid="${pid}" style="--pc:${colorOf(pid)}">${avatar(pid, 56)}<b>${esc(v.players[pid].name)}</b><small>${v.players[pid].resCount} Karten</small></button>`).join('')}</div>`;
+      case 'devs': {
+        const cards = v.me.dev || [];
+        const why = (d) => d.type === 'siegpunkt' ? 'Siegpunkt – bleibt verdeckt und zählt automatisch.' : d.type === 'stadtmauer' ? 'Stadtmauer – bleibt verdeckt und erlaubt bei einer 7 eine Handkarte mehr.' : d.fresh ? 'Erst in der nächsten Runde spielbar (in diesem Zug gekauft).' : !d.playable ? 'Gerade nicht spielbar.' : DEV_HELP[d.type];
+        return `<h2>Entwicklungskarten</h2><p class="lead">Alle ${cards.length} Karten auf deiner Hand.</p><div class="devgrid">` +
+          cards.map((d) => `<button class="dcard${d.playable ? ' play' : ''}${d.fresh ? ' fresh' : ''}${d.type === 'siegpunkt' || d.type === 'stadtmauer' ? ' vpc' : ''}" data-m="devplay" data-type="${d.type}" title="${esc(Art.DEV_NAMES[d.type] + ' – ' + why(d))}" ${d.playable ? '' : 'aria-disabled="true"'}>${Art.dev(d.type, 40)}<span>${Art.DEV_NAMES[d.type]}</span>${d.fresh ? '<i class="new">neu</i>' : ''}</button>`).join('') +
+          `</div><div class="mact"><button class="btn ghostb" data-m="close">Schließen</button></div>`;
+      }
       case 'help': return helpHTML();
       case 'chiphelp': return chipHelpHTML(st.chipN);
       case 'win': {
@@ -1184,6 +1225,17 @@
     else if (m === 'yop') { const picks = RES.flatMap((r) => Array(st.draft[r] || 0).fill(r)); j = await act('play_yop', { a: picks[0], b: picks[1] }); if (j && !j.error) { st.modal = null; renderModal(V()); } }
     else if (m === 'mono') { j = await act('play_monopoly', { res: mm.dataset.res }); if (j && !j.error) { st.modal = null; renderModal(V()); } }
     else if (m === 'steal') j = await act('steal', { target: Number(mm.dataset.pid) });
+    else if (m === 'devplay') {
+      const t = mm.dataset.type;
+      if (t === 'ritter') j = await act('play_knight');
+      else if (t === 'strassenbau') j = await act('play_roadbuilding');
+      else if (t === 'erfindung') { st.modal = 'yop'; st.draftKey = ''; }
+      else if (t === 'monopol') st.modal = 'monopol';
+      else return;
+      if (j && j.error) { renderModal(V()); return; }
+      if (t === 'ritter' || t === 'strassenbau') st.modal = null;
+      renderModal(V());
+    }
     else if (m === 'newgame') j = await act('new_game');
     void j;
   });
@@ -1204,7 +1256,8 @@
       case 'skip_rb': await act('skip_roadbuilding'); break;
       case 'takeover': if (st.ctl) { await act(v.arm && v.arm.mode === 'takeover' ? 'disarm' : 'arm', { mode: 'takeover' }); break; } st.moveFrom = null; st.mode = st.mode === 'takeover' ? null : 'takeover'; renderHUD(v); renderTargets(v); break;
       case 'cancel': if (st.ctl) { await act('disarm'); break; } st.mode = null; st.moveFrom = null; renderHUD(v); renderTargets(v); break;
-      case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); if (st.ctl) setTimeout(() => { if ($('tradeDock').firstChild) $('tradeDock').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); break; // Controller: das Handelsfenster liegt unter den Karten
+      case 'trade': st.mode = null; st.moveFrom = null; Trade.toggle(); renderHUD(v); renderTargets(v); break;
+      case 'devall': st.modal = 'devs'; renderModal(v); break;
       case 'move': if (st.ctl) { await act(v.arm && v.arm.mode === 'move' ? 'disarm' : 'arm', { mode: 'move' }); break; } st.mode = null; if (st.moveFrom) st.moveFrom = null; else { const f = v.legal.shipFrom; if (f.length === 1) st.moveFrom = f[0]; } renderHUD(v); renderTargets(v); break;
       case 'build': {
         const k = b.dataset.k;
@@ -1268,7 +1321,7 @@
     Pair.init(ctx);
     Person.init(ctx);
     Fx.init({ Art, table: () => !!st.tableOn, slow: () => !autoFlow(), hexEl: (k) => { const c = L.hex.map.get(k); return c ? c.el : null; } });
-    Trade.init({ root: $('tradeDock'), table: () => !!st.tableOn, view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
+    Trade.init({ root: $('tradeDock'), table: () => !!st.tableOn, ctl: () => st.ctl, view: V, act, toast, esc, Art, avatar, onChange: () => { if (V()) { renderHUD(V()); } } });
     const q = new URLSearchParams(location.search);
     const mock = q.get('mock');
     if (mock) {

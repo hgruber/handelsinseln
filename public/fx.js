@@ -19,11 +19,15 @@
       return { x: W / 2, y: H / 2 };
     }
     const pid = +ref.slice(2);
-    if (C.table && C.table()) { // Spieltisch: Ziel ist die Rohstoffleiste am Platz des Spielers
+    if (C.table && C.table()) { // Spieltisch: sichtbare Karten treffen den Rohstoffstapel am Platz, verdeckte die Spielerstatistik
       const seat = document.querySelector(`.seat[data-pid="${pid}"]`);
-      const slot = seat && res && seat.querySelector(`[data-res="${res}"]`);
-      if (slot) return center(slot.getBoundingClientRect());
-      if (seat) return center(seat.getBoundingClientRect());
+      if (seat) {
+        const slot = res && seat.querySelector(`[data-res="${res}"]`);
+        if (slot) return center(slot.getBoundingClientRect());
+        const stats = seat.querySelector('.pubrow .badge .bst') || seat.querySelector('.badge .bst');
+        if (stats) return center(stats.getBoundingClientRect());
+        return center(seat.getBoundingClientRect());
+      }
     }
     if (pid === v.you) {
       const slot = res && document.querySelector(`#hand .rcard[data-res="${res}"]`);
@@ -32,8 +36,12 @@
       if (hand) return center(hand.getBoundingClientRect());
       return { x: W / 2, y: H - 60 };
     }
+    // Mitspieler: sichtbare Rohstoffe treffen ihre Rohstoffzahl, verdeckte Karten die Spielerstatistik
     const pc = document.querySelector(`.pc[data-pid="${pid}"]`);
-    if (pc) { const r = pc.getBoundingClientRect(); return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 }; }
+    if (pc) {
+      const el = (res && pc.querySelector('.stats > span:first-child')) || pc.querySelector('.stats') || pc;
+      return center(el.getBoundingClientRect());
+    }
     return { x: 80, y: 100 };
   }
 

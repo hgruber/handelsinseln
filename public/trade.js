@@ -38,7 +38,8 @@
 
   function composer(v) {
     const hand = v.me.hand, rates = v.rates || {};
-    const sbp = v.step === 'sbp';
+    const sbp = v.step === 'sbp', myTurn = v.turn === v.you, rolled = v.step === 'main';
+    const canBank = myTurn && (rolled || sbp); // die Bank bedient nur, wer am Zug ist und gewürfelt hat
     const noP = !!(v.settings && v.settings.playerTrade === false); // Spielerhandel ausgeschaltet: nur Bank
     const gs = RES.filter((r) => S.give[r] > 0), ws = RES.filter((r) => S.want[r] > 0);
     let bank = null, hint = 'Wähle links eine Sorte zum Abgeben und rechts eine zum Erhalten.';
@@ -52,8 +53,13 @@
     if (bank && v.bank && v.bank.stock && v.bank.stock[bank.w] != null && v.bank.stock[bank.w] < bank.times) {
       hint = `Die Bank hat nicht genug ${rn(bank.w)} (noch ${v.bank.stock[bank.w]}).`; bank = null;
     }
-    const canOffer = !sbp && !noP && sum(S.give) > 0 && sum(S.want) > 0 && (tbl() || !missing(hand, S.give).length);
-    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : !tbl() && missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : 'Angebot an alle Mitspieler senden';
+    if (!canBank && (gs.length || ws.length)) {
+      const why = myTurn ? 'Mit der Bank tauschst du erst nach dem Würfeln.' : 'Mit der Bank tauschst du nur im eigenen Zug.';
+      if (bank) { hint = why; bank = null; } else if (hint) hint = why + ' ' + hint;
+    }
+    // Angebot an alle: im eigenen Zug erst nach dem Würfeln, als Mitspieler immer (wie ein Gegenangebot).
+    const canOffer = !sbp && !noP && v.phase === 'main' && sum(S.give) > 0 && sum(S.want) > 0 && (tbl() || !missing(hand, S.give).length) && (!myTurn || rolled);
+    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : v.phase !== 'main' ? 'Erst nach dem Aufbau.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : !tbl() && missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : myTurn && !rolled ? 'Würfle zuerst – danach kannst du bieten.' : 'Angebot an alle Mitspieler senden';
     const rateChips = RES.map((r) => {
       const rt = rates[r] || 4, ok = tbl() || (hand[r] || 0) >= rt;
       return `<button type="button" class="rate r${rt}${ok ? '' : ' off'}" data-rate="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${rt}× ${rn(r)} → 1 beliebiger Rohstoff${rt < 4 ? (rt === 2 ? ' (2:1-Hafen)' : ' (3:1-Hafen)') : ' (Bank 4:1)'}${ok ? ' – Klick füllt „Ich gebe“' : ' – zu wenig Karten'}">${C.Art.res(r, 20)}<b>${rt}:1</b></button>`;
@@ -70,7 +76,7 @@
         return lim.length ? `<div class="stockline" title="Was die Bank noch hat. Ist ein Rohstoff leer, kann er nicht getauscht werden."><span>Bank-Vorrat:</span>${lim.map((r) => `<span class="tchip" style="--rc:${C.Art.RES_COLORS[r]}" title="${rn(r)}">${C.Art.res(r, 16)}<b>${st[r]}</b></span>`).join('')}</div>` : '';
       })() +
       (hint ? `<p class="thint">${C.esc(hint)}</p>` : '') +
-      `<div class="tact"><button type="button" class="btn green${bank ? '' : ' dis'}" data-do="bank" ${bank ? '' : 'aria-disabled="true"'} title="${bank ? '' : 'Erst eine passende Menge wählen'}">` +
+      `<div class="tact"><button type="button" class="btn green${bank ? '' : ' dis'}" data-do="bank" ${bank ? '' : 'aria-disabled="true"'} title="${bank ? '' : canBank ? 'Erst eine passende Menge wählen' : myTurn ? 'Erst nach dem Würfeln' : 'Nur im eigenen Zug'}">` +
       (bank ? `Mit der Bank tauschen (${bank.rate}:1${bank.rate < 4 ? ' Hafen' : ''}${bank.times > 1 ? ', ' + bank.times + '×' : ''})` : 'Mit der Bank tauschen') + `</button>` +
       `<button type="button" class="btn gold${canOffer ? '' : ' dis'}" data-do="offer" ${canOffer ? '' : 'aria-disabled="true"'} title="${C.esc(offerWhy)}">Angebot an alle${noP ? ' (aus)' : ''}</button></div></div>`;
     return `<div class="tpanel glass composer${S.collapsed ? ' collapsed' : ''}">${head('Handeln', '<button type="button" class="ghost" data-do="close" title="Schließen">✕</button>')}${S.collapsed ? '' : body}</div>`;
@@ -150,10 +156,22 @@
       } else {
         armDecline(v, null);
         S.tradeId = null; S.counterOpen = false;
-        if (S.open && v.turn === v.you && (v.step === 'main' || v.step === 'sbp')) html = composer(v);
+        if (S.open && (v.phase === 'main' || v.phase === 'setup')) html = composer(v);
       }
     }
     if (html !== S.html) { S.html = html; C.root.innerHTML = html; C.root.classList.toggle('has', !!html); C.onChange && C.onChange(); }
+    fitCtl();
+  }
+
+  // Controller-Ansicht: Das Handelsfenster liegt als Schicht über der Bedienung und wird so verkleinert,
+  // dass es ohne Scrollen auf den Bildschirm passt.
+  function fitCtl() {
+    const p = C.root.querySelector('.tpanel');
+    if (!p) return;
+    p.style.zoom = '';
+    if (!(C.ctl && C.ctl())) return;
+    const avail = innerHeight - 12, need = p.scrollHeight;
+    if (need > avail) p.style.zoom = Math.max(0.55, avail / need).toFixed(3);
   }
 
   // ---- Aenderungen ------------------------------------------------------------------------
@@ -187,6 +205,7 @@
       case 'counter-open': S.counterOpen = true; render(); break;
       case 'counter-close': S.counterOpen = false; render(); break;
       case 'bank': {
+        if (v.turn !== v.you || !(v.step === 'main' || v.step === 'sbp')) break; // Banktausch nur im eigenen Zug nach dem Würfeln
         const gs = RES.find((r) => S.give[r] > 0), ws = RES.find((r) => S.want[r] > 0);
         const times = S.want[ws];
         await run(async () => {
@@ -206,6 +225,7 @@
   }
 
   function wire(rootEl) {
+    addEventListener('resize', () => fitCtl());
     let lp = null, longDone = false, lastTouch = false;
     const stop = () => { if (lp) { clearTimeout(lp); lp = null; } };
     rootEl.addEventListener('pointerdown', (e) => {

@@ -32,6 +32,7 @@ ALLE=(
   "Browser Zuschauer|python3 tests/browser_watch.py"
   "Browser Mobil+Lobbyzoom|python3 tests/browser_mobile.py"
   "Browser Controller|python3 tests/browser_controller.py"
+  "Browser Controller-Anzeige|python3 tests/browser_ctl.py"
   "Browser Gemischt|python3 tests/browser_mixed.py"
   "Browser Sprachchat|python3 tests/browser_voice.py"
   "Browser Bots+Avatare|python3 tests/browser_bots.py"
