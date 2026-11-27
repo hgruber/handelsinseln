@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- **Name und Avatar bleiben fest:** Beim ersten erfolgreichen Beitritt werden Name und Avatar gespeichert; danach sind sie auf der Anmeldung gesperrt. Die gespeicherte Farbe ist der Standard, lässt sich aber ändern, wenn ein anderer Mensch sie in der gewählten Partie belegt. Bei einer Farbkollision weicht zuerst ein Bot auf eine freie Farbe aus, bevor ein Mensch wechseln muss.
 - **Spielerpass ist der Standard:** Jeder Browser legt beim ersten Aufruf automatisch einen Pass aus vier Wörtern an; der Menüpunkt zeigt ihn und erlaubt weiterhin, einen vorhandenen Pass einzugeben, einen neuen anzulegen oder den Pass vom Gerät zu entfernen. Die Rückfrage beim Verlassen einer laufenden Partie weist darauf hin, den Pass zu notieren und dass die Partie nach spätestens 30 Tagen ohne Zugriff gelöscht wird.
 - **Aufbewahrung:** Der Server merkt sich je Personen-ID Erstanlage und letzten Zugriff (`DATA_DIR/personen.json`). Nach 30 Tagen ohne Zugriff (`PASS_MS`) und mindestens 24 h nach Erstanlage (`PASS_MIN_MS`) wird der Pass samt seinen pausierten Partien abgeräumt und die Personen-ID aus den Abschlussberichten entfernt; laufende Partien der Mitspieler bleiben bestehen. Pausierte Partien bleiben jetzt bis zu 30 Tage liegen (`PAUSE_MS`, vorher 7 Tage).
 

@@ -22,7 +22,10 @@
   const selGame = () => L.games.find((g) => g.id === L.sel) || null;
   const watchable = (g) => !!g && g.joinable === false && !!g.watchable; // läuft: nur zuschauen
   const watchSel = () => watchable(selGame());
-  const takenColors = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.color) : []; };
+  const selPlayers = () => (selGame() ? selGame().players || [] : []);
+  const menschHatFarbe = (c) => selPlayers().some((p) => p.color === c && !p.bot);
+  const gespeicherteFarbe = () => localStorage.getItem('handelsinseln.color') || '';
+  const farbKollision = () => { const c = gespeicherteFarbe(); return !!c && menschHatFarbe(c); };
 
   function normalizeSel() {
     const j = joinable();
@@ -31,29 +34,42 @@
     if (!j.length && !watchSel()) L.sel = 'new';
   }
   const takenAvatars = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.avatar).filter(Boolean) : []; };
+  const gespeicherterAvatar = () => localStorage.getItem('handelsinseln.avatar') || '';
   // Avatar: gemerkter oder zufälliger Vorschlag; ist er im gewählten Spiel schon vergeben, wird ein freier zufällig gewählt
   function pickAvatar() {
-    const t = takenAvatars();
+    const t = takenAvatars(), fest = gespeicherterAvatar();
+    if (fest && AVS.HUMAN_IDS.includes(fest) && !t.includes(fest)) { L.avatar = fest; return; }
     if (L.avatar && (t.includes(L.avatar) || !AVS.HUMAN_IDS.includes(L.avatar))) L.avatar = null;
     if (!L.avatar) { const free = AVS.HUMAN_IDS.filter((a) => !t.includes(a)); L.avatar = free[Math.floor(Math.random() * free.length)] || AVS.HUMAN_IDS[0]; }
   }
   function renderAvatars() {
-    const t = takenAvatars(), cur = AVS.HUMAN.find((a) => a.id === L.avatar) || AVS.HUMAN[0];
+    const fest = !!gespeicherterAvatar(), cur = AVS.HUMAN.find((a) => a.id === L.avatar) || AVS.HUMAN[0];
+    const lab = $('avLabel'); if (lab) lab.textContent = fest ? 'Dein Avatar (festgelegt)' : 'Dein Avatar';
+    if (fest) {
+      C.setHTML($('avatars'), `<button type="button" class="avsel" disabled title="Dein Avatar ist festgelegt."><img src="img/av/${cur.id}.webp" alt="" draggable="false"><span class="avn">${C.esc(cur.name)}</span></button>`);
+      return;
+    }
+    const t = takenAvatars();
     const opt = (a) => { const tk = t.includes(a.id); return `<button type="button" class="avo${L.avatar === a.id ? ' on' : ''}${tk ? ' taken' : ''}" data-a="${a.id}" role="option" aria-selected="${L.avatar === a.id}" ${tk ? 'disabled' : ''} title="${tk ? 'In diesem Spiel vergeben' : C.esc(a.name)}"><img src="img/av/${a.id}.webp" alt="" draggable="false"><span>${C.esc(a.name)}</span></button>`; };
     const grp = (g) => `<div class="avg">${g}</div><div class="avgrid">${AVS.HUMAN.filter((a) => a.g === g).map(opt).join('')}</div>`;
     C.setHTML($('avatars'), `<button type="button" class="avsel" aria-haspopup="listbox" aria-expanded="${!!L.avOpen}"><img src="img/av/${cur.id}.webp" alt="" draggable="false"><span class="avn">${C.esc(cur.name)}</span><i class="chev" aria-hidden="true"></i></button>` +
       (L.avOpen ? `<div class="avpanel glass" role="listbox" aria-label="Avatar wählen">${grp('Menschen')}${grp('Tiere')}</div>` : ''));
   }
+  // Feste Farbe gilt, solange kein anderer Mensch sie belegt; bei Kollision weicht zuerst ein Bot.
   function pickColor() {
-    const t = takenColors();
-    if (L.color && t.includes(L.color)) L.color = null;
-    if (!L.color) L.color = Object.keys(C.Art.COLORS).find((c) => !t.includes(c)) || null;
+    const saved = gespeicherteFarbe();
+    if (saved && !menschHatFarbe(saved)) { L.color = saved; return; }
+    if (!L.color || menschHatFarbe(L.color)) {
+      L.color = Object.keys(C.Art.COLORS).find((c) => !menschHatFarbe(c)) || null;
+    }
   }
   function renderSwatches() {
-    const t = takenColors(), sel = L.color;
+    const saved = gespeicherteFarbe(), kollision = farbKollision(), fest = !!saved && !kollision;
+    const sel = L.color, lab = $('swLabel');
+    if (lab) lab.textContent = fest ? 'Deine Farbe (festgelegt)' : kollision ? 'Deine Farbe (vergeben – bitte wählen)' : 'Deine Farbe';
     C.setHTML($('swatches'), Object.entries(C.Art.COLORS).map(([c, hex]) => {
-      const tk = t.includes(c);
-      return `<button type="button" class="sw${sel === c ? ' on' : ''}${tk ? ' taken' : ''}" data-c="${c}" role="radio" aria-checked="${sel === c}" ${tk ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}${tk ? ' (in diesem Spiel vergeben)' : ''}" style="--c:${hex};--c2:${C.Art.darken(hex, .35)}"><span>${tk ? '✕' : ''}</span></button>`;
+      const tk = menschHatFarbe(c), off = fest ? c !== sel : tk;
+      return `<button type="button" class="sw${sel === c ? ' on' : ''}${tk ? ' taken' : ''}" data-c="${c}" role="radio" aria-checked="${sel === c}" ${off ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}${fest ? ' (festgelegt)' : tk ? ' (in diesem Spiel vergeben)' : ''}" style="--c:${hex};--c2:${C.Art.darken(hex, .35)}"><span>${tk ? '✕' : ''}</span></button>`;
     }).join(''));
   }
   function gameCard(g) {
@@ -113,7 +129,6 @@
     if (!L.color) { C.toast('Bitte wähle eine Farbe.', 'warn'); return; }
     const j = joinable();
     if (!forceCreate && j.length > 1 && !selGame() && L.sel !== 'new') { C.toast('Wähle zuerst ein Spiel aus der Liste oder eröffne ein neues.', 'warn'); return; }
-    localStorage.setItem('handelsinseln.name', name); localStorage.setItem('handelsinseln.color', L.color); localStorage.setItem('handelsinseln.avatar', L.avatar);
     const body = { name, color: L.color, avatar: L.avatar };
     if (forceCreate || !j.length || L.sel === 'new') body.create = true; else body.game = L.sel;
     if (C.mockLogin) { C.toast('Mock-Modus: join ' + JSON.stringify(body), 'info'); return; }
@@ -125,13 +140,25 @@
       if (r.games) { L.games = r.games; L.sel = null; }
       pollGames(); return;
     }
+    // Erst nach einem erfolgreichen Beitritt festhalten: Name und Avatar bleiben danach fest.
+    if (!localStorage.getItem('handelsinseln.name')) localStorage.setItem('handelsinseln.name', name);
+    if (!localStorage.getItem('handelsinseln.avatar')) localStorage.setItem('handelsinseln.avatar', L.avatar);
+    localStorage.setItem('handelsinseln.color', L.color);
+    lockIdentity();
     L.notice = ''; C.joined(r);
   }
+  function lockIdentity() {
+    const name = localStorage.getItem('handelsinseln.name') || '';
+    if (!name) return;
+    $('nameIn').value = name;
+    $('nameIn').readOnly = true;
+    $('nameIn').title = 'Dein Name ist festgelegt.';
+  }
   function initLogin() {
-    $('swatches').addEventListener('click', (e) => { const b = e.target.closest('.sw'); if (!b || b.disabled) return; L.color = b.dataset.c; localStorage.setItem('handelsinseln.color', L.color); renderSwatches(); });
+    $('swatches').addEventListener('click', (e) => { const b = e.target.closest('.sw'); if (!b || b.disabled) return; L.color = b.dataset.c; renderSwatches(); });
     $('avatars').addEventListener('click', (e) => {
       const o = e.target.closest('.avo');
-      if (o) { if (o.disabled) return; L.avatar = o.dataset.a; localStorage.setItem('handelsinseln.avatar', L.avatar); L.avOpen = false; renderAvatars(); $('avatars').querySelector('.avsel').focus(); return; }
+      if (o) { if (o.disabled) return; L.avatar = o.dataset.a; L.avOpen = false; renderAvatars(); $('avatars').querySelector('.avsel').focus(); return; }
       if (e.target.closest('.avsel')) { L.avOpen = !L.avOpen; renderAvatars(); const on = $('avatars').querySelector('.avo.on'); if (L.avOpen && on) on.scrollIntoView({ block: 'nearest' }); }
     });
     document.addEventListener('click', (e) => { if (L.avOpen && !e.composedPath().includes($('avatars'))) { L.avOpen = false; renderAvatars(); } });
@@ -149,6 +176,7 @@
     $('myGamesBtn').addEventListener('click', () => root.Person.list());
     L.color = localStorage.getItem('handelsinseln.color') || null;
     L.avatar = localStorage.getItem('handelsinseln.avatar') || null;
+    lockIdentity();
   }
   function loginShown() { renderGames(); pollGames(); }
   function setNotice(t) { L.notice = t || ''; }

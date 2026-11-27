@@ -624,6 +624,18 @@ fn lobby_farbe_name_max_sechs_host_und_reconnect() {
 }
 
 #[test]
+fn bot_weicht_der_farbe_eines_menschen() {
+    let mut g = Game::new(Arc::new(Mutex::new(Rng::seeded(1))), "test", "Test");
+    g.join("Anna", "rot", None, None).unwrap();
+    g.add_bot(0, Some("baumeister")).unwrap();
+    let bot = g.S.players.iter().find(|p| p.bot.is_some()).unwrap().id;
+    assert_eq!(g.S.players[bot].color, "blau");
+    g.join("Ben", "blau", None, None).unwrap();
+    assert_eq!(g.S.players[bot].color, "orange", "Bot weicht zuerst");
+    assert_eq!(g.S.players.iter().find(|p| p.name == "Ben").unwrap().color, "blau");
+}
+
+#[test]
 fn aufbau_schlangenreihenfolge_zweite_siedlung_und_startinsel() {
     let mut g = new_game(2, 3);
     g.act(0, &json!({ "type": "set_settings", "settings": { "dice": "auto" } }))

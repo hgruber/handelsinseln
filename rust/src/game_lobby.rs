@@ -88,6 +88,33 @@ impl Game {
         free.get(idx).map(|s| s.to_string()).unwrap_or_else(|| avatars::HUMAN_IDS[0].to_string())
     }
 
+    /// Farbe für einen Menschen reservieren. Hat sie ein Bot, weicht der Bot zuerst auf eine
+    /// freie Farbe aus; erst bei einer Kollision mit einem anderen Menschen gibt es einen Fehler.
+    fn claim_color(&mut self, color: &str) -> Result<(), GameError> {
+        let i = match self.S.players.iter().position(|p| p.color == color) {
+            Some(i) => i,
+            None => return Ok(()),
+        };
+        if self.S.players[i].bot.is_none() {
+            return Err(GameError("Diese Farbe ist schon vergeben.".into()));
+        }
+        let alt = match COLORS
+            .iter()
+            .find(|c| !self.S.players.iter().any(|p| p.color == **c))
+        {
+            Some(c) => (*c).to_string(),
+            None => return Err(GameError("Diese Farbe ist schon vergeben.".into())),
+        };
+        let name = self.S.players[i].name.clone();
+        self.S.players[i].color = alt.clone();
+        self.log(
+            format!("{} weicht auf die Farbe {} aus.", name, alt),
+            "sys",
+            Some(i),
+        );
+        Ok(())
+    }
+
     pub fn join(
         &mut self,
         name: &str,
@@ -119,9 +146,6 @@ impl Game {
         if self.S.players.len() >= MAX_P {
             return Err(GameError("Das Spiel ist voll (maximal 6 Spieler).".into()));
         }
-        if self.S.players.iter().any(|p| p.color == color) {
-            return Err(GameError("Diese Farbe ist schon vergeben.".into()));
-        }
         let low = name.to_lowercase();
         if self.S.players.iter().any(|p| p.name.to_lowercase() == low) {
             return Err(GameError("Dieser Name ist schon vergeben.".into()));
@@ -130,6 +154,7 @@ impl Game {
             return Err(GameError("Dieser Name gehört einem Bot.".into()));
         }
         let av = self.pick_avatar(avatar);
+        self.claim_color(color)?;
         let p = self.new_player(&name, color, &av, None);
         let pid = p.id;
         let tok = p.token.clone().unwrap_or_default();
@@ -204,9 +229,6 @@ impl Game {
         if self.S.players.len() >= MAX_P {
             return Err(GameError("Das Spiel ist voll (maximal 6 Spieler).".into()));
         }
-        if self.S.players.iter().any(|p| p.color == color) {
-            return Err(GameError("Diese Farbe ist schon vergeben.".into()));
-        }
         let low = name.to_lowercase();
         if self.S.players.iter().any(|p| p.name.to_lowercase() == low) {
             return Err(GameError("Dieser Name ist schon vergeben.".into()));
@@ -215,6 +237,7 @@ impl Game {
             return Err(GameError("Dieser Name gehört einem Bot.".into()));
         }
         let av = self.pick_avatar(a.get("avatar").and_then(|v| v.as_str()));
+        self.claim_color(color)?;
         let mut p = self.new_player(&name, color, &av, None);
         p.token = None;
         p.connected = true;
