@@ -48,6 +48,7 @@ try:
         B.wait_for_function("document.querySelector('#gameList .gcard.run') && document.querySelector('#gameList .gcard.run').textContent.includes('Fortsetzen')", timeout=12000)
         card = B.locator('#gameList .gcard.run').first
         check('Fortsetzen' in card.inner_text(), 'Startseite kennzeichnet die eigene Partie mit „Fortsetzen“')
+        check(B.locator('#gameList .gempty').count() == 0, 'kein „Noch kein offenes Spiel“ bei eigener Partie')
         selected = 'on' in (card.get_attribute('class') or '').split()
         B.screenshot(path=f'{SHOTS}/startseite-fortsetzen.png')
         if selected:

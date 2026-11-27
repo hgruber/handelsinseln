@@ -125,11 +125,12 @@
   function renderGames() {
     normalizeSel(); pickColor(); renderSwatches(); pickAvatar(); renderAvatars();
     const j = joinable(), rest = L.games.filter((g) => g.joinable === false).sort((a, b) => (watchable(b) ? 1 : 0) - (watchable(a) ? 1 : 0));
-    const html = (j.length ? '' : '<p class="gempty">Noch kein offenes Spiel – eröffne das erste!</p>') + j.map(gameCard).join('') + rest.map(gameCard).join('');
+    const hasRes = L.games.some((g) => resumeOf(g));
+    const html = (j.length || hasRes ? '' : '<p class="gempty">Noch kein offenes Spiel – eröffne das erste!</p>') + j.map(gameCard).join('') + rest.map(gameCard).join('');
     C.setHTML($('gameList'), html);
     $('gameList').closest('.fld').hidden = !L.games.length;
     const jb = $('joinBtn'), ws = watchSel(), rb = resumeSel();
-    jb.hidden = !j.length && !ws && !L.games.some((g) => resumeOf(g));
+    jb.hidden = !j.length && !ws && !hasRes;
     jb.textContent = rb ? 'Fortsetzen' : ws ? 'Spiel ansehen' : 'Beitreten';
     const needPick = !selGame();
     jb.classList.toggle('dis', needPick); jb.setAttribute('aria-disabled', String(needPick));
