@@ -163,15 +163,15 @@
     fitCtl();
   }
 
-  // Controller-Ansicht: Das Handelsfenster liegt als Schicht über der Bedienung und wird so verkleinert,
-  // dass es ohne Scrollen auf den Bildschirm passt.
+  // Controller-Ansicht: Das Handelsfenster ist ein eigener Bereich der Konsole. Passt es nicht in diesen Bereich,
+  // wird es verkleinert; reicht auch das nicht, scrollt nur dieser Bereich (nie das ganze HUD).
   function fitCtl() {
     const p = C.root.querySelector('.tpanel');
     if (!p) return;
     p.style.zoom = '';
     if (!(C.ctl && C.ctl())) return;
-    const avail = innerHeight - 12, need = p.scrollHeight;
-    if (need > avail) p.style.zoom = Math.max(0.55, avail / need).toFixed(3);
+    const avail = C.root.clientHeight - 2, need = p.offsetHeight;
+    if (avail > 0 && need > avail) p.style.zoom = Math.max(0.55, avail / need).toFixed(3);
   }
 
   // ---- Aenderungen ------------------------------------------------------------------------

@@ -779,7 +779,8 @@
     document.title = (isMe() ? '▶ ' : '') + 'Die Handelsinseln';
   }
 
-  // Controller-Ansicht: Passt die Bedienleiste nicht (z. B. im Querformat), wird sie verkleinert statt zu scrollen.
+  // Controller-Ansicht: Passt die Bedienleiste nicht (z. B. bei sehr kleiner Höhe), wird sie verkleinert statt zu scrollen.
+  // Das Handelsfenster (flexible Zone) darf dafür schrumpfen und scrollt nur in sich selbst.
   function fitCtlHud() {
     const b = $('bottom');
     if (!b) return;
@@ -788,12 +789,12 @@
     const hud = $('hud'), cs = getComputedStyle(hud);
     const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
     const gap = (parseFloat(cs.rowGap) || 0);
-    let top = 0, n = 0;
+    let top = 0;
     for (const el of hud.children) {
-      if (el === b || el.offsetParent === null || getComputedStyle(el).position === 'fixed') continue;
-      top += el.offsetHeight; n++;
+      if (el === b || el.id === 'side' || el.offsetParent === null || getComputedStyle(el).position === 'fixed') continue;
+      top += el.offsetHeight;
     }
-    const avail = innerHeight - pad - top - gap * n;
+    const avail = innerHeight - pad - top - gap * 3; // vier Zonen (Meldung, Pflichtschritt, Handel, Bedienung)
     if (b.scrollHeight > avail && avail > 0) b.style.zoom = Math.max(0.5, avail / b.scrollHeight).toFixed(3);
   }
   addEventListener('resize', () => { if (st.ctl && V()) fitCtlHud(); });
@@ -888,7 +889,7 @@
     const devs = v.me.dev || [];
     if (!devs.length) { setHTML($('devRow'), '<span class="muted small">Keine Entwicklungskarten</span>'); return; }
     const playable = devs.filter((d) => d.playable).length, top = devs.find((d) => d.playable) || devs[0];
-    setHTML($('devRow'), `<button class="dstack${playable ? ' hasplay' : ''}" data-a="devall" title="Alle ${devs.length} Entwicklungskarten anzeigen${playable ? ` – ${playable} spielbar` : ''}">` +
+    setHTML($('devRow'), `<button class="dstack${playable ? ' hasplay' : ''}" data-a="devall" aria-label="Entwicklungskarten: ${devs.length} auf der Hand${playable ? `, ${playable} spielbar` : ''} – alle anzeigen" title="Alle ${devs.length} Entwicklungskarten anzeigen${playable ? ` – ${playable} spielbar` : ''}">` +
       `<span class="dsi">${Art.dev(top.type, 30)}</span><span class="dsl">Entwicklungskarten</span><b class="dsc">${devs.length}</b>` +
       (playable ? `<i class="dsp">▶ ${playable}</i>` : '') + '</button>');
   }
