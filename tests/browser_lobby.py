@@ -33,7 +33,9 @@ try:
         for pg, nm, idx in ((B, 'Bernd', 1), (C, 'Carla', 2)):
             pg.fill('#nameIn', nm)
             pg.wait_for_selector('#gameList [data-g]', timeout=6000)
+            check(pg.locator('#joinBtn').get_attribute('aria-disabled') == 'true', f'{nm}: „Beitreten“ ist ohne Spielwahl ausgegraut')
             pg.locator('#gameList [data-g]').first.click()
+            check(pg.locator('#joinBtn').get_attribute('aria-disabled') == 'false', f'{nm}: nach der Spielwahl ist „Beitreten“ frei')
             pg.locator('#swatches .sw:not([disabled])').nth(idx - 1).click()
             pg.screenshot(path=f'{SHOTS}/01-anmeldung-mit-liste-{nm}.png')
             pg.click('#joinBtn')

@@ -31,7 +31,7 @@
   function normalizeSel() {
     const j = joinable();
     if (L.sel !== 'new' && !j.some((g) => g.id === L.sel) && !watchable(selGame())) L.sel = null;
-    if (!L.sel && j.length === 1) L.sel = j[0].id;
+    if (L.sel === 'new' && j.length) L.sel = null; // offene Spiele da: Auswahl wieder offen
     if (!j.length && !watchSel()) L.sel = 'new';
   }
   const takenAvatars = () => { const g = selGame(); return g ? (g.players || []).map((p) => p.avatar).filter(Boolean) : []; };
@@ -125,7 +125,7 @@
     $('gameList').closest('.fld').hidden = !L.games.length;
     const jb = $('joinBtn'), ws = watchSel(); jb.hidden = !j.length && !ws;
     jb.textContent = ws ? 'Spiel ansehen' : 'Beitreten';
-    const needPick = j.length > 1 && !selGame();
+    const needPick = !selGame();
     jb.classList.toggle('dis', needPick); jb.setAttribute('aria-disabled', String(needPick)); jb.title = needPick ? 'Wähle zuerst ein Spiel aus der Liste.' : '';
     $('createBtn').classList.toggle('gold', !j.length && !ws); $('createBtn').classList.toggle('ghostb', !!j.length || ws);
     const info = $('loginInfo');
@@ -158,7 +158,7 @@
     if (!name) { $('loginForm').reportValidity(); return; }
     if (!L.color) { C.toast('Bitte wähle eine Farbe.', 'warn'); return; }
     const j = joinable();
-    if (!forceCreate && j.length > 1 && !selGame() && L.sel !== 'new') { C.toast('Wähle zuerst ein Spiel aus der Liste oder eröffne ein neues.', 'warn'); return; }
+    if (!forceCreate && !selGame() && L.sel !== 'new') { C.toast('Wähle zuerst ein Spiel aus der Liste oder eröffne ein neues.', 'warn'); return; }
     const body = { name, color: L.color, avatar: L.avatar };
     if (forceCreate || !j.length || L.sel === 'new') body.create = true; else body.game = L.sel;
     if (C.mockLogin) { C.toast('Mock-Modus: join ' + JSON.stringify(body), 'info'); return; }
