@@ -1035,9 +1035,9 @@
       ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${curMode() === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
       (() => {
         // Die Handelsansicht lässt sich immer öffnen; gesperrt sind darin nur die Aktionen, die gerade nicht gehen.
-        // In der Sonderbauphase (nach dem Zugende, vor dem nächsten Wurf) wird gar nicht gehandelt.
-        const canT = (v.phase === 'main' || v.phase === 'setup') && v.step !== 'sbp';
-        const why = canT ? (v.turn === v.you ? 'Handeln: mit der Bank oder den Mitspielern' : 'Handeln: Angebot an den Spielenden (wie ein Gegenangebot)') : v.step === 'sbp' ? 'In der Sonderbauphase wird nicht gehandelt.' : 'Erst nach dem Aufbau.';
+        // In der Sonderbauphase (nach dem Zugende, vor dem nächsten Wurf) wird nicht gehandelt – das Fenster bleibt einsehbar.
+        const canT = v.phase === 'main' || v.phase === 'setup';
+        const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: ansehen ja, handeln nicht.' : v.turn === v.you ? 'Handeln: mit der Bank oder den Mitspielern' : 'Handeln: Angebot an den Spielenden (wie ein Gegenangebot)') : 'Erst nach dem Aufbau.';
         return `<button class="bb trade${Trade.isOpen() ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">${setg().playerTrade === false ? 'nur Bank' : 'Bank · Spieler'}</span></button>`;
       })();
     setHTML($('build'), html);

@@ -42,7 +42,7 @@
     const canBank = myTurn && rolled; // die Bank bedient nur, wer am Zug ist und gewürfelt hat
     const noP = !!(v.settings && v.settings.playerTrade === false); // Spielerhandel ausgeschaltet: nur Bank
     const gs = RES.filter((r) => S.give[r] > 0), ws = RES.filter((r) => S.want[r] > 0);
-    let bank = null, hint = 'Wähle links eine Sorte zum Abgeben und rechts eine zum Erhalten.';
+    let bank = null, hint = sbp ? 'In der Sonderbauphase wird nicht gehandelt – Bauen ist erlaubt, Handeln nicht.' : 'Wähle links eine Sorte zum Abgeben und rechts eine zum Erhalten.';
     if (gs.length === 1 && ws.length === 1) {
       const g = gs[0], w = ws[0], rate = rates[g] || 4;
       if (g === w) hint = 'Gleiche Rohstoffe lassen sich nicht tauschen.';
@@ -54,7 +54,7 @@
       hint = `Die Bank hat nicht genug ${rn(bank.w)} (noch ${v.bank.stock[bank.w]}).`; bank = null;
     }
     if (!canBank && (gs.length || ws.length)) {
-      const why = myTurn ? 'Mit der Bank tauschst du erst nach dem Würfeln.' : 'Mit der Bank tauschst du nur im eigenen Zug.';
+      const why = sbp ? 'In der Sonderbauphase wird nicht gehandelt.' : myTurn ? 'Mit der Bank tauschst du erst nach dem Würfeln.' : 'Mit der Bank tauschst du nur im eigenen Zug.';
       if (bank) { hint = why; bank = null; } else if (hint) hint = why + ' ' + hint;
     }
     // Angebot an alle: im eigenen Zug erst nach dem Würfeln, als Mitspieler immer (wie ein Gegenangebot).
@@ -76,7 +76,7 @@
         return lim.length ? `<div class="stockline" title="Was die Bank noch hat. Ist ein Rohstoff leer, kann er nicht getauscht werden."><span>Bank-Vorrat:</span>${lim.map((r) => `<span class="tchip" style="--rc:${C.Art.RES_COLORS[r]}" title="${rn(r)}">${C.Art.res(r, 16)}<b>${st[r]}</b></span>`).join('')}</div>` : '';
       })() +
       (hint ? `<p class="thint">${C.esc(hint)}</p>` : '') +
-      `<div class="tact"><button type="button" class="btn green${bank ? '' : ' dis'}" data-do="bank" ${bank ? '' : 'aria-disabled="true"'} title="${bank ? '' : canBank ? 'Erst eine passende Menge wählen' : myTurn ? 'Erst nach dem Würfeln' : 'Nur im eigenen Zug'}">` +
+      `<div class="tact"><button type="button" class="btn green${bank ? '' : ' dis'}" data-do="bank" ${bank ? '' : 'aria-disabled="true"'} title="${bank ? '' : sbp ? 'In der Sonderbauphase wird nicht gehandelt.' : canBank ? 'Erst eine passende Menge wählen' : myTurn ? 'Erst nach dem Würfeln' : 'Nur im eigenen Zug'}">` +
       (bank ? `Mit der Bank tauschen (${bank.rate}:1${bank.rate < 4 ? ' Hafen' : ''}${bank.times > 1 ? ', ' + bank.times + '×' : ''})` : 'Mit der Bank tauschen') + `</button>` +
       `<button type="button" class="btn gold${canOffer ? '' : ' dis'}" data-do="offer" ${canOffer ? '' : 'aria-disabled="true"'} title="${C.esc(offerWhy)}">Angebot an alle${noP ? ' (aus)' : ''}</button></div></div>`;
     return `<div class="tpanel glass composer${S.collapsed ? ' collapsed' : ''}">${head('Handeln', '<button type="button" class="ghost" data-do="close" title="Schließen">✕</button>')}${S.collapsed ? '' : body}</div>`;
@@ -156,7 +156,7 @@
       } else {
         armDecline(v, null);
         S.tradeId = null; S.counterOpen = false;
-        if (S.open && (v.phase === 'main' || v.phase === 'setup') && v.step !== 'sbp') html = composer(v);
+        if (S.open && (v.phase === 'main' || v.phase === 'setup')) html = composer(v);
       }
     }
     if (html !== S.html) { S.html = html; C.root.innerHTML = html; C.root.classList.toggle('has', !!html); C.onChange && C.onChange(); }
