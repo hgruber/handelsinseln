@@ -147,11 +147,18 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .logo { width: 88px; height: 105px; margin: 0 auto 6px; background: url("img/logo.webp") center/contain no-repeat; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .5)); }
 .fld { display: block; text-align: left; margin: 14px 0; } .fld > span { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 6px; }
 .fld input { width: 100%; font-size: 18px; }
+.login-id { display: flex; align-items: center; gap: 14px; margin: 8px 0 16px; padding: 10px 14px; border-radius: 18px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); text-align: left; }
+.login-id .lid-av { width: 76px; height: 76px; flex: none; border-radius: 50%; border: 4px solid var(--pc, #8a93a6); box-shadow: 0 0 0 2px rgba(255, 255, 255, .18), 0 6px 16px rgba(0, 0, 0, .5); overflow: hidden; background: #1b2b4a; }
+.login-id .lid-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.login-id .lid-tx { min-width: 0; }
+.login-id b { display: block; font: 700 22px/1.15 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.login-id small { color: var(--muted); font-size: 12.5px; }
 .swatches { display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; padding: 4px 0; }
 .sw { width: 52px; height: auto; aspect-ratio: 1; flex: 0 1 52px; min-width: 0; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .35); background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--c) 55%, #fff), var(--c) 55%, var(--c2)); box-shadow: 0 5px 12px rgba(0, 0, 0, .45), inset 0 -5px 9px rgba(0, 0, 0, .25); transition: transform .15s, box-shadow .15s; display: grid; place-items: center; font-size: 22px; color: rgba(0, 0, 0, .55); padding: 0; }
 .sw:hover:not(:disabled) { transform: translateY(-3px) scale(1.08); }
 .sw.on { border-color: #fff; transform: scale(1.14); box-shadow: 0 0 0 4px rgba(248, 220, 146, .85), 0 8px 18px rgba(0, 0, 0, .55); }
 .sw.taken { filter: grayscale(1) brightness(.55); cursor: not-allowed; }
+.sw.fest { opacity: .35; filter: saturate(.6); cursor: not-allowed; }
 #joinBtn { width: 100%; margin-top: 8px; }
 .hint { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
 .lobby-list { list-style: none; margin: 8px 0 18px; padding: 0; display: grid; gap: 10px; }
@@ -589,6 +596,11 @@ body.ctl #score { position: static !important; }
 .passbox .pnote { margin: 0; font-size: 13.5px; color: var(--muted); }
 .pact { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .pact.column { flex-direction: column; }
+.passid { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .05); text-align: left; }
+.passid .pidav { width: 54px; height: 54px; flex: none; border-radius: 50%; border: 3px solid var(--pc, #8a93a6); overflow: hidden; background: #1b2b4a; }
+.passid .pidav img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.passid b { display: block; font: 700 18px var(--serif); }
+.passid small { color: var(--muted); font-size: 12px; }
 .plist { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
 .prow { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
 .prow b { display: block; }

@@ -69,8 +69,28 @@
     if (lab) lab.textContent = fest ? 'Deine Farbe (festgelegt)' : kollision ? 'Deine Farbe (vergeben – bitte wählen)' : 'Deine Farbe';
     C.setHTML($('swatches'), Object.entries(C.Art.COLORS).map(([c, hex]) => {
       const tk = menschHatFarbe(c), off = fest ? c !== sel : tk;
-      return `<button type="button" class="sw${sel === c ? ' on' : ''}${tk ? ' taken' : ''}" data-c="${c}" role="radio" aria-checked="${sel === c}" ${off ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}${fest ? ' (festgelegt)' : tk ? ' (in diesem Spiel vergeben)' : ''}" style="--c:${hex};--c2:${C.Art.darken(hex, .35)}"><span>${tk ? '✕' : ''}</span></button>`;
+      return `<button type="button" class="sw${sel === c ? ' on' : ''}${tk ? ' taken' : ''}${fest && c !== sel ? ' fest' : ''}" data-c="${c}" role="radio" aria-checked="${sel === c}" ${off ? 'disabled' : ''} title="${C.Art.COLOR_NAMES[c]}${fest ? ' (festgelegt)' : tk ? ' (in diesem Spiel vergeben)' : ''}" style="--c:${hex};--c2:${C.Art.darken(hex, .35)}"><span>${tk ? '✕' : ''}</span></button>`;
     }).join(''));
+    renderLoginId();
+  }
+  // Kopf der Anmeldung: fester Name und Avatar mit der aktuellen Farbe als Ring.
+  function renderLoginId() {
+    const name = localStorage.getItem('handelsinseln.name') || '';
+    const av = gespeicherterAvatar();
+    const fest = !!(name && av);
+    $('nameFld').hidden = fest;
+    $('avatarFld').hidden = fest;
+    $('loginId').hidden = !fest;
+    if (!fest) return;
+    const col = L.color || gespeicherteFarbe();
+    const hex = C.Art.COLORS[col] || '#8a93a6';
+    const colName = C.Art.COLOR_NAMES[col] || '';
+    const pass = !!(root.Person && root.Person.getPass && root.Person.getPass());
+    const avName = (AVS.HUMAN.find((a) => a.id === av) || {}).name || '';
+    $('loginId').style.setProperty('--pc', hex);
+    C.setHTML($('loginIdAv'), `<img src="img/av/${encodeURIComponent(av)}.webp" alt="${C.esc(avName)}" draggable="false">`);
+    $('loginIdName').textContent = name;
+    $('loginIdSub').textContent = (pass ? 'Spielerpass aktiv' : 'Kein Spielerpass') + (colName ? ' · ' + colName : '');
   }
   function gameCard(g) {
     const n = (g.players || []).length, plan = Math.max(g.plannedPlayers || 0, n), max = g.maxPlayers || 6;

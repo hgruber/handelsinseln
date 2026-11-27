@@ -30,11 +30,15 @@
   <form id="loginForm" class="card glass login" autocomplete="off" novalidate>
     <div class="logo" aria-hidden="true"></div>
     <h1>Die Handelsinseln</h1>
-    <label class="fld"><span>Dein Name</span>
+    <div id="loginId" class="login-id" hidden>
+      <span class="lid-av" id="loginIdAv"></span>
+      <span class="lid-tx"><b id="loginIdName"></b><small id="loginIdSub"></small></span>
+    </div>
+    <label class="fld" id="nameFld"><span>Dein Name</span>
       <input id="nameIn" maxlength="20" required placeholder="z. B. Käpt'n Anna" autocomplete="nickname">
     </label>
     <div class="fld"><span id="swLabel">Deine Farbe</span><div id="swatches" class="swatches" role="radiogroup" aria-labelledby="swLabel"></div></div>
-    <div class="fld"><span id="avLabel">Dein Avatar</span><div id="avatars" class="avpick" role="radiogroup" aria-labelledby="avLabel"></div></div>
+    <div class="fld" id="avatarFld"><span id="avLabel">Dein Avatar</span><div id="avatars" class="avpick" role="radiogroup" aria-labelledby="avLabel"></div></div>
     <div class="fld"><span>Spiele</span><div id="gameList" class="games" role="listbox" aria-label="Beitretbare Spiele"></div></div>
     <div class="login-act">
       <button class="btn gold big" id="joinBtn" type="submit">Beitreten</button>

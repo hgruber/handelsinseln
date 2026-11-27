@@ -17,6 +17,7 @@ try:
         pg.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and problems.append(f'console: {m.text}'))
         pg.on('response', lambda r: r.status >= 400 and r.status not in (400, 401) and '/img/' not in r.url and problems.append(f'HTTP {r.status} {r.url}'))
         pg.goto(BASE)
+        check(pg.locator('#loginId').is_hidden(), 'erster Besuch: noch kein fester Spielerpass-Kopf')
 
         # --- Solo gegen einen Bot
         pg.fill('#nameIn', 'Ida'); pg.locator('#swatches .sw').first.click(); pg.click('#createBtn')
@@ -47,9 +48,17 @@ try:
         pg.click('[data-d=yes]')
         pg.wait_for_selector('#login:not([hidden])', timeout=6000)
         check(pg.locator('#myGamesBtn').inner_text().strip() == 'Meine Partien', 'Link heißt „Meine Partien“')
+        check(pg.locator('#loginId:not([hidden])').count() == 1, 'Anmeldung zeigt den festen Spielerpass-Kopf')
+        check(pg.locator('#loginIdName').inner_text().strip() == 'Ida', 'Name im Kopf')
+        check(pg.locator('#loginIdAv img').count() == 1, 'Avatar im Kopf')
+        check(pg.locator('#nameFld').is_hidden() and pg.locator('#avatarFld').is_hidden(), 'Name und Avatar sind gesperrt')
+        pg.wait_for_timeout(800)
+        pg.screenshot(path=f'{SHOTS}/01-anmeldung-pass.png')
 
         pg.click('#myGamesBtn')
         pg.wait_for_selector('.prow', timeout=6000)
+        check(pg.locator('.passid b').inner_text().strip() == 'Ida', '„Meine Partien“ zeigt den Kopf')
+        check(pg.locator('.passid .pidav img').count() == 1, 'Avatar im Kopf von „Meine Partien“')
         check(pg.locator('.plist').inner_text().count('Pausiert') == 1, 'Partie ist als pausiert gekennzeichnet')
         pg.screenshot(path=f'{SHOTS}/01-pausiert.png')
 

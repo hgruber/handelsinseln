@@ -154,6 +154,19 @@
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
   }
 
+  // Kopf von „Meine Partien“: Avatar mit Farbring, Name und Farbe aus diesem Browser.
+  function kopf() {
+    const name = (() => { try { return localStorage.getItem('handelsinseln.name') || 'Spieler'; } catch (e) { return 'Spieler'; } })();
+    const av = (() => { try { return localStorage.getItem('handelsinseln.avatar') || ''; } catch (e) { return ''; } })();
+    const col = (() => { try { return localStorage.getItem('handelsinseln.color') || ''; } catch (e) { return ''; } })();
+    const hex = (root.Art && root.Art.COLORS[col]) || '#8a93a6';
+    const colName = (root.Art && root.Art.COLOR_NAMES[col]) || '';
+    const avName = ((root.Avatars && root.Avatars.HUMAN.find((a) => a.id === av)) || {}).name || '';
+    return '<div class="passid"><span class="pidav" style="--pc:' + hex + '">' +
+      (av ? '<img src="img/av/' + encodeURIComponent(av) + '.webp" alt="' + C.esc(avName) + '" draggable="false">' : '') +
+      '</span><span><b>' + C.esc(name) + '</b><small>Spielerpass aktiv' + (colName ? ' · ' + C.esc(colName) : '') + '</small></span></div>';
+  }
+
   async function list() {
     const pass = getPass();
     if (!pass) return choose();
@@ -178,7 +191,7 @@
       ) + '</div></div>';
     }).join('');
     const b = open(
-      '<div class="pq">Meine Partien</div>' +
+      '<div class="pq">Meine Partien</div>' + kopf() +
       (rows ? '<div class="plist">' + rows + '</div>' : '<p class="pnote">Keine Partien gefunden. Laufende Partien erscheinen hier, sobald dieses Gerät mit dem Pass verknüpft ist.</p>') +
       '<div class="pact"><button type="button" class="btn ghostb" data-p="pass">Spielerpass</button>' +
       '<button type="button" class="btn" data-p="close">Schließen</button></div>'
