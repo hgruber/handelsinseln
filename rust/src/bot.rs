@@ -304,7 +304,7 @@ pub fn bot_act(
                 })
                 .cloned()
                 .collect();
-            if !missing_ok.is_empty() && !spare.is_empty() && r(rnd) < 0.8 {
+            if !sbp && !missing_ok.is_empty() && !spare.is_empty() && r(rnd) < 0.8 {
                 let g = pick(&spare, rnd).unwrap();
                 let w = pick(&missing_ok, rnd).unwrap();
                 return act(game, json!({"type": "bank_trade", "give": g, "get": w}));

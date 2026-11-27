@@ -76,7 +76,7 @@ impl Game {
 
     pub fn trade_offer(&mut self, pid: usize, a: &Value) -> Result<(), GameError> {
         if self.S.sbp.is_some() {
-            return Err(GameError("In der Sonderbauphase ist kein Handel mit Spielern erlaubt.".into()));
+            return Err(GameError("In der Sonderbauphase ist kein Handel erlaubt – nur Bauen.".into()));
         }
         if !self.S.settings.player_trade {
             return Err(GameError("In diesem Spiel ist nur der Handel mit der Bank erlaubt.".into()));

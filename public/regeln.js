@@ -58,7 +58,7 @@
       sec('Handelsinseln', `<ul class="rl-ul"><li><b>Inseln:</b> Die erste Siedlung auf einer neuen Insel bringt Sonderpunkte (bis zur Obergrenze der Einstellungen).</li>` +
         `<li><b>Nebel:</b> Wer mit Straße oder Schiff an ein Nebelfeld anlegt, deckt es auf – bei Rohstoffen gibt es eine Karte.</li>` +
         `<li><b>Gold:</b> Ein Goldfeld gibt dir beliebige Rohstoffe deiner Wahl.</li>` +
-        `<li><b>Sonderbauphase</b> (ab 5 Spielern): Nach jedem Zug dürfen die anderen reihum bauen und mit der Bank tauschen – ohne Handel unter Spielern.</li></ul>`) +
+        `<li><b>Sonderbauphase</b> (ab 5 Spielern): Nach jedem Zug bauen die anderen reihum, ohne automatischen Banktausch vor dem Bau; wer die Rohstoffe nicht sofort hat, wird übersprungen. Gehandelt wird in der Sonderbauphase nicht.</li></ul>`) +
       `</div>`;
   }
   root.Regeln = { init(ctx) { C = ctx; }, html };

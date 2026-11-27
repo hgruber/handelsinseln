@@ -430,7 +430,6 @@ impl Game {
             return false;
         }
         let h = self.pl(pid).hand.clone();
-        let rates = self.rates_for(pid);
         let left = self.left(pid);
         let spots = [
             ("road", !self.path_spots(pid, "r").is_empty() && left.road > 0),
@@ -444,18 +443,8 @@ impl Game {
                 continue;
             }
             let cost = rules::cost(k);
-            let mut deficit = 0i64;
-            let mut spare = 0i64;
-            for r in RES {
-                let need = cost.get(r).copied().unwrap_or(0) as i64;
-                let have = h.get(r) as i64;
-                if have < need {
-                    deficit += need - have;
-                } else {
-                    spare += (have - need) / rates[r].max(1) as i64;
-                }
-            }
-            if spare >= deficit {
+            // In der Sonderbauphase zählt nur, was sofort bezahlbar ist – vor dem Bau wird nicht mit der Bank getauscht.
+            if RES.iter().all(|r| h.get(r) >= cost.get(*r).copied().unwrap_or(0)) {
                 return true;
             }
         }

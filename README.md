@@ -134,7 +134,8 @@ die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/bro
    Siegpunktkarten 1. Bei 14 Punkten ist Schluss – verdeckte Siegpunktkarten zählen mit.
 5. **Besonderheiten:** Schiffe dürfen nur an Küsten und verbinden sich mit Straßen nur über eigene Siedlungen; pro Zug darf ein
    offenes Schiff versetzt werden. Die Straßenbau-Karte erlaubt Straßen und Schiffe. Ab fünf Spielern gibt es nach jedem Zug eine
-   Sonderbauphase.
+   Sonderbauphase: Wer die Rohstoffe sofort hat, baut reihum; alle anderen werden übersprungen. Gehandelt wird dort nicht, auch
+   nicht mit der Bank.
 
 ## Geräte und Wiederfinden
 

@@ -39,7 +39,7 @@
   function composer(v) {
     const hand = v.me.hand, rates = v.rates || {};
     const sbp = v.step === 'sbp', myTurn = v.turn === v.you, rolled = v.step === 'main';
-    const canBank = myTurn && (rolled || sbp); // die Bank bedient nur, wer am Zug ist und gewürfelt hat
+    const canBank = myTurn && rolled; // die Bank bedient nur, wer am Zug ist und gewürfelt hat
     const noP = !!(v.settings && v.settings.playerTrade === false); // Spielerhandel ausgeschaltet: nur Bank
     const gs = RES.filter((r) => S.give[r] > 0), ws = RES.filter((r) => S.want[r] > 0);
     let bank = null, hint = 'Wähle links eine Sorte zum Abgeben und rechts eine zum Erhalten.';
@@ -59,7 +59,7 @@
     }
     // Angebot an alle: im eigenen Zug erst nach dem Würfeln, als Mitspieler immer (wie ein Gegenangebot).
     const canOffer = !sbp && !noP && v.phase === 'main' && sum(S.give) > 0 && sum(S.want) > 0 && (tbl() || !missing(hand, S.give).length) && (!myTurn || rolled);
-    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase ist nur Handel mit der Bank erlaubt.' : v.phase !== 'main' ? 'Erst nach dem Aufbau.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : !tbl() && missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : myTurn && !rolled ? 'Würfle zuerst – danach kannst du bieten.' : 'Angebot an alle Mitspieler senden';
+    const offerWhy = noP ? 'In dieser Partie ist nur der Handel mit der Bank erlaubt (Einstellung des Spielleiters).' : sbp ? 'In der Sonderbauphase wird nicht gehandelt.' : v.phase !== 'main' ? 'Erst nach dem Aufbau.' : !sum(S.give) || !sum(S.want) ? 'Wähle, was du gibst und was du möchtest.' : !tbl() && missing(hand, S.give).length ? 'Dir fehlen: ' + missing(hand, S.give).join(', ') : myTurn && !rolled ? 'Würfle zuerst – danach kannst du bieten.' : 'Angebot an alle Mitspieler senden';
     const rateChips = RES.map((r) => {
       const rt = rates[r] || 4, ok = tbl() || (hand[r] || 0) >= rt;
       return `<button type="button" class="rate r${rt}${ok ? '' : ' off'}" data-rate="${r}" style="--rc:${C.Art.RES_COLORS[r]}" title="${rt}× ${rn(r)} → 1 beliebiger Rohstoff${rt < 4 ? (rt === 2 ? ' (2:1-Hafen)' : ' (3:1-Hafen)') : ' (Bank 4:1)'}${ok ? ' – Klick füllt „Ich gebe“' : ' – zu wenig Karten'}">${C.Art.res(r, 20)}<b>${rt}:1</b></button>`;
@@ -156,7 +156,7 @@
       } else {
         armDecline(v, null);
         S.tradeId = null; S.counterOpen = false;
-        if (S.open && (v.phase === 'main' || v.phase === 'setup')) html = composer(v);
+        if (S.open && (v.phase === 'main' || v.phase === 'setup') && v.step !== 'sbp') html = composer(v);
       }
     }
     if (html !== S.html) { S.html = html; C.root.innerHTML = html; C.root.classList.toggle('has', !!html); C.onChange && C.onChange(); }
@@ -205,7 +205,7 @@
       case 'counter-open': S.counterOpen = true; render(); break;
       case 'counter-close': S.counterOpen = false; render(); break;
       case 'bank': {
-        if (v.turn !== v.you || !(v.step === 'main' || v.step === 'sbp')) break; // Banktausch nur im eigenen Zug nach dem Würfeln
+        if (v.turn !== v.you || v.step !== 'main') break; // Banktausch nur im eigenen Zug nach dem Würfeln, nicht in der Sonderbauphase
         const gs = RES.find((r) => S.give[r] > 0), ws = RES.find((r) => S.want[r] > 0);
         const times = S.want[ws];
         await run(async () => {

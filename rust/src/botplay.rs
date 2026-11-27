@@ -742,7 +742,7 @@ pub fn bot_play(
     let rates = obj(&v, "rates").clone();
     let rate = |r: &str| -> f64 { rates.get(r).and_then(|x| x.as_f64()).unwrap_or(4.0) };
     let bank_ok = |r: &str| stock(r) > 0.0;
-    if goal.is_some() && !deficit.is_empty() && bm.bank < 8 {
+    if !sbp && goal.is_some() && !deficit.is_empty() && bm.bank < 8 {
         let need = goal.as_ref().map(|(_, n)| n.clone()).unwrap_or_default();
         let give_c: Vec<String> = RES
             .iter()
@@ -760,7 +760,7 @@ pub fn bot_play(
             return act(game, pid, &bm, serde_json::json!({"type": "bank_trade", "give": g, "get": w}));
         }
     }
-    if crowded && bm.bank < 8 {
+    if !sbp && crowded && bm.bank < 8 {
         let give_c: Vec<String> = RES.iter().filter(|r| hget(&hand, r) >= rate(r)).map(|r| r.to_string()).collect();
         let give = best_of(&give_c, |r| hget(&hand, r) / rate(r));
         if let Some(g) = give.clone() {

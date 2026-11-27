@@ -152,7 +152,7 @@ function actionFor(pid, v) {
       const need = L.city.length ? { getreide: 2, erz: 3 } : L.settlement.length ? { holz: 1, lehm: 1, wolle: 1, getreide: 1 } : { getreide: 1, erz: 1, wolle: 1 };
       const missing = RES.filter((r) => (h[r] || 0) < (need[r] || 0) && v.bank.stock[r] > 0);
       const spare = RES.filter((r) => (h[r] || 0) - (need[r] || 0) >= (v.rates[r] || 4));
-      if (missing.length && spare.length) return { type: 'bank_trade', give: spare[0], get: missing[0] };
+      if (v.step !== 'sbp' && missing.length && spare.length) return { type: 'bank_trade', give: spare[0], get: missing[0] }; // in der Sonderbauphase wird nicht gehandelt
       return { type: v.step === 'sbp' ? 'sbp_done' : 'end_turn' };
     }
     default: return null;

@@ -513,6 +513,32 @@ fn spielerhandel_angebot_zusage_gegenangebot_abschluss() {
 }
 
 #[test]
+fn sonderbauphase_fragt_nur_sofort_baubare_spieler() {
+    let mut g = hand_board(5);
+    g.S.verts.insert(v("0,0", "0,-1", "1,-1"), building(1, "s"));
+    g.S.verts.insert(v("2,0", "2,-1", "3,-1"), building(2, "s"));
+    // Spieler 1 könnte nur nach einem Banktausch bauen (Holz im Überfluss, kein Lehm),
+    // Spieler 2 hat die Rohstoffe für eine Straße sofort.
+    hand(&mut g, 1, 5, 0, 0, 0, 0);
+    hand(&mut g, 2, 1, 1, 0, 0, 0);
+    g.act(0, &json!({ "type": "end_turn" })).unwrap();
+    assert_eq!(g.S.sbp.as_ref().and_then(|s| s.pid), Some(2), "Spieler 1 wird übersprungen");
+    // In der Sonderbauphase wird nicht gehandelt – auch nicht mit der Bank.
+    expect_act_err(
+        &mut g,
+        2,
+        json!({ "type": "bank_trade", "give": "lehm", "get": "erz" }),
+        "Sonderbauphase",
+    );
+    expect_act_err(
+        &mut g,
+        2,
+        json!({ "type": "trade_offer", "give": { "holz": 1 }, "want": { "erz": 1 } }),
+        "kein Handel",
+    );
+}
+
+#[test]
 fn wuerfelhinweis_nur_mit_spielbarer_entwicklungskarte() {
     let mut g = hand_board(3);
     let txt = |g: &Game| g.prompt(Some(0), "roll").as_str().unwrap().to_string();

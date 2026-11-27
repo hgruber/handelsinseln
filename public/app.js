@@ -1009,7 +1009,8 @@
     if (v.step === 'roll') return 'Würfle zuerst.';
     if (v.step !== 'main' && v.step !== 'sbp') return 'Im Moment nicht möglich – erledige zuerst die offene Aktion.';
     const miss = missingOf(v.me.hand, COST[kind]);
-    if (miss.length && !bankPlan(v, kind)) return 'Dir fehlen: ' + miss.join(', ');
+    // In der Sonderbauphase wird vor dem Bau nicht automatisch mit der Bank getauscht.
+    if (miss.length && (v.step === 'sbp' || !bankPlan(v, kind))) return 'Dir fehlen: ' + miss.join(', ');
     const left = v.players[v.you].left || {};
     if (kind !== 'dev' && left[kind] === 0) return `Du hast keine ${BUILD_LABEL[kind]}-Figuren mehr.`;
     if (kind === 'dev' && v.bank && v.bank.dev === 0) return 'Der Entwicklungskartenstapel ist leer.';
@@ -1034,8 +1035,9 @@
       ((lg.takeover && ((lg.takeover.edges || []).length || (lg.takeover.verts || []).length) && isMe() && v.step === 'main') ? `<button class="bb take${curMode() === 'takeover' ? ' on' : ''}" data-a="takeover" title="Übernehmen: Du nimmst ein Teil eines verlassenen Spielers anstelle eines Schiffsversetzens. Klicke danach auf eine markierte Stelle."><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M8,22 L16,14 L22,20 L32,10 M32,10 V18 M32,10 H24" fill="none" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8,32 H32" stroke="#d9a8ff" stroke-width="3.2" stroke-linecap="round"/></svg></span><span class="lb">Übernehmen</span><span class="cost small">Verlassene</span></button>` : '') +
       (() => {
         // Die Handelsansicht lässt sich immer öffnen; gesperrt sind darin nur die Aktionen, die gerade nicht gehen.
-        const canT = v.phase === 'main' || v.phase === 'setup';
-        const why = canT ? (v.step === 'sbp' ? 'Sonderbauphase: nur Handel mit der Bank.' : v.turn === v.you ? 'Handeln: mit der Bank oder den Mitspielern' : 'Handeln: Angebot an den Spielenden (wie ein Gegenangebot)') : 'Erst nach dem Aufbau.';
+        // In der Sonderbauphase (nach dem Zugende, vor dem nächsten Wurf) wird gar nicht gehandelt.
+        const canT = (v.phase === 'main' || v.phase === 'setup') && v.step !== 'sbp';
+        const why = canT ? (v.turn === v.you ? 'Handeln: mit der Bank oder den Mitspielern' : 'Handeln: Angebot an den Spielenden (wie ein Gegenangebot)') : v.step === 'sbp' ? 'In der Sonderbauphase wird nicht gehandelt.' : 'Erst nach dem Aufbau.';
         return `<button class="bb trade${Trade.isOpen() ? ' on' : ''}${canT ? '' : ' dis'}" data-a="trade" ${canT ? '' : 'aria-disabled="true"'} title="${esc(why)}"><span class="ic"><svg viewBox="0 0 40 40" width="38" height="38"><path d="M7,14 H30 M23,7 l7,7 l-7,7 M33,27 H10 M17,20 l-7,7 l7,7" fill="none" stroke="#7fd6a0" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="lb">Handeln</span><span class="cost small">${setg().playerTrade === false ? 'nur Bank' : 'Bank · Spieler'}</span></button>`;
       })();
     setHTML($('build'), html);
@@ -1262,8 +1264,11 @@
       case 'build': {
         const k = b.dataset.k;
         // Auch am Spieltisch: fehlende Rohstoffe vorher im Namen des fokussierten Tischspielers tauschen.
-        // Bei mehreren Tauschwegen fragt bankPay nach, bevor getauscht wird.
-        if (missingOf(v.me.hand, COST[k]).length && !(await bankPay(v, k))) break;
+        // Bei mehreren Tauschwegen fragt bankPay nach, bevor getauscht wird. In der Sonderbauphase
+        // wird nicht automatisch getauscht – dort baut nur, wer die Rohstoffe sofort hat.
+        const missK = missingOf(v.me.hand, COST[k]);
+        if (missK.length && v.step === 'sbp') { toast('In der Sonderbauphase baut nur, wer die Rohstoffe sofort hat: ' + missK.join(', ') + '.', 'warn'); break; }
+        if (missK.length && !(await bankPay(v, k))) break;
         if (k === 'dev') { st.mode = null; await act('buy_dev'); break; }
         if (st.ctl) { await act(v.arm && v.arm.mode === k ? 'disarm' : 'arm', { mode: k }); break; }
         st.moveFrom = null; st.mode = st.mode === k ? null : k;

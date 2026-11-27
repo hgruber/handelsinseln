@@ -442,11 +442,11 @@ impl Game {
             }
             let ok = [
                 "build_road", "build_ship", "build_settlement", "build_city", "buy_dev",
-                "bank_trade", "sbp_done",
+                "sbp_done",
             ];
             if !ok.contains(&t) {
                 return Err(GameError(
-                    "In der Sonderbauphase kannst du nur bauen, Entwicklungskarten kaufen oder mit der Bank tauschen.".into(),
+                    "In der Sonderbauphase kannst du nur bauen oder Entwicklungskarten kaufen.".into(),
                 ));
             }
             if t == "sbp_done" {
