@@ -89,17 +89,18 @@
     $('nameFld').hidden = fest;
     $('avatarFld').hidden = fest;
     $('loginId').hidden = !fest;
+    $('loginIdNav').hidden = !fest;
+    $('myGamesBtn').hidden = fest; // mit Kopf übernimmt die Leiste darunter
     lockIdentity();
     if (!fest) return;
     const col = L.color || gespeicherteFarbe();
     const hex = C.Art.COLORS[col] || '#8a93a6';
     const colName = C.Art.COLOR_NAMES[col] || '';
-    const pass = !!(root.Person && root.Person.getPass && root.Person.getPass());
     const avName = (AVS.HUMAN.find((a) => a.id === av) || {}).name || '';
     $('loginId').style.setProperty('--pc', hex);
     C.setHTML($('loginIdAv'), `<img src="img/av/${encodeURIComponent(av)}.webp" alt="${C.esc(avName)}" draggable="false">`);
     $('loginIdName').textContent = name;
-    $('loginIdSub').textContent = (pass ? 'Spielerpass aktiv' : 'Kein Spielerpass') + (colName ? ' · ' + colName : '');
+    C.setHTML($('loginIdSub'), '<a href="#" class="lid-pass">Spielerpass aktiv</a>' + (colName ? ' · ' + C.esc(colName) : ''));
   }
   function gameCard(g) {
     const n = (g.players || []).length, plan = Math.max(g.plannedPlayers || 0, n), max = g.maxPlayers || 6;
@@ -207,6 +208,13 @@
     $('loginForm').addEventListener('submit', (e) => { e.preventDefault(); if ($('joinBtn').getAttribute('aria-disabled') === 'true') { C.toast($('joinBtn').title, 'warn'); return; } doJoin(false); });
     $('createBtn').addEventListener('click', () => doJoin(true));
     $('myGamesBtn').addEventListener('click', () => root.Person.list());
+    $('loginIdNav').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-p]'); if (!b) return;
+      if (b.dataset.p === 'list') root.Person.list(); else root.Person.dialog();
+    });
+    $('loginId').addEventListener('click', (e) => {
+      if (e.target.closest('.lid-pass')) { e.preventDefault(); root.Person.dialog(); }
+    });
     L.color = localStorage.getItem('handelsinseln.color') || null;
     L.avatar = localStorage.getItem('handelsinseln.avatar') || null;
     lockIdentity();

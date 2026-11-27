@@ -153,6 +153,12 @@ input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 185, 90
 .login-id .lid-tx { min-width: 0; }
 .login-id b { display: block; font: 700 22px/1.15 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .login-id small { color: var(--muted); font-size: 12.5px; }
+.login-id small a { color: var(--gold2, #f8dc92); text-decoration: underline; text-underline-offset: 2px; }
+#loginIdNav { margin: 0 0 14px; }
+.ptabs { display: flex; gap: 6px; }
+.ptab { flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .05); color: var(--muted); font: 600 13px var(--sans); cursor: pointer; }
+.ptab:hover { background: rgba(255, 255, 255, .1); color: var(--text); }
+.ptab.on { background: rgba(232, 185, 90, .16); border-color: var(--gold); color: var(--gold2); }
 .swatches { display: flex; gap: 12px; justify-content: center; flex-wrap: nowrap; padding: 4px 0; }
 .sw { width: 52px; height: auto; aspect-ratio: 1; flex: 0 1 52px; min-width: 0; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .35); background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--c) 55%, #fff), var(--c) 55%, var(--c2)); box-shadow: 0 5px 12px rgba(0, 0, 0, .45), inset 0 -5px 9px rgba(0, 0, 0, .25); transition: transform .15s, box-shadow .15s; display: grid; place-items: center; font-size: 22px; color: rgba(0, 0, 0, .55); padding: 0; }
 .sw:hover:not(:disabled) { transform: translateY(-3px) scale(1.08); }
@@ -601,6 +607,7 @@ body.ctl #score { position: static !important; }
 .passid .pidav img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .passid b { display: block; font: 700 18px var(--serif); }
 .passid small { color: var(--muted); font-size: 12px; }
+.passid small a { color: var(--gold2, #f8dc92); text-decoration: underline; text-underline-offset: 2px; }
 .plist { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
 .prow { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
 .prow b { display: block; }

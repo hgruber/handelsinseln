@@ -107,20 +107,21 @@
     if (!pass) { return choose(); }
     const words = pass.split(' ').map((w) => C.esc(w)).join(' ');
     const b = open(
-      '<div class="pq">Mein Spielerpass</div>' +
+      kopf() + tabs('pass') +
       '<div class="passwords">' + words + '</div>' +
       '<p class="pnote">Mit diesen Wörtern findest du deine Partien auf jedem Gerät wieder. Behandle sie wie ein Passwort – wer sie kennt, sieht deine Partien. Notiere sie dir, bevor du eine Partie pausierst: Verliert der Browser seine Daten, kommt sonst niemand mehr an die Partie. Ein Spielerpass samt seinen Partien wird nach 30 Tagen ohne Zugriff gelöscht.</p>' +
       '<div class="pact column">' +
-      '<button type="button" class="btn gold" data-p="list">Meine Partien</button>' +
       '<button type="button" class="btn ghostb" data-p="new">Neuen Pass anlegen</button>' +
       '<button type="button" class="btn ghostb" data-p="in">Vorhandenen Pass eingeben</button>' +
       '<button type="button" class="btn ghostb" data-p="clear">Pass von diesem Gerät entfernen</button>' +
       '</div><div class="pact"><button type="button" class="btn" data-p="close">Schließen</button></div>'
     );
     b.addEventListener('click', (e) => {
+      if (e.target.closest('[data-pass]')) { e.preventDefault(); dialog(); return; }
       const x = e.target.closest('[data-p]'); if (!x) return;
       const what = x.dataset.p;
       if (what === 'list') list();
+      else if (what === 'pass') { /* schon offen */ }
       else if (what === 'new') anew();
       else if (what === 'in') enter();
       else if (what === 'clear') {
@@ -197,7 +198,14 @@
     const avName = ((root.Avatars && root.Avatars.HUMAN.find((a) => a.id === av)) || {}).name || '';
     return '<div class="passid"><span class="pidav" style="--pc:' + hex + '">' +
       (av ? '<img src="img/av/' + encodeURIComponent(av) + '.webp" alt="' + C.esc(avName) + '" draggable="false">' : '') +
-      '</span><span><b>' + C.esc(name) + '</b><small>Spielerpass aktiv' + (colName ? ' · ' + C.esc(colName) : '') + '</small></span></div>';
+      '</span><span><b>' + C.esc(name) + '</b><small><a href="#" data-pass="1">Spielerpass aktiv</a>' +
+      (colName ? ' · ' + C.esc(colName) : '') + '</small></span></div>';
+  }
+  function tabs(active) {
+    return '<div class="ptabs">' +
+      '<button type="button" class="ptab' + (active === 'list' ? ' on' : '') + '" data-p="list">Meine Partien</button>' +
+      '<button type="button" class="ptab' + (active === 'pass' ? ' on' : '') + '" data-p="pass">Mein Spielerpass</button>' +
+      '</div>';
   }
 
   async function list() {
@@ -226,14 +234,18 @@
       ) + '</div></div>';
     }).join('');
     const b = open(
-      '<div class="pq">Meine Partien</div>' + kopf() +
+      kopf() + tabs('list') +
       (rows ? '<div class="plist">' + rows + '</div>' : '<p class="pnote">Keine Partien gefunden. Laufende Partien erscheinen hier, sobald dieses Gerät mit dem Pass verknüpft ist.</p>') +
-      '<div class="pact"><button type="button" class="btn ghostb" data-p="pass">Spielerpass</button>' +
-      '<button type="button" class="btn" data-p="close">Schließen</button></div>'
+      '<div class="pact"><button type="button" class="btn" data-p="close">Schließen</button></div>'
     );
     b.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-pass]')) { e.preventDefault(); dialog(); return; }
       const c = e.target.closest('[data-p]');
-      if (c) { if (c.dataset.p === 'pass') dialog(); else close(); return; }
+      if (c) {
+        if (c.dataset.p === 'pass') dialog();
+        else if (c.dataset.p !== 'list') close();
+        return;
+      }
       const x = e.target.closest('[data-i]'); if (!x) return;
       const p = r.partien[Number(x.dataset.i)];
       if (!p) return;

@@ -138,7 +138,8 @@ die vier Kartenwelten und die Detailvergrößerung der Felder liefert `tests/bro
   mit dem ersten Spiel, wenn Name, Avatar und Farbe an ihn gebunden werden. Bis dahin steht auf der Anmeldung nur „Ich
   habe einen Spielerpass“ bereit, um einen vorhandenen Pass einzugeben. Mit dem Pass erscheinen unter „Meine Partien“ alle
   laufenden und beendeten Partien – auch auf einem neuen Gerät oder nach dem Löschen der Browserdaten. Ist der Pass
-  gebunden, zeigt die Anmeldung Avatar, Name und Farbe im Kopf; die Farbpalette erscheint nur, wenn ein anderer Mensch die
+  gebunden, steht auf der Anmeldung und in den Passansichten oben ein Kopf mit Avatar, Name, „Spielerpass aktiv“ und Farbe;
+  darunter führen „Meine Partien“ und „Mein Spielerpass“ weiter. Die Farbpalette erscheint nur, wenn ein anderer Mensch die
   Farbe belegt. Der Pass bleibt auf dem Gerät; an den Server geht nur eine daraus abgeleitete, servergebundene Kennung.
   Behandle die Wörter wie ein Passwort und notiere sie dir, bevor du eine Partie pausierst: Verliert der Browser seine
   Daten, kommt sonst niemand mehr an die Partie. Ein Pass samt seinen Partien wird nach 30 Tagen ohne Zugriff gelöscht.
