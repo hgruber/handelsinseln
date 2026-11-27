@@ -52,6 +52,13 @@ try:
             except Exception as e:
                 return False
         def note(k): stats[k] = stats.get(k, 0) + 1
+        def bank_choose():
+            # Mehrere Tauschwege: nacheinander den ersten angebotenen Tausch nehmen.
+            for _ in range(10):
+                if not n('#bankAsk .bankopts [data-bank]'): return True
+                if not click('#bankAsk .bankopts [data-bank]'): return False
+                time.sleep(0.15)
+            return True
 
         turn_done = set()
         t0 = time.time(); last_change = time.time(); last_sig = ''; shot = 0
@@ -74,6 +81,8 @@ try:
                 continue
             if n('[data-m=newgame]'):
                 note('spielende'); page.screenshot(path=f'{SHOTS}/sieger.png'); break
+            if n('#bankAsk .bankopts [data-bank]'):
+                bank_choose(); note('bankwahl'); continue
             if n('.chooser [data-kind]'):
                 click('.chooser [data-kind]'); continue
             if n('[data-a=roll]'):
@@ -88,7 +97,10 @@ try:
                 click('[data-t]'); continue
             if n('[data-a=sbp_done]'):
                 for k in ('settlement', 'city'):
-                    if k not in turn_done and enabled(f'[data-a=build][data-k={k}]'): turn_done.add(k); click(f'[data-a=build][data-k={k}]'); click('[data-t]'); note('sbp-bau')
+                    if k not in turn_done and enabled(f'[data-a=build][data-k={k}]'):
+                        turn_done.add(k); click(f'[data-a=build][data-k={k}]'); time.sleep(0.1); bank_choose()
+                        if n('[data-t]'): click('[data-t]')
+                        note('sbp-bau')
                 click('[data-a=sbp_done]'); continue
             if n('[data-a=end]'):
                 plan = None
@@ -98,7 +110,10 @@ try:
                 if plan:
                     turn_done.add(plan)
                     click(f'[data-a=build][data-k={plan}]')
-                    time.sleep(0.2)
+                    time.sleep(0.1); bank_choose()
+                    for _ in range(15):
+                        if n('[data-t]'): break
+                        time.sleep(0.1)
                     if n('[data-t]'):
                         click('[data-t]'); time.sleep(0.2)
                         if n('.chooser [data-kind]'): click('.chooser [data-kind]')
@@ -107,7 +122,7 @@ try:
                         note('kein-ziel-' + plan); click('[data-a=cancel]'); page.keyboard.press('Escape')
                     continue
                 if 'dev' not in turn_done and enabled('[data-a=build][data-k=dev]'):
-                    turn_done.add('dev'); click('[data-a=build][data-k=dev]'); note('devkarte'); continue
+                    turn_done.add('dev'); click('[data-a=build][data-k=dev]'); time.sleep(0.1); bank_choose(); note('devkarte'); continue
                 if 'trade' not in turn_done and enabled('[data-a=trade]'):
                     turn_done.add('trade')
                     click('[data-a=trade]'); time.sleep(0.3)

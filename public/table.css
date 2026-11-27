@@ -79,6 +79,9 @@ body.table #toasts { top: 30%; }
 body.table[data-tseat^="t"] #modalRoot .modal { transform: rotate(180deg); }
 body.table[data-tseat="l"] #modalRoot .modal { transform: rotate(90deg); }
 body.table[data-tseat="r"] #modalRoot .modal { transform: rotate(-90deg); }
+body.table[data-tseat^="t"] #bankAsk .bankcard { transform: rotate(180deg); }
+body.table[data-tseat="l"] #bankAsk .bankcard { transform: rotate(90deg); }
+body.table[data-tseat="r"] #bankAsk .bankcard { transform: rotate(-90deg); }
 body.table[data-tseat^="b"] #modalRoot .mback { align-items: end; padding-bottom: 250px; }
 body.table[data-tseat^="t"] #modalRoot .mback { align-items: start; padding-top: 250px; }
 .seathb { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); }

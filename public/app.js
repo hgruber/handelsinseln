@@ -148,7 +148,7 @@
   function logout(msg) {
     Voice.leave(true);
     if (st.es) st.es.close(); st.es = null;
-    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate();
+    st.tableStream = false; st.tableOn = false; st.tv = null; st.watch = false; st.ctl = false; document.body.classList.remove('watch', 'ctl'); Table.deactivate(); cancelBankAsk();
     localStorage.removeItem('handelsinseln.token'); st.token = null; st.view = null; setOnline(true);
     st.mode = null; st.moveFrom = null; st.known = new Set(); st.firstBoard = true; st.lastSeq = null; st.lobbySig = ''; st.lobbySeen = false; boardClear();
     Lobby.resetLocal(); Menu.hideStats(); document.getElementById('dlgRoot').replaceChildren(); Menu.closeMenu();
@@ -206,6 +206,7 @@
   function applyView(v) {
     const old = st.view;
     st.view = v;
+    if (v.phase !== 'main' && v.phase !== 'setup') cancelBankAsk();
     rememberIdentity(v);
     syncCtl(v);
     if (!st.tableOn || st.watch) chipSeat(null); // Chips wieder aufrecht
@@ -857,19 +858,113 @@
     setHTML($('score'), `<div class="sc" title="Deine Siegpunkte (inkl. verdeckter Siegpunktkarten). Wer ${v.winPoints} erreicht, gewinnt."><b>${pts}</b><span>/ ${v.winPoints}</span><small>Punkte</small></div>`);
   }
 
-  // Fehlende Rohstoffe per Bank ausgleichen (Kurs 4:1/3:1/2:1 je Hafen): Liste {give,get,rate} oder null, wenn nicht möglich
-  function bankPlan(v, kind) {
-    const hand = Object.assign({}, v.me.hand), cost = COST[kind], rates = v.rates || {}, stock = (v.bank && v.bank.stock) || {}, got = {}, out = [];
-    for (const g of RES) {
-      for (let d = (cost[g] || 0) - (hand[g] || 0); d > 0; d--) {
-        if ((stock[g] != null ? stock[g] : 999) - (got[g] || 0) < 1) return null;
-        const free = (r) => (hand[r] || 0) - (cost[r] || 0), rt = (r) => rates[r] || 4;
-        const give = RES.filter((r) => r !== g && free(r) >= rt(r)).sort((x, y) => rt(x) - rt(y) || free(y) - free(x))[0];
-        if (!give) return null;
-        hand[give] -= rt(give); hand[g] = (hand[g] || 0) + 1; got[g] = (got[g] || 0) + 1; out.push({ give, get: g, rate: rt(give) });
-      }
+  // Banktausch für Bauten: fehlende Rohstoffe mit dem günstigsten Kurs ausgleichen.
+  // Gibt es an einem Schritt mehrere gültige Geberohstoffe, fragt der Client nach; erst nach
+  // der Bestätigung werden die Tausche ausgeführt (Abbrechen ändert nichts).
+  const rateOf = (rates, r) => rates[r] || 4;
+  const stockOf = (stock, r) => (stock && stock[r] != null ? stock[r] : 999);
+  const bankMissing = (hand, cost) => RES.find((r) => (hand[r] || 0) < (cost[r] || 0)) || null;
+  function bankGives(hand, cost, rates, stock, g) {
+    if (stockOf(stock, g) < 1) return [];
+    return RES.filter((r) => r !== g && (hand[r] || 0) - (cost[r] || 0) >= rateOf(rates, r))
+      .sort((a, b) => rateOf(rates, a) - rateOf(rates, b) || ((hand[b] || 0) - (cost[b] || 0)) - ((hand[a] || 0) - (cost[a] || 0)));
+  }
+  function bankApply(hand, stock, give, get, rates) {
+    const h = Object.assign({}, hand); h[give] = (h[give] || 0) - rateOf(rates, give); h[get] = (h[get] || 0) + 1;
+    const st = Object.assign({}, stock); st[get] = stockOf(stock, get) - 1;
+    return { hand: h, stock: st };
+  }
+  // Erster vollständiger Tauschplan (für „möglich oder nicht“ und den Tooltip).
+  function bankSolve(hand, cost, rates, stock) {
+    const g = bankMissing(hand, cost);
+    if (!g) return [];
+    for (const give of bankGives(hand, cost, rates, stock, g)) {
+      const next = bankApply(hand, stock, give, g, rates);
+      const rest = bankSolve(next.hand, cost, rates, next.stock);
+      if (rest) return [{ give, get: g, rate: rateOf(rates, give) }, ...rest];
     }
-    return out;
+    return null;
+  }
+  function bankPlan(v, kind) {
+    return bankSolve(Object.assign({}, v.me.hand), COST[kind], v.rates || {}, (v.bank && v.bank.stock) || {});
+  }
+  // Gibt es auf dem automatischen Weg an einem Schritt mehr als einen gangbaren Tausch?
+  function bankHasChoice(v, kind) {
+    const cost = COST[kind], rates = v.rates || {};
+    let hand = Object.assign({}, v.me.hand), stock = Object.assign({}, (v.bank && v.bank.stock) || {});
+    for (let i = 0; i < 20; i++) {
+      const g = bankMissing(hand, cost);
+      if (!g) return false;
+      const viable = bankGives(hand, cost, rates, stock, g).filter((give) => {
+        const next = bankApply(hand, stock, give, g, rates);
+        return !!bankSolve(next.hand, cost, rates, next.stock);
+      });
+      if (viable.length > 1) return true;
+      if (!viable.length) return false;
+      const next = bankApply(hand, stock, viable[0], g, rates);
+      hand = next.hand; stock = next.stock;
+    }
+    return false;
+  }
+  // Offene Bankauswahl bei Spielende/Verlassen schließen (die Promise läuft mit null aus).
+  let bankAbort = null;
+  function cancelBankAsk() { if (bankAbort) bankAbort(); }
+  // Fragt einen Tauschschritt ab; liefert den Geberohstoff oder null (abgebrochen).
+  function bankAsk(hand, cost, rates, get, options) {
+    return new Promise((resolve) => {
+      const rest = missingOf(hand, cost);
+      const d = document.createElement('div');
+      d.id = 'bankAsk';
+      d.innerHTML = `<div class="bankback"><div class="bankcard glass" role="dialog" aria-modal="true" aria-label="Banktausch"><h2>Banktausch</h2>` +
+        `<p class="lead">Es fehlt noch ${esc(rest.join(', ') || '1× ' + RN[get])}. Womit möchtest du 1× ${esc(RN[get])} bezahlen?</p>` +
+        `<div class="bankopts">${options.map((give) => {
+          const rate = rateOf(rates, give);
+          return `<button type="button" class="btn ghostb" data-bank="${give}">${Art.res(give, 24)}<span>${rate}× ${esc(RN[give])} → ${Art.res(get, 24)} 1× ${esc(RN[get])}</span></button>`;
+        }).join('')}</div>` +
+        `<div class="mact"><button type="button" class="btn" data-bank="">Abbrechen</button></div></div></div>`;
+      document.body.appendChild(d);
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(null); } };
+      const close = (val) => { document.removeEventListener('keydown', onKey, true); bankAbort = null; d.remove(); resolve(val); };
+      bankAbort = () => close(null);
+      d.addEventListener('click', (e) => {
+        if (e.target === d || e.target.classList.contains('bankback')) { close(null); return; }
+        const b = e.target.closest('[data-bank]'); if (b) close(b.dataset.bank || null);
+      });
+      document.addEventListener('keydown', onKey, true);
+      const f = d.querySelector('[data-bank]'); if (f) f.focus();
+    });
+  }
+  // Sammelt die Tausche (mit Rückfrage bei mehreren Möglichkeiten) und führt sie erst danach aus.
+  async function bankPay(v, kind) {
+    const cur = V() || v, cost = COST[kind], rates = cur.rates || {};
+    let hand = Object.assign({}, cur.me.hand), stock = Object.assign({}, (cur.bank && cur.bank.stock) || {});
+    const plan = [];
+    for (let i = 0; i < 20; i++) {
+      const g = bankMissing(hand, cost);
+      if (!g) break;
+      const viable = bankGives(hand, cost, rates, stock, g).filter((give) => {
+        const next = bankApply(hand, stock, give, g, rates);
+        return !!bankSolve(next.hand, cost, rates, next.stock);
+      });
+      if (!viable.length) {
+        const miss = missingOf(hand, cost);
+        toast(miss.length ? 'Dir fehlen: ' + miss.join(', ') : 'Banktausch nicht möglich.', 'err');
+        return false;
+      }
+      let give = viable[0];
+      if (viable.length > 1) {
+        give = await bankAsk(hand, cost, rates, g, viable);
+        if (!give) return false;
+      }
+      const next = bankApply(hand, stock, give, g, rates);
+      hand = next.hand; stock = next.stock;
+      plan.push({ give, get: g });
+    }
+    for (const t of plan) {
+      const j = await act('bank_trade', { give: t.give, get: t.get });
+      if (j.error) { toast(j.error, 'err'); return false; }
+    }
+    return true;
   }
   const planText = (plan) => plan.map((t) => `${t.rate}× ${RN[t.give]} → 1× ${RN[t.get]}`).join(', ');
 
@@ -895,7 +990,8 @@
       const why = st.tableOn ? '' : buildWhy(k, v); // am Tisch ist nichts gesperrt: Die Spieler sehen ihre Karten selbst
       const lf = k !== 'dev' && v.players[v.you].left ? v.players[v.you].left[k] : null;
       const plan = !why && missingOf(v.me.hand, COST[k]).length ? bankPlan(v, k) : null;
-      const tip = (plan ? `Tauscht vorher automatisch mit der Bank: ${planText(plan)}. ` : '') + (why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : ''));
+      const choice = plan && bankHasChoice(v, k);
+      const tip = (plan ? (choice ? 'Tauscht vorher mit der Bank; bei mehreren Möglichkeiten wählst du den Tausch. ' : `Tauscht vorher automatisch mit der Bank: ${planText(plan)}. `) : '') + (why || (k === 'dev' ? `Entwicklungskarte kaufen (${v.bank ? fmtLeft(v.bank.dev) : '?'} im Stapel)` : `${BUILD_LABEL[k]} bauen – klicke danach auf eine markierte Stelle.`) + (lf != null ? ` Noch ${fmtLeft(lf)} Figuren übrig.` : ''));
       const icon = k === 'dev' ? Art.dev('ritter', 38) : Art.pieceIcon(k, v.players[v.you].color, 38);
       return `<button class="bb${curMode() === k ? ' on' : ''}${why ? ' dis' : ''}" data-a="build" data-k="${k}" ${why ? 'aria-disabled="true"' : ''} title="${esc(tip)}"><span class="ic">${icon}</span><span class="lb">${BUILD_LABEL[k] === 'Entwicklungskarte' ? (compact() ? 'Karte' : 'Entw.-Karte') : BUILD_LABEL[k]}</span><span class="cost">${costChips(k)}</span>${k === 'dev' && v.bank ? `<i class="stk" title="Karten im Stapel">${fmtLeft(v.bank.dev)}</i>` : ''}${lf != null ? `<i class="lf${lf === 0 ? ' zero' : ''}" title="Figuren übrig">${fmtLeft(lf)}</i>` : ''}</button>`;
     }).join('') +
@@ -1111,11 +1207,8 @@
       case 'build': {
         const k = b.dataset.k;
         // Auch am Spieltisch: fehlende Rohstoffe vorher im Namen des fokussierten Tischspielers tauschen.
-        if (missingOf(v.me.hand, COST[k]).length) {
-          const plan = bankPlan(v, k); if (!plan) break;
-          let ok = true; for (const t of plan) { const j = await act('bank_trade', { give: t.give, get: t.get }); if (j.error) { ok = false; break; } }
-          if (!ok) break;
-        }
+        // Bei mehreren Tauschwegen fragt bankPay nach, bevor getauscht wird.
+        if (missingOf(v.me.hand, COST[k]).length && !(await bankPay(v, k))) break;
         if (k === 'dev') { st.mode = null; await act('buy_dev'); break; }
         if (st.ctl) { await act(v.arm && v.arm.mode === k ? 'disarm' : 'arm', { mode: k }); break; }
         st.moveFrom = null; st.mode = st.mode === k ? null : k;
